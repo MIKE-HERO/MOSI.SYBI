@@ -1,6 +1,8 @@
 package com.sybi.mosi
 
+import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
+import android.view.animation.OvershootInterpolator
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -116,8 +118,15 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var cardEcgImage: CardView
 
     private lateinit var imgGuide: ImageView
+    private var guideBreathingAnimator: android.animation.ObjectAnimator? = null
     private lateinit var waveformView: WaveformView
     private lateinit var tvStatusMessage: TextView
+    private lateinit var ivStatusCheck: ImageView
+    private lateinit var statusSweep: LoadingSweepView
+    private var activeResultPills: List<TextView> = emptyList()
+    private var pillPulseAnimator: ValueAnimator? = null
+    private var pillLightColor: Int = Color.parseColor("#E3EAF7")
+    private var pillPulseColor: Int = Color.parseColor("#B9CCEE")
     private lateinit var groupAlturaPeso: LinearLayout
     private lateinit var groupTemperatura: LinearLayout
     private lateinit var groupComposicion: LinearLayout
@@ -173,6 +182,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         setupReceivers()
         setupButtons()
         applyTheme()
+        startGuideBreathing()
 
         controller.postDelayed({
             deviceManager.query()
@@ -272,6 +282,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         imgGuide = findViewById(R.id.imgMeasurementGuide)
         waveformView = findViewById(R.id.waveformView)
         tvStatusMessage = findViewById(R.id.tvStatusMessage)
+        ivStatusCheck = findViewById(R.id.ivStatusCheck)
+        statusSweep = findViewById(R.id.statusSweep)
         groupAlturaPeso = findViewById(R.id.groupAlturaPeso)
         groupTemperatura = findViewById(R.id.groupTemperatura)
         groupComposicion = findViewById(R.id.groupComposicion)
@@ -348,7 +360,76 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         findViewById<View>(R.id.topMeasurementBar).setBackgroundColor(color)
         findViewById<View>(R.id.bottomMeasurementBar).setBackgroundColor(color)
         btnStarECG.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
+        applyPillTheme(color)
     }
+
+    /** Encapsula los valores de resultado y el mensaje de estado en píldoras con un tono claro
+     *  alusivo al color del tema (logo/menú), en todas las vistas de medición, y prepara los
+     *  colores del barrido de carga y del pulso de las píldoras en espera. */
+    private fun applyPillTheme(themeColor: Int) {
+        pillLightColor = lightenColor(themeColor, 0.85f)
+        pillPulseColor = lightenColor(themeColor, 0.55f)
+
+        val allResultPills = listOf(
+            tvResultHeight, tvResultWeight, tvResultIMC,
+            tvResultTemperature,
+            tvResultSistolica, tvResultDiastolica, tvResultPulso,
+            tvResultSpO2, tvResultPulseRate, tvResultPI,
+            tvResultFat, tvResultFatKg, tvResultWater, tvResultWaterKg, tvResultMuscle,
+            tvResultNotFat, tvResultProtein, tvResultMineral, tvResultMetabolism,
+            tvResultVisceralFat, tvResultIdealWeight, tvResultFatType,
+            tvResultHeartRate, tvResultPAxis, tvResultQRSAxis, tvResultTAxis, tvResultPR,
+            tvResultQRS, tvResultQT, tvResultQTC, tvResultRV5, tvResultSV1, tvResultResCode
+        )
+        allResultPills.forEach { it.background = pillDrawable(pillLightColor, 18f) }
+
+        tvStatusMessage.background = pillDrawable(pillLightColor, 28f)
+        tvStatusMessage.setPadding(dp(20), dp(12), dp(20), dp(12))
+        statusSweep.setCornerRadiusDp(28f)
+        statusSweep.setSweepColor(themeColor)
+    }
+
+    /** Píldoras de resultado de la vista activa que deben "pulsar" mientras se espera su valor. */
+    private fun setActiveResultPills(vararg views: TextView) {
+        activeResultPills = views.toList()
+    }
+
+    private fun startPillPulse() {
+        if (pillPulseAnimator != null || activeResultPills.isEmpty()) return
+        pillPulseAnimator = ValueAnimator.ofObject(ArgbEvaluator(), pillLightColor, pillPulseColor).apply {
+            duration = 900
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            addUpdateListener { anim ->
+                val color = anim.animatedValue as Int
+                activeResultPills.forEach { (it.background as? android.graphics.drawable.GradientDrawable)?.setColor(color) }
+            }
+            start()
+        }
+    }
+
+    private fun stopPillPulse() {
+        pillPulseAnimator?.cancel()
+        pillPulseAnimator = null
+        activeResultPills.forEach { (it.background as? android.graphics.drawable.GradientDrawable)?.setColor(pillLightColor) }
+    }
+
+    private fun lightenColor(color: Int, whiteRatio: Float): Int {
+        val r = (Color.red(color) * (1 - whiteRatio) + 255 * whiteRatio).toInt().coerceIn(0, 255)
+        val g = (Color.green(color) * (1 - whiteRatio) + 255 * whiteRatio).toInt().coerceIn(0, 255)
+        val b = (Color.blue(color) * (1 - whiteRatio) + 255 * whiteRatio).toInt().coerceIn(0, 255)
+        return Color.rgb(r, g, b)
+    }
+
+    private fun pillDrawable(fillColor: Int, radiusDp: Float): android.graphics.drawable.GradientDrawable {
+        return android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+            cornerRadius = radiusDp * resources.displayMetrics.density
+            setColor(fillColor)
+        }
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     // ── Botones ───────────────────────────────────────────
 
@@ -415,6 +496,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun startHeightWeight() {
         currentMeasurementType = "ALTURA_PESO"
         switchTab("Altura / Peso", "altura_peso", groupAlturaPeso)
+        setActiveResultPills(tvResultHeight, tvResultWeight, tvResultIMC)
 
         if (completedMeasurements.contains("ALTURA_PESO") || state.hasHeightWeight()) {
             btnRepeat.visibility = View.VISIBLE
@@ -427,6 +509,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun startComposition() {
         currentMeasurementType = "COMPOSICION"
         switchTab("Composición Corporal", "composicion", groupComposicion)
+        setActiveResultPills()
 
         // Asegurar que el grupo esté visible y ocultar las celdas de resultado para mostrar el progreso
         layoutResultadosComposicion.visibility = View.GONE
@@ -455,6 +538,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun startPressure() {
         currentMeasurementType = "PRESION"
         switchTab("Presión Arterial", "presion", groupPresion)
+        setActiveResultPills(tvResultSistolica, tvResultDiastolica, tvResultPulso)
 
         if (completedMeasurements.contains("PRESION") || state.hasPressure()) {
             btnRepeat.visibility = View.VISIBLE
@@ -467,6 +551,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun startTemperature() {
         currentMeasurementType = "TEMPERATURA"
         switchTab("Temperatura Corporal", "temperatura", groupTemperatura)
+        setActiveResultPills(tvResultTemperature)
 
         if (completedMeasurements.contains("TEMPERATURA") || state.hasTemperature()) {
             btnRepeat.visibility = View.VISIBLE
@@ -479,6 +564,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun startOxygen() {
         currentMeasurementType = "OXIGENO"
         switchTab("Oxígeno en Sangre", "oxigeno", groupOxigeno)
+        setActiveResultPills(tvResultSpO2, tvResultPulseRate, tvResultPI)
 
         if (completedMeasurements.contains("OXIGENO") || state.hasOxygen()) {
             btnRepeat.visibility = View.VISIBLE
@@ -492,6 +578,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun showEcgTab() {
         currentMeasurementType = "ECG"
         switchTab("ECG", "ecg", groupEcg)
+        setActiveResultPills()
 
         // Asegurar que groupEcg esté visible pero layoutResultadosEcg esté oculto inicialmente
         layoutResultadosEcg.visibility = View.GONE
@@ -873,7 +960,37 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun setGuideImage(name: String) {
         val id = resources.getIdentifier(name, "drawable", packageName)
-        imgGuide.setImageResource(if (id != 0) id else R.mipmap.ic_launcher)
+        val resId = if (id != 0) id else R.mipmap.ic_launcher
+        if (imgGuide.drawable == null) {
+            imgGuide.setImageResource(resId)
+            return
+        }
+        // Crossfade suave en vez de un cambio brusco al pasar de una guía a otra.
+        imgGuide.animate().alpha(0f).setDuration(150).withEndAction {
+            imgGuide.setImageResource(resId)
+            imgGuide.animate().alpha(1f).setDuration(200).start()
+        }.start()
+    }
+
+    /** Pulso lento de escala en la imagen guía, para que no se sienta una foto estática e inerte. */
+    private fun startGuideBreathing() {
+        if (guideBreathingAnimator != null) return
+        val scaleX = android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.035f)
+        val scaleY = android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.035f)
+        guideBreathingAnimator = android.animation.ObjectAnimator.ofPropertyValuesHolder(imgGuide, scaleX, scaleY).apply {
+            duration = 2800
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+            start()
+        }
+    }
+
+    private fun stopGuideBreathing() {
+        guideBreathingAnimator?.cancel()
+        guideBreathingAnimator = null
+        imgGuide.scaleX = 1f
+        imgGuide.scaleY = 1f
     }
 
     private fun showReady() {
@@ -885,6 +1002,47 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         tvStatusMessage.text = msg
         tvStatusMessage.setTextColor(Color.parseColor(color))
         tvStatusMessage.visibility = View.VISIBLE
+
+        val isWaiting = color == "#FF9800"
+        val isSuccess = color == "#4CAF50" && msg.contains("completada")
+
+        if (isWaiting) {
+            startStatusShimmer()
+        } else {
+            stopStatusShimmer()
+        }
+        showSuccessCheck(isSuccess)
+    }
+
+    /** Mientras se esperan resultados: un barrido de color recorre la píldora del mensaje de
+     *  estado, y las píldoras de resultado de la vista activa "pulsan" con el color del tema. */
+    private fun startStatusShimmer() {
+        statusSweep.visibility = View.VISIBLE
+        statusSweep.start()
+        startPillPulse()
+    }
+
+    private fun stopStatusShimmer() {
+        statusSweep.stop()
+        statusSweep.visibility = View.GONE
+        stopPillPulse()
+    }
+
+    /** Muestra (con una animación de aparición) o esconde el check verde de medición completada. */
+    private fun showSuccessCheck(show: Boolean) {
+        if (show) {
+            ivStatusCheck.scaleX = 0f
+            ivStatusCheck.scaleY = 0f
+            ivStatusCheck.visibility = View.VISIBLE
+            ivStatusCheck.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(350)
+                .setInterpolator(OvershootInterpolator())
+                .start()
+        } else {
+            ivStatusCheck.visibility = View.GONE
+        }
     }
 
     private fun updateButtonVisibility() {
@@ -1275,6 +1433,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         cancelCountdownTimer()
         stopAudio()
         controller.cancelTimers()
+        stopStatusShimmer()
+        stopGuideBreathing()
     }
 
     override fun onStop() {

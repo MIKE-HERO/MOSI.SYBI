@@ -129,18 +129,38 @@
                 android:padding="10dp">
 
                 <!-- 1. SECCIÓN SUPERIOR: MENSAJE DE ESTADO -->
-                <TextView
-                    android:id="@+id/tvStatusMessage"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text=""
-                    android:textSize="26sp"
-                    android:textStyle="bold"
-                    android:textColor="#0F3E82"
-                    android:gravity="center"
+                <ImageView
+                    android:id="@+id/ivStatusCheck"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:layout_gravity="center"
                     android:layout_marginTop="5dp"
-                    android:layout_marginBottom="10dp"
+                    android:src="@drawable/ic_check_circle"
                     android:visibility="gone" />
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:layout_marginTop="5dp"
+                    android:layout_marginBottom="10dp">
+
+                    <TextView
+                        android:id="@+id/tvStatusMessage"
+                        android:layout_width="match_parent"
+                        android:layout_height="64dp"
+                        android:text=""
+                        android:textSize="26sp"
+                        android:textStyle="bold"
+                        android:textColor="#0F3E82"
+                        android:gravity="center"
+                        android:visibility="gone" />
+
+                    <com.sybi.mosi.LoadingSweepView
+                        android:id="@+id/statusSweep"
+                        android:layout_width="match_parent"
+                        android:layout_height="64dp"
+                        android:visibility="gone" />
+                </FrameLayout>
 
                 <!-- 2. SECCIÓN CENTRAL: RESULTADOS ACTUALES -->
                 <LinearLayout
@@ -170,9 +190,9 @@
                             android:textColor="#0F3E82"
                             android:textStyle="bold"
                             android:gravity="center"
-                            android:paddingLeft="6dp"
-                            android:paddingRight="6dp"
-                            android:layout_marginHorizontal="2dp" />
+                            android:paddingHorizontal="6dp"
+                            android:paddingVertical="10dp"
+                            android:layout_marginHorizontal="6dp" />
 
                         <TextView
                             android:id="@+id/tvResultWeight"
@@ -184,9 +204,9 @@
                             android:textColor="#0F3E82"
                             android:textStyle="bold"
                             android:gravity="center"
-                            android:paddingLeft="6dp"
-                            android:paddingRight="6dp"
-                            android:layout_marginHorizontal="2dp" />
+                            android:paddingHorizontal="6dp"
+                            android:paddingVertical="10dp"
+                            android:layout_marginHorizontal="6dp" />
 
                         <TextView
                             android:id="@+id/tvResultIMC"
@@ -198,9 +218,9 @@
                             android:textColor="#0F3E82"
                             android:textStyle="bold"
                             android:gravity="center"
-                            android:paddingLeft="6dp"
-                            android:paddingRight="6dp"
-                            android:layout_marginHorizontal="2dp" />
+                            android:paddingHorizontal="6dp"
+                            android:paddingVertical="10dp"
+                            android:layout_marginHorizontal="6dp" />
                     </LinearLayout>
 
                     <!-- GRUPO TEMPERATURA -->
