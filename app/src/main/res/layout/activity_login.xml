@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="#F5F5F5">
+
+    <!-- BARRA LATERAL AZUL -->
+    <LinearLayout
+        android:id="@+id/sideBarLayout"
+        android:layout_width="150dp"
+        android:layout_height="match_parent"
+        android:background="#0F3E82"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingTop="20dp">
+
+        <LinearLayout
+            android:id="@+id/btnBackLogin"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingBottom="20dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@drawable/ic_regresar"
+                android:rotation="180"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Regresar"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp" />
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+
+    </LinearLayout>
+
+    <!-- CONTENIDO DE LA DERECHA -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:gravity="center_horizontal">
+
+        <!-- PESTAÑAS SUPERIORES -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="0dp">
+
+            <LinearLayout
+                android:id="@+id/tabMedicion"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="#FFFFFF">
+
+                <TextView
+                    android:id="@+id/tvMedicion"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Inicio de sesión de\nmedición"
+                    android:textSize="15sp"
+                    android:textColor="#0F3E82"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:paddingVertical="12dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/tabConsulta"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="#E0E0E0">
+
+                <TextView
+                    android:id="@+id/tvConsulta"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Inicio de sesión de\nconsulta"
+                    android:textSize="15sp"
+                    android:textColor="#757575"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:paddingVertical="12dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- RECUADRO BLANCO CENTRAL -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#FFFFFF"
+            android:elevation="4dp"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Selecciona tu método de acceso"
+                android:textSize="14sp"
+                android:textColor="#757575"
+                android:layout_marginBottom="12dp" />
+
+            <!-- CONTENEDOR DE BOTONES (SIN SCROLL) -->
+            <LinearLayout
+                android:id="@+id/optionContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <!-- Opción Teléfono -->
+                <LinearLayout
+                    android:id="@+id/optionPhone"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="#F0F6FF"
+                    android:elevation="2dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView android:id="@+id/ivPhone" android:layout_width="150dp" android:layout_height="150dp" android:src="@drawable/ic_phone" app:tint="#0F3E82"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Teléfono" android:textColor="#333333" android:textSize="22sp" android:textStyle="bold"/>
+                </LinearLayout>
+
+                <!-- Opción Facial -->
+                <LinearLayout
+                    android:id="@+id/optionFace"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="#F0F6FF"
+                    android:elevation="2dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView android:id="@+id/ivFace" android:layout_width="150dp" android:layout_height="150dp" android:src="@drawable/ic_face" app:tint="#0F3E82"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Facial" android:textColor="#333333" android:textSize="22sp" android:textStyle="bold"/>
+                </LinearLayout>
+
+                <!-- Opción Tarjeta IC -->
+                <LinearLayout
+                    android:id="@+id/optionIc"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="#F0F6FF"
+                    android:elevation="2dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <ImageView android:id="@+id/ivIc" android:layout_width="150dp" android:layout_height="150dp" android:src="@drawable/ic_card" app:tint="#0F3E82"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Tarjeta IC" android:textColor="#333333" android:textSize="22sp" android:textStyle="bold"/>
+                </LinearLayout>
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- BOTONES INFERIORES -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="15dp"
+            android:layout_marginBottom="15dp"
+            android:paddingHorizontal="20dp">
+
+            <Button
+                android:id="@+id/btnGuestAccess"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_marginEnd="10dp"
+                android:layout_weight="1"
+                android:backgroundTint="#0F3E82"
+                android:paddingVertical="12dp"
+                android:text="Entrar como invitado"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnRegister"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="Registrar nuevo usuario"
+                android:textSize="16sp"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#0F3E82"
+                android:paddingVertical="12dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+</LinearLayout>

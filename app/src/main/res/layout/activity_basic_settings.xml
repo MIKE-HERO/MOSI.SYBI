@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="#F5F5F5">
+
+    <!-- BARRA LATERAL IZQUIERDA -->
+    <LinearLayout
+        android:id="@+id/sideBarLayout"
+        android:layout_width="150dp"
+        android:layout_height="match_parent"
+        android:background="#0F3E82"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingTop="20dp">
+
+        <LinearLayout
+            android:id="@+id/btnBackBasicSettings"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingBottom="20dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@drawable/ic_regresar"
+                android:rotation="180"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Regresar"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
+
+    </LinearLayout>
+
+    <!-- CONTENIDO PRINCIPAL DE LA DERECHA -->
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <!-- CABECERA DE TITULO, WIFI, ETHERNET Y FECHA/HORA -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Ajustes Básicos"
+                    android:textSize="24sp"
+                    android:textColor="#333333"
+                    android:textStyle="bold"/>
+
+                <!-- BOTÓN AJUSTES DE ANDROID -->
+                <LinearLayout
+                    android:id="@+id/btnAndroidSettings"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_marginEnd="8dp">
+
+                    <ImageView
+                        android:id="@+id/imgAndroidIcon"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:src="@drawable/ic_android"
+                        app:tint="#4CAF50"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Ajustes de android"
+                        android:textSize="11sp"
+                        android:textColor="#666666"
+                        android:gravity="center"
+                        android:maxWidth="90dp"
+                        android:layout_marginTop="2dp"/>
+                </LinearLayout>
+
+                <!-- ICONO WIFI -->
+                <LinearLayout
+                    android:id="@+id/btnWifiSettings"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_marginEnd="8dp">
+
+                    <ImageView
+                        android:id="@+id/imgWifiIcon"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:src="@drawable/ic_wifi"
+                        app:tint="#4CAF50"/>
+
+                    <TextView
+                        android:id="@+id/txtWifiStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sin conexión"
+                        android:textSize="11sp"
+                        android:textColor="#666666"
+                        android:gravity="center"
+                        android:maxWidth="90dp"
+                        android:layout_marginTop="2dp"/>
+                </LinearLayout>
+
+                <!-- ICONO ETHERNET -->
+                <LinearLayout
+                    android:id="@+id/btnEthernetSettings"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_marginEnd="10dp">
+
+                    <ImageView
+                        android:id="@+id/imgEthernetIcon"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:src="@drawable/ic_ethernet"
+                        app:tint="#4CAF50"/>
+
+                    <TextView
+                        android:id="@+id/txtEthernetStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="No conectado"
+                        android:textSize="11sp"
+                        android:textColor="#666666"
+                        android:gravity="center"
+                        android:maxWidth="90dp"
+                        android:layout_marginTop="2dp"/>
+                </LinearLayout>
+
+                <!-- TARJETA FECHA Y HORA (CLICABLE) -->
+                <LinearLayout
+                    android:id="@+id/btnDateTimeCard"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="end"
+                    android:background="#FFFFFF"
+                    android:elevation="2dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <TextView
+                        android:id="@+id/txtCurrentTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--:--:--"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#0F3E82"/>
+
+                    <TextView
+                        android:id="@+id/txtCurrentDate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textSize="12sp"
+                        android:textColor="#666666"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- TARJETA 1: BRILLO -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:elevation="3dp"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Control de brillo"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#333333"
+                    android:layout_marginBottom="12dp"/>
+
+                <!-- ICONO + BARRA + PORCENTAJE EN UNA SOLA LÍNEA -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:id="@+id/imgBrightnessIcon"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@drawable/ic_brightness"
+                        app:tint="#0F3E82"
+                        android:layout_marginEnd="10dp"/>
+
+                    <SeekBar
+                        android:id="@+id/seekBarBrightness"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="100"
+                        android:progress="80"/>
+
+                    <TextView
+                        android:id="@+id/txtBrightnessValue"
+                        android:layout_width="52dp"
+                        android:layout_height="wrap_content"
+                        android:text="80%"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="#0F3E82"
+                        android:gravity="end"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- TARJETA 2: VOLUMEN (PRINCIPAL + SECUNDARIA) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:elevation="3dp"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Control de volumen"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#333333"
+                    android:layout_marginBottom="12dp"/>
+
+                <!-- SUBTÍTULO 1: VOLUMEN PRINCIPAL -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Volumen de la pantalla principal"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#555555"
+                    android:layout_marginBottom="6dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="16dp">
+
+                    <ImageView
+                        android:id="@+id/imgVolumeIcon"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:src="@drawable/ic_volume"
+                        app:tint="#0F3E82"
+                        android:padding="6dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:layout_marginEnd="8dp"/>
+
+                    <SeekBar
+                        android:id="@+id/seekBarVolume"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="100"
+                        android:progress="70"/>
+
+                    <TextView
+                        android:id="@+id/txtVolumeValue"
+                        android:layout_width="52dp"
+                        android:layout_height="wrap_content"
+                        android:text="70%"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="#0F3E82"
+                        android:gravity="end"/>
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#E0E0E0"
+                    android:layout_marginBottom="16dp"/>
+
+                <!-- SUBTÍTULO 2: VOLUMEN SECUNDARIA -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Volumen de la pantalla secundaria"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#555555"
+                    android:layout_marginBottom="6dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <ImageView
+                        android:id="@+id/imgVolume2Icon"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:src="@drawable/ic_volume"
+                        app:tint="#0F3E82"
+                        android:padding="6dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:layout_marginEnd="8dp"/>
+
+                    <SeekBar
+                        android:id="@+id/seekBarVolume2"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="100"
+                        android:progress="70"/>
+
+                    <TextView
+                        android:id="@+id/txtVolume2Value"
+                        android:layout_width="52dp"
+                        android:layout_height="wrap_content"
+                        android:text="70%"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="#0F3E82"
+                        android:gravity="end"/>
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/swVideoMeasurementMute"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Silenciar el video de publicidad durante la medición"
+                    android:textSize="13sp"/>
+            </LinearLayout>
+
+            <!-- ============================================================ -->
+            <!-- ÁREA LIBRE: aquí puedes agregar nuevas tarjetas o controles  -->
+            <!-- ============================================================ -->
+
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>

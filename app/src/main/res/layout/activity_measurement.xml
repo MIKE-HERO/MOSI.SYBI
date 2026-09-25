@@ -1,0 +1,868 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F5F5F5">
+
+    <!-- BARRA SUPERIOR -->
+    <RelativeLayout
+        android:id="@+id/topMeasurementBar"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:background="#0F3E82"
+        android:paddingHorizontal="20dp">
+
+        <!-- Izquierda: Botón Salir -->
+        <Button
+            android:id="@+id/btnExitMeasurement"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:text="Salir"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#4D000000"
+            android:textSize="20sp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Centro: Mensaje de cuenta regresiva -->
+        <TextView
+            android:id="@+id/tvCountdownMessage"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_centerInParent="true"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:visibility="gone" />
+
+        <!-- Derecha: Botón Repetir y Botón Confirmar mediciones a su derecha -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_alignParentEnd="true"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <Button
+                android:id="@+id/btnRepeatReading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Repetir"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#4D000000"
+                android:textSize="20sp"
+                android:clickable="true"
+                android:focusable="true"
+                android:layout_marginEnd="10dp" />
+
+            <Button
+                android:id="@+id/btnConfirmMeasurements"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Confirmar mediciones"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#4D000000"
+                android:textSize="14sp"
+                android:paddingHorizontal="15dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+    <!-- CONTENEDOR CENTRAL (Imagen + Resultados + Monitor) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:padding="10dp"
+        android:gravity="center_vertical">
+
+        <!-- IMAGEN DE INSTRUCCIONES (Izquierda) -->
+        <ImageView
+            android:id="@+id/imgMeasurementGuide"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:scaleType="centerInside"
+            android:src="@mipmap/ic_launcher"
+            android:background="#FFFFFF"
+            android:elevation="4dp"
+            android:layout_marginEnd="10dp" />
+
+        <!-- CONTENEDOR DE RESULTADOS Y MONITOR (Derecha) -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:elevation="4dp"
+            android:padding="15dp">
+
+            <!-- Título de la pantalla -->
+            <TextView
+                android:id="@+id/tvMeasurementTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Medición"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#333333"
+                android:layout_marginBottom="8dp" />
+
+            <!-- CONTENEDOR PRINCIPAL DE RESULTADOS -->
+            <LinearLayout
+                android:id="@+id/resultsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:background="#F0F6FF"
+                android:padding="10dp">
+
+                <!-- 1. SECCIÓN SUPERIOR: MENSAJE DE ESTADO -->
+                <TextView
+                    android:id="@+id/tvStatusMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:textColor="#0F3E82"
+                    android:gravity="center"
+                    android:layout_marginTop="5dp"
+                    android:layout_marginBottom="10dp"
+                    android:visibility="gone" />
+
+                <!-- 2. SECCIÓN CENTRAL: RESULTADOS ACTUALES -->
+                <LinearLayout
+                    android:id="@+id/groupsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+
+                    <!-- GRUPO ALTURA / PESO -->
+                    <LinearLayout
+                        android:id="@+id/groupAlturaPeso"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvResultHeight"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Altura\n--"
+                            android:textSize="20sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:paddingLeft="6dp"
+                            android:paddingRight="6dp"
+                            android:layout_marginHorizontal="2dp" />
+
+                        <TextView
+                            android:id="@+id/tvResultWeight"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Peso\n--"
+                            android:textSize="20sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:paddingLeft="6dp"
+                            android:paddingRight="6dp"
+                            android:layout_marginHorizontal="2dp" />
+
+                        <TextView
+                            android:id="@+id/tvResultIMC"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="IMC\n--"
+                            android:textSize="20sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:paddingLeft="6dp"
+                            android:paddingRight="6dp"
+                            android:layout_marginHorizontal="2dp" />
+                    </LinearLayout>
+
+                    <!-- GRUPO TEMPERATURA -->
+                    <LinearLayout
+                        android:id="@+id/groupTemperatura"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvResultTemperature"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Temperatura\n--"
+                            android:textSize="26sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold"
+                            android:gravity="center" />
+                    </LinearLayout>
+
+                    <!-- GRUPO COMPOSICIÓN CORPORAL -->
+                    <LinearLayout
+                        android:id="@+id/groupComposicion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <!-- Contenedor para ocultar/mostrar resultados -->
+                        <LinearLayout
+                            android:id="@+id/layoutResultadosComposicion"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:visibility="gone">
+
+                            <!-- Fila 1 -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginBottom="10dp">
+                                <TextView
+                                    android:id="@+id/tvResultFat"
+                                    style="@style/ComposicionCell"
+                                    android:text="Tasa Grasa\n--" />
+                                <TextView
+                                    android:id="@+id/tvResultWater"
+                                    style="@style/ComposicionCell"
+                                    android:text="Tasa Agua\n--" />
+                                <TextView
+                                    android:id="@+id/tvResultFatKg"
+                                    style="@style/ComposicionCell"
+                                    android:text="Grasa\n-- kg" />
+                            </LinearLayout>
+
+                            <!-- Fila 2 -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginBottom="10dp">
+                                <TextView
+                                    android:id="@+id/tvResultWaterKg"
+                                    style="@style/ComposicionCell"
+                                    android:text="Agua\n-- kg" />
+                                <TextView
+                                    android:id="@+id/tvResultMuscle"
+                                    style="@style/ComposicionCell"
+                                    android:text="Músculo\n-- kg" />
+                                <TextView
+                                    android:id="@+id/tvResultNotFat"
+                                    style="@style/ComposicionCell"
+                                    android:text="Masa Libre\n-- kg" />
+                            </LinearLayout>
+
+                            <!-- Fila 3 -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginBottom="10dp">
+                                <TextView
+                                    android:id="@+id/tvResultProtein"
+                                    style="@style/ComposicionCell"
+                                    android:text="Proteína\n-- kg" />
+                                <TextView
+                                    android:id="@+id/tvResultMineral"
+                                    style="@style/ComposicionCell"
+                                    android:text="Minerales\n-- kg" />
+                                <TextView
+                                    android:id="@+id/tvResultMetabolism"
+                                    style="@style/ComposicionCell"
+                                    android:text="Metabolismo\n-- kcal" />
+                            </LinearLayout>
+
+                            <!-- Fila 4 -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:id="@+id/tvResultVisceralFat"
+                                    style="@style/ComposicionCell"
+                                    android:text="Grasa Visc.\n--" />
+                                <TextView
+                                    android:id="@+id/tvResultIdealWeight"
+                                    style="@style/ComposicionCell"
+                                    android:text="Peso Ideal\n-- kg" />
+                                <TextView
+                                    android:id="@+id/tvResultFatType"
+                                    style="@style/ComposicionCell"
+                                    android:text="Tipo Grasa\n--" />
+                            </LinearLayout>
+
+                        </LinearLayout>
+
+                        <!-- Barra de progreso para composición (DEBAJO de resultados actuales) -->
+                        <LinearLayout
+                            android:id="@+id/layoutProgressComposicion"
+                            android:layout_width="300dp"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_gravity="center"
+                            android:layout_marginTop="15dp"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:id="@+id/tvProgressLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Analizando composición..."
+                                android:textSize="14sp"
+                                android:textColor="#0F3E82"
+                                android:layout_marginBottom="5dp" />
+
+                            <ProgressBar
+                                android:id="@+id/pbComposicion"
+                                style="?android:attr/progressBarStyleHorizontal"
+                                android:layout_width="match_parent"
+                                android:layout_height="10dp"
+                                android:progressDrawable="@drawable/custom_progress_bar"
+                                android:max="100"
+                                android:progress="0" />
+
+                            <TextView
+                                android:id="@+id/tvProgressPercent"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="end"
+                                android:text="0%"
+                                android:textSize="12sp"
+                                android:textColor="#0F3E82" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <!-- GRUPO PRESIÓN ARTERIAL -->
+                    <LinearLayout
+                        android:id="@+id/groupPresion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvResultSistolica"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Sistólica\n-- mmHg"
+                            android:textSize="18sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:paddingLeft="6dp"
+                            android:paddingRight="6dp"
+                            android:layout_marginHorizontal="2dp" />
+
+                        <TextView
+                            android:id="@+id/tvResultDiastolica"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Diastólica\n-- mmHg"
+                            android:textSize="18sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:paddingLeft="6dp"
+                            android:paddingRight="6dp"
+                            android:layout_marginHorizontal="2dp" />
+
+                        <TextView
+                            android:id="@+id/tvResultPulso"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Pulso\n-- bpm"
+                            android:textSize="18sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:paddingLeft="6dp"
+                            android:paddingRight="6dp"
+                            android:layout_marginHorizontal="2dp" />
+                    </LinearLayout>
+
+                    <!-- GRUPO OXÍGENO -->
+                    <LinearLayout
+                        android:id="@+id/groupOxigeno"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvResultSpO2"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="SpO2\n-- %"
+                            android:textSize="20sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:paddingLeft="6dp"
+                            android:paddingRight="6dp"
+                            android:layout_marginHorizontal="2dp" />
+
+                        <TextView
+                            android:id="@+id/tvResultPulseRate"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Pulso\n-- bpm"
+                            android:textSize="20sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:paddingLeft="6dp"
+                            android:paddingRight="6dp"
+                            android:layout_marginHorizontal="2dp" />
+
+                        <TextView
+                            android:id="@+id/tvResultPI"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="PI\n--"
+                            android:textSize="20sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:paddingLeft="6dp"
+                            android:paddingRight="6dp"
+                            android:layout_marginHorizontal="2dp" />
+
+                    </LinearLayout>
+
+                    <!-- GRUPO ECG -->
+                    <LinearLayout
+                        android:id="@+id/groupEcg"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:visibility="gone">
+
+                        <!-- Botón grande para iniciar ECG (en el centro) -->
+                        <Button
+                            android:id="@+id/btnStarECG"
+                            android:layout_width="260dp"
+                            android:layout_height="70dp"
+                            android:text="INICIAR ECG"
+                            android:textColor="#FFFFFF"
+                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:backgroundTint="#0F3E82"
+                            android:elevation="6dp"
+                            android:layout_margin="20dp"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:visibility="gone" />
+
+                        <!-- Contenedor para ocultar/mostrar resultados del ECG -->
+                        <LinearLayout
+                            android:id="@+id/layoutResultadosEcg"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:visibility="gone">
+
+                            <!-- Imagen del ECG como botón -->
+                            <androidx.cardview.widget.CardView
+                                android:id="@+id/cardEcgImage"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_margin="10dp"
+                                android:elevation="4dp"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:foreground="?android:attr/selectableItemBackground">
+
+                                <ImageView
+                                    android:id="@+id/ecgImageView"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="180dp"
+                                    android:scaleType="fitCenter"
+                                    android:background="#FFFFFF"
+                                    android:contentDescription="Imagen del ECG - Toque para ampliar"
+                                    android:padding="8dp" />
+
+                                <!-- Overlay para indicar que es clicable -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="bottom"
+                                    android:background="#80000000"
+                                    android:padding="8dp"
+                                    android:orientation="horizontal"
+                                    android:gravity="center">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="🔍 Toque para ampliar"
+                                        android:textColor="#FFFFFF"
+                                        android:textSize="14sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
+
+                            </androidx.cardview.widget.CardView>
+
+                            <!-- Resultados del ECG en columnas -->
+                            <ScrollView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:maxHeight="250dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical"
+                                    android:padding="10dp">
+
+                                    <!-- Fila 1 -->
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:orientation="horizontal"
+                                        android:layout_marginBottom="10dp">
+                                        <TextView
+                                            android:id="@+id/tvResultHeartRate"
+                                            style="@style/ComposicionCell"
+                                            android:text="Frecuencia\n-- bpm" />
+                                        <TextView
+                                            android:id="@+id/tvResultPAxis"
+                                            style="@style/ComposicionCell"
+                                            android:text="Eje P\n--" />
+                                        <TextView
+                                            android:id="@+id/tvResultQRSAxis"
+                                            style="@style/ComposicionCell"
+                                            android:text="Eje QRS\n--" />
+                                    </LinearLayout>
+
+                                    <!-- Fila 2 -->
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:orientation="horizontal"
+                                        android:layout_marginBottom="10dp">
+                                        <TextView
+                                            android:id="@+id/tvResultTAxis"
+                                            style="@style/ComposicionCell"
+                                            android:text="Eje T\n--" />
+                                        <TextView
+                                            android:id="@+id/tvResultPR"
+                                            style="@style/ComposicionCell"
+                                            android:text="Intervalo PR\n--" />
+                                        <TextView
+                                            android:id="@+id/tvResultQRS"
+                                            style="@style/ComposicionCell"
+                                            android:text="Duración QRS\n--" />
+                                    </LinearLayout>
+
+                                    <!-- Fila 3 -->
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:orientation="horizontal"
+                                        android:layout_marginBottom="10dp">
+                                        <TextView
+                                            android:id="@+id/tvResultQT"
+                                            style="@style/ComposicionCell"
+                                            android:text="Intervalo QT\n--" />
+                                        <TextView
+                                            android:id="@+id/tvResultQTC"
+                                            style="@style/ComposicionCell"
+                                            android:text="QT Corregido\n--" />
+                                        <TextView
+                                            android:id="@+id/tvResultRV5"
+                                            style="@style/ComposicionCell"
+                                            android:text="Onda RV5\n--" />
+                                    </LinearLayout>
+
+                                    <!-- Fila 4 -->
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:orientation="horizontal">
+                                        <TextView
+                                            android:id="@+id/tvResultSV1"
+                                            style="@style/ComposicionCell"
+                                            android:text="Onda SV1\n--" />
+                                        <TextView
+                                            android:id="@+id/tvResultResCode"
+                                            style="@style/ComposicionCell"
+                                            android:text="Resultado\n--" />
+                                        <View
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_weight="1" />
+                                    </LinearLayout>
+
+                                </LinearLayout>
+
+                            </ScrollView>
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <!-- GRUPO AZÚCAR -->
+                    <LinearLayout
+                        android:id="@+id/groupAzucar"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="left"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvResultGlucosa"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Glucosa: -- mg/dL"
+                            android:textSize="16sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- GRUPO ÁCIDO ÚRICO -->
+                    <LinearLayout
+                        android:id="@+id/groupAcidoUrico"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="left"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvResultAcidoUrico"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Ácido Úrico: -- mg/dL"
+                            android:textSize="16sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- GRUPO COLESTEROL -->
+                    <LinearLayout
+                        android:id="@+id/groupColesterol"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="left"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvResultColesterol"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Colesterol: -- mg/dL"
+                            android:textSize="16sp"
+                            android:textColor="#0F3E82"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <!-- 3. SECCIÓN: GRÁFICA DE ONDA (PARA OXÍGENO) -->
+                <com.sybi.mosi.WaveformView
+                    android:id="@+id/waveformView"
+                    android:layout_width="match_parent"
+                    android:layout_height="120dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="10dp"
+                    android:visibility="gone" />
+
+                <!-- 4. SECCIÓN INFERIOR: ÚLTIMOS RESULTADOS -->
+                <LinearLayout
+                    android:id="@+id/layoutLastResults"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingTop="10dp"
+                    android:layout_marginTop="5dp"
+                    android:background="@android:drawable/dialog_holo_light_frame">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Últimos resultados"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="#757575"
+                        android:layout_marginBottom="5dp" />
+
+                    <!-- Altura / Peso -->
+                    <LinearLayout
+                        android:id="@+id/lastGroupAlturaPeso"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:visibility="gone">
+                        <TextView android:id="@+id/tvLastHeight" style="@style/ComposicionCell" android:textColor="#757575" android:text="Altura\n--" />
+                        <TextView android:id="@+id/tvLastWeight" style="@style/ComposicionCell" android:textColor="#757575" android:text="Peso\n--" />
+                        <TextView android:id="@+id/tvLastIMC" style="@style/ComposicionCell" android:textColor="#757575" android:text="IMC\n--" />
+                    </LinearLayout>
+
+                    <!-- Presión -->
+                    <LinearLayout
+                        android:id="@+id/lastGroupPresion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:visibility="gone">
+                        <TextView android:id="@+id/tvLastSistolica" style="@style/ComposicionCell" android:textColor="#757575" android:text="Sistólica\n--" />
+                        <TextView android:id="@+id/tvLastDiastolica" style="@style/ComposicionCell" android:textColor="#757575" android:text="Diastólica\n--" />
+                        <TextView android:id="@+id/tvLastPulso" style="@style/ComposicionCell" android:textColor="#757575" android:text="Pulso\n--" />
+                    </LinearLayout>
+
+                    <!-- Oxígeno -->
+                    <LinearLayout
+                        android:id="@+id/lastGroupOxigeno"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:visibility="gone">
+                        <TextView android:id="@+id/tvLastSpO2" style="@style/ComposicionCell" android:textColor="#757575" android:text="SpO2\n--" />
+                        <TextView android:id="@+id/tvLastPulseRate" style="@style/ComposicionCell" android:textColor="#757575" android:text="Pulso\n--" />
+                        <TextView android:id="@+id/tvLastPI" style="@style/ComposicionCell" android:textColor="#757575" android:text="PI\n--" />
+                    </LinearLayout>
+
+                    <!-- Temperatura -->
+                    <TextView
+                        android:id="@+id/tvLastTemperature"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="#757575"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:text="Temperatura: --"
+                        android:visibility="gone" />
+
+                    <!-- Composición (Resumen) -->
+                    <LinearLayout
+                        android:id="@+id/lastGroupComposicion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                            <TextView android:id="@+id/tvLastFat" style="@style/ComposicionCell" android:textColor="#757575" android:textSize="13sp" android:text="Grasa\n--" />
+                            <TextView android:id="@+id/tvLastMuscle" style="@style/ComposicionCell" android:textColor="#757575" android:textSize="13sp" android:text="Músculo\n--" />
+                            <TextView android:id="@+id/tvLastMetabolism" style="@style/ComposicionCell" android:textColor="#757575" android:textSize="13sp" android:text="Metabolismo.\n--" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- ECG (Resumen) -->
+                    <LinearLayout
+                        android:id="@+id/lastGroupEcg"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                            <TextView android:id="@+id/tvLastEcgHeartRate" style="@style/ComposicionCell" android:textColor="#757575" android:textSize="13sp" android:text="Frecuencia\n--" />
+                            <TextView android:id="@+id/tvLastEcgQRS" style="@style/ComposicionCell" android:textColor="#757575" android:textSize="13sp" android:text="QRS\n--" />
+                            <TextView android:id="@+id/tvLastEcgResult" style="@style/ComposicionCell" android:textColor="#757575" android:textSize="13sp" android:text="Resultado\n--" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- BARRA INFERIOR (Pestañas de medición) - CENTRADA -->
+    <!-- BARRA INFERIOR (Pestañas de medición) -->
+    <LinearLayout
+        android:id="@+id/bottomMeasurementBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#0F3E82"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingVertical="8dp">
+
+        <LinearLayout android:id="@+id/btnNavAlturaPeso" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true">
+            <ImageView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/icono_altura_peso" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Altura Y Peso" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/btnNavComposicion" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/icono_composicion" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Composición\nCorporal" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/btnNavPresion" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/icono_presion" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Presión Arterial" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/btnNavTemperatura" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/icono_temperatura" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Temperatura\nCorporal" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/btnNavOxigeno" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/icono_oxigeno" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Oxígeno\nEn Sangre" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/btnNavEcg" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/icono_ecg" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ECG" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/btnNavAzucar" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/icono_azucar" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Azúcar\nEn Sangre" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/btnNavAcidoUrico" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/icono_acido_urico" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ácido\nÚrico" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center"/>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/btnNavColesterol" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/icono_colesterol" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Colesterol\nTotal" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center"/>
+        </LinearLayout>
+
+    </LinearLayout>
+</LinearLayout>

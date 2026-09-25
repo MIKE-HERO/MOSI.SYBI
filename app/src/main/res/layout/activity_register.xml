@@ -1,0 +1,479 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="horizontal"
+    android:background="#F5F5F5">
+
+    <!-- BARRA LATERAL -->
+    <LinearLayout
+        android:id="@+id/sideBarLayout"
+        android:layout_width="150dp"
+        android:layout_height="match_parent"
+        android:background="#0F3E82"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingTop="20dp">
+
+        <LinearLayout
+            android:id="@+id/btnBackRegister"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingBottom="20dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@drawable/ic_regresar"
+                android:rotation="180"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Regresar"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp" />
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+
+    </LinearLayout>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/tvRegisterTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Registro de Paciente"
+            android:textSize="20sp"
+            android:textColor="#333333"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp"/>
+
+        <!-- SECCIÓN DE BÚSQUEDA -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="@android:drawable/dialog_holo_light_frame"
+            android:padding="8dp"
+            android:layout_marginBottom="12dp"
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginEnd="8dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Buscar por Teléfono, CURP o Folio"
+                    android:textSize="11sp"
+                    android:textColor="#0F3E82"
+                    android:textStyle="bold"/>
+                <EditText
+                    android:id="@+id/etSearchQuery"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Ingrese teléfono, CURP o folio"
+                    android:inputType="text"
+                    android:padding="8dp"
+                    android:textSize="14sp"
+                    android:background="@android:drawable/edit_text"/>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnSearchPaciente"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Buscar"
+                android:textSize="12sp"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#0F3E82"/>
+        </LinearLayout>
+
+        <!-- LISTA DE RESULTADOS (solo visible cuando la búsqueda por folio devuelve varios) -->
+        <LinearLayout
+            android:id="@+id/resultadosContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:padding="4dp"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone"
+            android:elevation="4dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Seleccione un paciente:"
+                android:textSize="12sp"
+                android:textColor="#0F3E82"
+                android:textStyle="bold"
+                android:padding="8dp"/>
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxHeight="200dp">
+                <LinearLayout
+                    android:id="@+id/listaResultados"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"/>
+            </ScrollView>
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Los campos con * son obligatorios"
+            android:textSize="11sp"
+            android:textColor="#757575"
+            android:layout_marginBottom="12dp"/>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <!-- DATOS PERSONALES -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Datos personales"
+                    android:textSize="14sp"
+                    android:textColor="#0F3E82"
+                    android:textStyle="bold"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"/>
+
+                <!-- Nombre + Apellido Paterno + Apellido Materno en un solo renglón -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginEnd="4dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Nombre(s) *"
+                            android:textSize="11sp"
+                            android:textColor="#555555"
+                            android:textStyle="bold"/>
+                        <EditText
+                            android:id="@+id/etRegNombre"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Juan Carlos"
+                            android:inputType="textPersonName|textCapCharacters"
+                            android:padding="8dp"
+                            android:textSize="13sp"
+                            android:background="@android:drawable/edit_text"/>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginEnd="4dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Ap. Paterno *"
+                            android:textSize="11sp"
+                            android:textColor="#555555"
+                            android:textStyle="bold"/>
+                        <EditText
+                            android:id="@+id/etRegApellidoPaterno"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Pérez"
+                            android:inputType="textPersonName|textCapCharacters"
+                            android:padding="8dp"
+                            android:textSize="13sp"
+                            android:background="@android:drawable/edit_text"/>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Ap. Materno *"
+                            android:textSize="11sp"
+                            android:textColor="#555555"
+                            android:textStyle="bold"/>
+                        <EditText
+                            android:id="@+id/etRegApellidoMaterno"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="López"
+                            android:inputType="textPersonName|textCapCharacters"
+                            android:padding="8dp"
+                            android:textSize="13sp"
+                            android:background="@android:drawable/edit_text"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- ✅ FECHA DE NACIMIENTO: Día / Mes / Año con spinners -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Fecha de nacimiento *"
+                    android:textSize="11sp"
+                    android:textColor="#555555"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="16dp"
+                    android:gravity="center_vertical">
+
+                    <!-- Día -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginEnd="6dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Día"
+                            android:textSize="10sp"
+                            android:textColor="#757575"
+                            android:layout_marginBottom="2dp"/>
+                        <Spinner
+                            android:id="@+id/spDia"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@android:drawable/edit_text"
+                            android:padding="6dp"
+                            android:minHeight="40dp"/>
+                    </LinearLayout>
+
+                    <!-- Mes -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1.2"
+                        android:orientation="vertical"
+                        android:layout_marginEnd="6dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Mes"
+                            android:textSize="10sp"
+                            android:textColor="#757575"
+                            android:layout_marginBottom="2dp"/>
+                        <Spinner
+                            android:id="@+id/spMes"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@android:drawable/edit_text"
+                            android:padding="6dp"
+                            android:minHeight="40dp"/>
+                    </LinearLayout>
+
+                    <!-- Año -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Año"
+                            android:textSize="10sp"
+                            android:textColor="#757575"
+                            android:layout_marginBottom="2dp"/>
+                        <Spinner
+                            android:id="@+id/spAnio"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@android:drawable/edit_text"
+                            android:padding="6dp"
+                            android:minHeight="40dp"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- ✅ TELÉFONO Y CORREO -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginEnd="4dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Teléfono"
+                            android:textSize="11sp"
+                            android:textColor="#555555"
+                            android:textStyle="bold"/>
+                        <EditText
+                            android:id="@+id/etRegTelefono"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="5512345678"
+                            android:inputType="phone"
+                            android:padding="8dp"
+                            android:textSize="13sp"
+                            android:background="@android:drawable/edit_text"/>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Correo (opcional)"
+                            android:textSize="11sp"
+                            android:textColor="#555555"
+                            android:textStyle="bold"/>
+                        <EditText
+                            android:id="@+id/etRegCorreo"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="ejemplo@correo.com"
+                            android:inputType="textEmailAddress"
+                            android:padding="8dp"
+                            android:textSize="13sp"
+                            android:background="@android:drawable/edit_text"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- ✅ GÉNERO: 2 RadioButtons -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Género *"
+                    android:textSize="11sp"
+                    android:textColor="#555555"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp"/>
+
+                <RadioGroup
+                    android:id="@+id/rgGenero"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="16dp">
+
+                    <RadioButton
+                        android:id="@+id/rbMasculino"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Masculino"
+                        android:textSize="13sp"
+                        android:buttonTint="#0F3E82"
+                        android:paddingStart="0dp"/>
+
+                    <RadioButton
+                        android:id="@+id/rbFemenino"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Femenino"
+                        android:textSize="13sp"
+                        android:buttonTint="#0F3E82"
+                        android:paddingStart="0dp"/>
+                </RadioGroup>
+
+                <!-- Campos ocultos (se llenan automáticamente desde la búsqueda) -->
+                <EditText
+                    android:id="@+id/etRegFolio"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:visibility="gone"
+                    android:inputType="number"/>
+                <EditText
+                    android:id="@+id/etRegCurp"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:visibility="gone"
+                    android:inputType="text"/>
+                <EditText
+                    android:id="@+id/etRegDireccion"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:visibility="gone"
+                    android:inputType="text"/>
+
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- BOTONES -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <Button
+                android:id="@+id/btnCancelar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Cancelar"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#757575"
+                android:layout_marginEnd="8dp"/>
+
+            <Button
+                android:id="@+id/btnGuardarPaciente"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="2"
+                android:text="Registrar paciente"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#0F3E82"/>
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

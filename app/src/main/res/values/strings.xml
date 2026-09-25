@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Quiosco</string>
+    <!-- Agregar estos strings -->
+    <string name="seleccione_dia">Seleccione el día</string>
+    <string name="seleccione_mes">Seleccione el mes</string>
+    <string name="seleccione_anio">Seleccione el año</string>
+    <string name="seleccione_genero">Seleccione el género</string>
+</resources>

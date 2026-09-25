@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F5F5F5">
+
+    <!-- Barra superior -->
+    <RelativeLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:background="#0F3E82">
+
+        <ImageView
+            android:id="@+id/btnBackTable"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:src="@android:drawable/ic_menu_revert"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_centerInParent="true"
+            android:text="Gestión de Pacientes"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+    </RelativeLayout>
+
+    <!-- Contenido -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="8dp">
+
+        <!-- Contenedor con scroll horizontal + vertical anidado -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:scrollbars="horizontal"
+            android:fillViewport="false">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+                <!-- ============================================ -->
+                <!-- ENCABEZADOS DE TABLA                         -->
+                <!-- ============================================ -->
+                <LinearLayout
+                    android:id="@+id/headerRow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:background="#E0E0E0"
+                    android:padding="8dp">
+
+                    <TextView android:id="@+id/hCheck"      android:layout_width="40dp" android:layout_height="wrap_content" android:text="" />
+                    <TextView android:id="@+id/hIdLocal"    style="@style/CellHeader" android:text="ID Local" />
+                    <TextView android:id="@+id/hIdRemoto"   style="@style/CellHeader" android:text="ID_Remoto" />
+                    <TextView android:id="@+id/hFolio"      style="@style/CellHeader" android:text="Folio" />
+                    <TextView android:id="@+id/hNombre"     style="@style/CellHeader" android:text="Nombre" />
+                    <TextView android:id="@+id/hApPaterno"  style="@style/CellHeader" android:text="Ap. Paterno" />
+                    <TextView android:id="@+id/hApMaterno"  style="@style/CellHeader" android:text="Ap. Materno" />
+                    <TextView android:id="@+id/hFecNac"     style="@style/CellHeader" android:text="F. Nacimiento" />
+                    <TextView android:id="@+id/hGenero"     style="@style/CellHeader" android:text="Género" />
+                    <TextView android:id="@+id/hCurp"       style="@style/CellHeader" android:text="CURP" />
+                    <TextView android:id="@+id/hTelefono"   style="@style/CellHeader" android:text="Teléfono" />
+                    <TextView android:id="@+id/hCorreo"     style="@style/CellHeader" android:text="Correo" />
+                    <TextView android:id="@+id/hDireccion"  style="@style/CellHeader" android:text="Dirección" />
+                    <TextView android:id="@+id/hFecRegLocal" style="@style/CellHeader" android:text="Fec. Reg. Local" />
+                    <TextView android:id="@+id/hFecRegGlobal" style="@style/CellHeader" android:text="Fec. Reg. Global" />
+                </LinearLayout>
+
+                <!-- ============================================ -->
+                <!-- SCROLL VERTICAL CON LOS DATOS                -->
+                <!-- ============================================ -->
+                <ScrollView
+                    android:layout_width="wrap_content"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:fillViewport="false">
+
+                    <LinearLayout
+                        android:id="@+id/patientsContainer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </ScrollView>
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Botones de acción -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp"
+            android:padding="8dp">
+
+            <Button
+                android:id="@+id/btnAddPatient"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Agregar"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnEditPatient"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Ver/Editar"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnSyncSelected"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Sincronizar"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnDeleteSelected"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Eliminar"
+                android:backgroundTint="#E53935"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+
+    </LinearLayout>
+</LinearLayout>
