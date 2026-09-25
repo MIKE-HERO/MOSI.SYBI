@@ -12,8 +12,8 @@ android {
         applicationId = "com.sybi.mosi"
         minSdk = 25
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 6
+        versionName = "1.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -92,9 +92,6 @@ dependencies {
     // Coil para cargar imágenes PNG, JPG, WEBP y SVG
     implementation("io.coil-kt:coil:2.6.0")
     implementation("io.coil-kt:coil-svg:2.6.0")
-
-    // Palette: extrae los colores dominantes de una imagen (usado por el modo multicolor)
-    implementation("androidx.palette:palette-ktx:1.0.0")
 }
 
 ksp {
