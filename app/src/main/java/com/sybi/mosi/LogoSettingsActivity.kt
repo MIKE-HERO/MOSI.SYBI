@@ -21,15 +21,18 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.Switch
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import coil.ImageLoader
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -42,6 +45,9 @@ class LogoSettingsActivity : BaseActivity() {
     private lateinit var etMainTitle: EditText
     private lateinit var btnSaveTitle: Button
     private lateinit var btnCustomColor: Button
+    private lateinit var switchMulticolor: Switch
+    private lateinit var btnRegenerateColors: Button
+    private lateinit var multicolorDots: List<View>
     private val prefs by lazy { getSharedPreferences("AppPrefs", Context.MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -118,6 +124,81 @@ class LogoSettingsActivity : BaseActivity() {
         btnCustomColor.setOnClickListener {
             showColorPickerDialog()
         }
+
+        // 6. Modo multicolor
+        switchMulticolor = findViewById(R.id.switchMulticolor)
+        btnRegenerateColors = findViewById(R.id.btnRegenerateColors)
+        multicolorDots = listOf(
+            findViewById(R.id.dotMulticolor1),
+            findViewById(R.id.dotMulticolor2),
+            findViewById(R.id.dotMulticolor3),
+            findViewById(R.id.dotMulticolor4),
+            findViewById(R.id.dotMulticolor5)
+        )
+        setupMulticolorSection()
+    }
+
+    private fun setupMulticolorSection() {
+        switchMulticolor.isChecked = prefs.getBoolean("MulticolorEnabled", false)
+        loadMulticolorPreview()
+
+        switchMulticolor.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("MulticolorEnabled", isChecked).apply()
+            if (isChecked && prefs.getString("MulticolorColors", null).isNullOrBlank()) {
+                regenerateMulticolorColors()
+            } else {
+                notifyMulticolorChanged()
+            }
+        }
+
+        btnRegenerateColors.setOnClickListener {
+            regenerateMulticolorColors()
+        }
+    }
+
+    private fun regenerateMulticolorColors() {
+        val logoPath = prefs.getString("LogoPath", null)
+        val fallback = try {
+            Color.parseColor(prefs.getString("BackgroundColor", "#0F3E82"))
+        } catch (e: Exception) {
+            Color.parseColor("#0F3E82")
+        }
+
+        lifecycleScope.launch {
+            val colors = LogoColorTheme.generateFromLogo(this@LogoSettingsActivity, logoPath, fallback)
+            val hexColors = colors.joinToString(",") { String.format("#%06X", 0xFFFFFF and it) }
+            prefs.edit().putString("MulticolorColors", hexColors).apply()
+            showMulticolorPreview(colors)
+            notifyMulticolorChanged()
+            Toast.makeText(this@LogoSettingsActivity, "Colores regenerados a partir del logo", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun loadMulticolorPreview() {
+        val saved = prefs.getString("MulticolorColors", null)
+        val colors = if (!saved.isNullOrBlank()) {
+            saved.split(",").mapNotNull { hex ->
+                try { Color.parseColor(hex) } catch (e: Exception) { null }
+            }
+        } else {
+            emptyList()
+        }
+        if (colors.isNotEmpty()) {
+            showMulticolorPreview(colors)
+        }
+    }
+
+    private fun showMulticolorPreview(colors: List<Int>) {
+        val fallback = Color.parseColor("#0F3E82")
+        for (i in multicolorDots.indices) {
+            val color = colors.getOrNull(i) ?: colors.lastOrNull() ?: fallback
+            multicolorDots[i].setBackgroundColor(color)
+        }
+    }
+
+    private fun notifyMulticolorChanged() {
+        val intent = Intent("ACTION_UPDATE_MULTICOLOR")
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
 
     private fun loadSavedTitle() {
@@ -209,7 +290,12 @@ class LogoSettingsActivity : BaseActivity() {
 
         val editor = prefs.edit()
         editor.putString("BackgroundColor", hexColor)
+        editor.putBoolean("MulticolorEnabled", false)
         editor.apply()
+
+        if (::switchMulticolor.isInitialized) {
+            switchMulticolor.isChecked = false
+        }
 
         val intent = Intent("ACTION_UPDATE_THEME")
         intent.putExtra("new_color", hexColor)
@@ -406,6 +492,11 @@ class LogoSettingsActivity : BaseActivity() {
                     val intent = Intent("ACTION_UPDATE_LOGO")
                     intent.putExtra("logo_path", savedPath)
                     LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+
+                    // Si el modo multicolor está activo, recalcular los colores con el nuevo logo
+                    if (::switchMulticolor.isInitialized && switchMulticolor.isChecked) {
+                        regenerateMulticolorColors()
+                    }
 
                     Toast.makeText(this, "Logo actualizado correctamente", Toast.LENGTH_SHORT).show()
                 } else {

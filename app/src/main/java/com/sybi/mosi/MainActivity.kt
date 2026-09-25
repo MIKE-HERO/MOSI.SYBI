@@ -1,5 +1,10 @@
 package com.sybi.mosi
 
+import android.animation.ArgbEvaluator
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
+import android.animation.ValueAnimator
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -7,9 +12,12 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.GestureDetector
 import android.view.MotionEvent
@@ -33,6 +41,20 @@ class MainActivity : BaseActivity() {
     private lateinit var gestureDetector: GestureDetector
     private var currentColor: String = "#0F3E82"
 
+    // Efectos de "pantalla viva" en reposo
+    private lateinit var shineOverlay: ShineSweepView
+    private lateinit var imgLogo: ImageView
+    private lateinit var rootLayout: View
+    private var breathingAnimator: ObjectAnimator? = null
+
+    // Modo multicolor: ciclo automático de colores de fondo con transición suave
+    private val multicolorHandler = Handler(Looper.getMainLooper())
+    private var multicolorRunnable: Runnable? = null
+    private var multicolorColors: List<Int> = emptyList()
+    private var multicolorIndex = 0
+    private var colorTransitionAnimator: ValueAnimator? = null
+    private var multicolorReceiver: BroadcastReceiver? = null
+
     // 🔥 Variables para los receivers (para poder desregistrarlos)
     private var deviceUpdateReceiver: BroadcastReceiver? = null
     private var colorReceiver: BroadcastReceiver? = null
@@ -43,6 +65,8 @@ class MainActivity : BaseActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val PERMISSION_REQUEST_CODE = 100
+        private const val MULTICOLOR_INTERVAL_MS = 150_000L // 2.5 minutos
+        private const val MULTICOLOR_TRANSITION_MS = 5000L
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,11 +81,12 @@ class MainActivity : BaseActivity() {
         setContentView(R.layout.activity_main)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
-        val rootLayout = findViewById<View>(R.id.mainRootLayout)
-        val imgLogo = findViewById<ImageView>(R.id.imgLogo)
+        rootLayout = findViewById(R.id.mainRootLayout)
+        imgLogo = findViewById(R.id.imgLogo)
         val tvTitle = findViewById<TextView>(R.id.tvTitle)
         val btnSettings = findViewById<View>(R.id.btnSettings)
         val touchInterceptor = findViewById<View>(R.id.touchInterceptor)
+        shineOverlay = findViewById(R.id.shineOverlay)
 
         // --- INICIAR EL SERVICIO SERIAL AL ABRIR LA APP ---
         startService(Intent(this, SerialService::class.java))
@@ -136,6 +161,18 @@ class MainActivity : BaseActivity() {
             IntentFilter("DEVICE_CONNECTION_STATUS")
         )
 
+        // --- RECEPTOR PARA CAMBIOS EN EL MODO MULTICOLOR ---
+        multicolorReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                stopMulticolorCycle()
+                startMulticolorCycle()
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            multicolorReceiver!!,
+            IntentFilter("ACTION_UPDATE_MULTICOLOR")
+        )
+
         val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val defaultColor = "#0F3E82"
         currentColor = appPrefs.getString("BackgroundColor", defaultColor) ?: defaultColor
@@ -152,7 +189,7 @@ class MainActivity : BaseActivity() {
             loadLogo(imgLogo, logoPath)
         } else {
             // Logo por defecto si no hay ninguno guardado
-            imgLogo.setImageResource(R.drawable.sybi_logo_blanco)
+            imgLogo.setImageResource(R.mipmap.ic_launcher)
         }
 
         btnSettings.setOnClickListener {
@@ -338,10 +375,106 @@ class MainActivity : BaseActivity() {
     }
 
     // ==========================================
+    // EFECTOS DE "PANTALLA VIVA" (respiración del logo + brillo diagonal)
+    // ==========================================
+    override fun onResume() {
+        super.onResume()
+        shineOverlay.startSweeping()
+        startBreathingEffect()
+        startMulticolorCycle()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        shineOverlay.stopSweeping()
+        stopBreathingEffect()
+        stopMulticolorCycle()
+    }
+
+    // ==========================================
+    // MODO MULTICOLOR (ciclo automático de fondo)
+    // ==========================================
+    private fun startMulticolorCycle() {
+        val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val enabled = appPrefs.getBoolean("MulticolorEnabled", false)
+        val saved = appPrefs.getString("MulticolorColors", null)
+        multicolorColors = if (!saved.isNullOrBlank()) {
+            saved.split(",").mapNotNull { hex ->
+                try { Color.parseColor(hex) } catch (e: Exception) { null }
+            }
+        } else {
+            emptyList()
+        }
+
+        if (!enabled || multicolorColors.size < 2) return
+
+        multicolorIndex = 0
+        val target = multicolorColors[0]
+        val fromColor = (rootLayout.background as? ColorDrawable)?.color ?: target
+        colorTransitionAnimator = ValueAnimator.ofObject(ArgbEvaluator(), fromColor, target).apply {
+            duration = MULTICOLOR_TRANSITION_MS
+            addUpdateListener { animator -> rootLayout.setBackgroundColor(animator.animatedValue as Int) }
+            start()
+        }
+        scheduleNextMulticolorChange()
+    }
+
+    private fun stopMulticolorCycle() {
+        multicolorRunnable?.let { multicolorHandler.removeCallbacks(it) }
+        multicolorRunnable = null
+        colorTransitionAnimator?.cancel()
+        colorTransitionAnimator = null
+    }
+
+    private fun scheduleNextMulticolorChange() {
+        val runnable = Runnable { performMulticolorTransition() }
+        multicolorRunnable = runnable
+        multicolorHandler.postDelayed(runnable, MULTICOLOR_INTERVAL_MS)
+    }
+
+    private fun performMulticolorTransition() {
+        if (multicolorColors.size < 2) return
+        multicolorIndex = (multicolorIndex + 1) % multicolorColors.size
+        val toColor = multicolorColors[multicolorIndex]
+        val fromColor = (rootLayout.background as? ColorDrawable)?.color ?: toColor
+
+        colorTransitionAnimator?.cancel()
+        colorTransitionAnimator = ValueAnimator.ofObject(ArgbEvaluator(), fromColor, toColor).apply {
+            duration = MULTICOLOR_TRANSITION_MS
+            addUpdateListener { animator -> rootLayout.setBackgroundColor(animator.animatedValue as Int) }
+            start()
+        }
+        scheduleNextMulticolorChange()
+    }
+
+    /** Pulso suave y lento de escala en el logo, para dar sensación de "respiración". */
+    private fun startBreathingEffect() {
+        if (breathingAnimator != null) return
+        val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.05f)
+        val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.05f)
+        breathingAnimator = ObjectAnimator.ofPropertyValuesHolder(imgLogo, scaleX, scaleY).apply {
+            duration = 2600
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = AccelerateDecelerateInterpolator()
+            start()
+        }
+    }
+
+    private fun stopBreathingEffect() {
+        breathingAnimator?.cancel()
+        breathingAnimator = null
+        imgLogo.scaleX = 1f
+        imgLogo.scaleY = 1f
+    }
+
+    // ==========================================
     // ON DESTROY (desregistrar receivers)
     // ==========================================
     override fun onDestroy() {
         super.onDestroy()
+
+        stopMulticolorCycle()
 
         // 🔥 Desregistrar todos los receivers
         try {
@@ -358,6 +491,9 @@ class MainActivity : BaseActivity() {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
             connectionReceiver?.let {
+                LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
+            }
+            multicolorReceiver?.let {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
         } catch (e: Exception) {
