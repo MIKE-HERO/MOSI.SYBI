@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="horizontal"
-    android:background="#F5F5F5">
+    android:background="#F5F5F5"
+    android:orientation="horizontal">
 
     <!-- BARRA LATERAL AZUL -->
     <LinearLayout
@@ -12,25 +12,25 @@
         android:layout_width="150dp"
         android:layout_height="match_parent"
         android:background="#0F3E82"
-        android:orientation="vertical"
         android:gravity="center_horizontal"
+        android:orientation="vertical"
         android:paddingTop="20dp">
 
         <LinearLayout
             android:id="@+id/btnBackDeviceInfo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:paddingBottom="20dp"
             android:clickable="true"
-            android:focusable="true">
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingBottom="20dp">
 
             <ImageView
                 android:layout_width="80dp"
                 android:layout_height="80dp"
-                android:src="@drawable/ic_regresar"
                 android:rotation="180"
+                android:src="@drawable/ic_regresar"
                 app:tint="#FFFFFF" />
 
             <TextView
@@ -44,7 +44,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"/>
+            android:layout_weight="1" />
 
     </LinearLayout>
 
@@ -53,27 +53,27 @@
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
+        android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:padding="20dp"
-        android:gravity="center_horizontal">
+        android:padding="20dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
             android:text="Información del dispositivo"
-            android:textSize="22sp"
             android:textColor="#333333"
-            android:textStyle="bold"
-            android:layout_marginBottom="6dp"/>
+            android:textSize="22sp"
+            android:textStyle="bold" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Estos datos identifican al hardware de la consola"
-            android:textSize="12sp"
-            android:textColor="#757575"
+            android:layout_marginBottom="16dp"
             android:gravity="center"
-            android:layout_marginBottom="20dp"/>
+            android:text="Estos datos identifican al hardware de la consola"
+            android:textColor="#757575"
+            android:textSize="12sp" />
 
         <ScrollView
             android:layout_width="match_parent"
@@ -86,54 +86,189 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- MODELO -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Modelo del dispositivo *"
-                    android:textSize="13sp"
-                    android:textColor="#555555"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp"/>
-                <EditText
-                    android:id="@+id/etDeviceModel"
+                <!-- ====== FILA: MODELO Y SERIE ====== -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Ej. IN I6 E016"
-                    android:inputType="textCapCharacters"
-                    android:padding="12dp"
+                    android:layout_marginBottom="20dp"
+                    android:orientation="horizontal"
+                    android:weightSum="2">
+
+                    <!-- Modelo -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="4dp"
+                            android:text="Modelo del dispositivo *"
+                            android:textColor="#555555"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <EditText
+                            android:id="@+id/etDeviceModel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@android:drawable/edit_text"
+                            android:hint="Ej. IN I6 E016"
+                            android:inputType="textCapCharacters"
+                            android:padding="12dp" />
+                    </LinearLayout>
+
+                    <!-- Serie -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="4dp"
+                            android:text="Número de serie *"
+                            android:textColor="#555555"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <EditText
+                            android:id="@+id/etDeviceSerial"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@android:drawable/edit_text"
+                            android:hint="Ej. IN-I6XX-I-I2407006"
+                            android:inputType="textCapCharacters"
+                            android:padding="12dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- SEPARADOR -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="20dp"
+                    android:background="#CCCCCC" />
+
+                <!-- ====== SECCIÓN: ACTUALIZACIONES DE SOFTWARE ====== -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    android:background="@android:drawable/edit_text"/>
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                <!-- NÚMERO DE SERIE -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Actualizaciones de Software"
+                            android:textColor="#333333"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvSoftwareVersion"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Versión del software: v1.0.0"
+                            android:textColor="#555555"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- Botón Buscar Actualizaciones a la derecha -->
+                    <Button
+                        android:id="@+id/btnCheckUpdates"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="#2E7D32"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:text="Buscar actualizaciones"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <!-- ====== FILA: VERSIONES DISPONIBLES ====== -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <!-- Spinner -->
+                    <Spinner
+                        android:id="@+id/spnVersions"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:layout_marginEnd="8dp"
+                        android:background="@android:drawable/btn_dropdown"
+                        android:padding="10dp" />
+
+                    <!-- Campo Tag -->
+                    <EditText
+                        android:id="@+id/etVersionTag"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:background="@android:drawable/edit_text"
+                        android:hint="Tag"
+                        android:inputType="text"
+                        android:padding="10dp"
+                        android:text="v1.0.0"
+                        android:textSize="12sp" />
+
+                    <!-- Botón Instalar (mismo ancho que el de Buscar) -->
+                    <Button
+                        android:id="@+id/btnInstallSelected"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="#0F3E82"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:text="Instalar versión seleccionada"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <!-- PROGRESO Y ESTADO DE DESCARGA -->
+                <ProgressBar
+                    android:id="@+id/pbDownloadProgress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:visibility="gone" />
+
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:id="@+id/tvDownloadStatus"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Número de serie *"
+                    android:layout_marginBottom="20dp"
+                    android:gravity="center"
+                    android:textColor="#333333"
                     android:textSize="13sp"
-                    android:textColor="#555555"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="4dp"/>
-                <EditText
-                    android:id="@+id/etDeviceSerial"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Ej. IN-I6XX-I-I2407006"
-                    android:inputType="textCapCharacters"
-                    android:padding="12dp"
-                    android:layout_marginBottom="24dp"
-                    android:background="@android:drawable/edit_text"/>
+                    android:visibility="gone" />
 
-                <!-- BOTÓN GUARDAR -->
-                <Button
-                    android:id="@+id/btnGuardarDeviceInfo"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Guardar configuración"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:padding="14dp"
-                    android:backgroundTint="#0F3E82"/>
             </LinearLayout>
         </ScrollView>
     </LinearLayout>

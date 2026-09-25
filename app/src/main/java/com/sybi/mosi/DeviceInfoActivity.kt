@@ -9,10 +9,19 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ProgressBar
+import android.widget.Spinner
+import android.widget.TextView
 import android.widget.Toast
+import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.sybi.mosi.updater.GitHubRelease
+import com.sybi.mosi.updater.UpdateManager
+import kotlinx.coroutines.launch
 
 class DeviceInfoActivity : BaseActivity() {
 
@@ -55,8 +64,20 @@ class DeviceInfoActivity : BaseActivity() {
 
     private lateinit var etModelo: EditText
     private lateinit var etSerie: EditText
-    private lateinit var btnGuardar: Button
+
     private lateinit var sideBar: View
+
+    // ── Actualizador ──
+    private lateinit var tvSoftwareVersion: TextView
+    private lateinit var btnCheckUpdates: Button
+    private lateinit var spnVersions: Spinner
+    private lateinit var etVersionTag: EditText
+    private lateinit var btnInstallSelected: Button
+    private lateinit var pbDownloadProgress: ProgressBar
+    private lateinit var tvDownloadStatus: TextView
+
+    private lateinit var updateManager: UpdateManager
+    private var fetchedReleases: List<GitHubRelease> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,10 +85,20 @@ class DeviceInfoActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
+        updateManager = UpdateManager(this)
+
         sideBar = findViewById(R.id.sideBarLayout)
         etModelo = findViewById(R.id.etDeviceModel)
         etSerie = findViewById(R.id.etDeviceSerial)
-        btnGuardar = findViewById(R.id.btnGuardarDeviceInfo)
+
+        // ── Vistas de actualización ──
+        tvSoftwareVersion = findViewById(R.id.tvSoftwareVersion)
+        btnCheckUpdates = findViewById(R.id.btnCheckUpdates)
+        spnVersions = findViewById(R.id.spnVersions)
+        etVersionTag = findViewById(R.id.etVersionTag)
+        btnInstallSelected = findViewById(R.id.btnInstallSelected)
+        pbDownloadProgress = findViewById(R.id.pbDownloadProgress)
+        tvDownloadStatus = findViewById(R.id.tvDownloadStatus)
 
         // ── Receptor de cambio de color ──
         val colorReceiver = object : BroadcastReceiver() {
@@ -75,7 +106,7 @@ class DeviceInfoActivity : BaseActivity() {
                 val newColor = intent.getStringExtra("new_color")
                 if (newColor != null) {
                     sideBar.setBackgroundColor(Color.parseColor(newColor))
-                    btnGuardar.backgroundTintList =
+                    btnInstallSelected.backgroundTintList =
                         android.content.res.ColorStateList.valueOf(Color.parseColor(newColor))
                 }
             }
@@ -86,21 +117,150 @@ class DeviceInfoActivity : BaseActivity() {
         val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val savedColor = appPrefs.getString("BackgroundColor", "#0F3E82")!!
         sideBar.setBackgroundColor(Color.parseColor(savedColor))
-        btnGuardar.backgroundTintList =
+        btnInstallSelected.backgroundTintList =
             android.content.res.ColorStateList.valueOf(Color.parseColor(savedColor))
 
         // ── Botón regresar ──
         findViewById<View>(R.id.btnBackDeviceInfo).setOnClickListener {
-            saveDeviceInfo()
             finish()
         }
 
-        // ── Cargar valores guardados ──
+        // ── Cargar valores guardados de hardware ──
         loadSavedValues()
 
-        // ── Botón guardar ──
-        btnGuardar.setOnClickListener {
-            saveDeviceInfo()
+        // ── Mostrar versión del software ──
+        showCurrentSoftwareVersion()
+
+        // ── Cargar releases del repositorio ──
+        loadRepositoryReleases()
+
+
+
+        // ── Botón Buscar Actualizaciones (Manual/Última) ──
+        btnCheckUpdates.setOnClickListener {
+            val latestUrl = if (fetchedReleases.isNotEmpty()) {
+                fetchedReleases[0].downloadUrl
+            } else {
+                UpdateManager.LATEST_APK_URL
+            }
+            startApkDownload(latestUrl, "Última versión disponible")
+        }
+
+        // ── Botón Instalar versión seleccionada / Tag ──
+        btnInstallSelected.setOnClickListener {
+            val tag = etVersionTag.text.toString().trim()
+            if (tag.isEmpty()) {
+                Toast.makeText(this, "Por favor ingrese un tag de versión válido", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val matchingRelease = fetchedReleases.find { it.tagName.equals(tag, ignoreCase = true) }
+            val downloadUrl = matchingRelease?.downloadUrl ?: updateManager.getDownloadUrlForTag(tag)
+
+            startApkDownload(downloadUrl, "Versión $tag")
+        }
+    }
+
+    private fun showCurrentSoftwareVersion() {
+        val pInfo = try {
+            packageManager.getPackageInfo(packageName, 0)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo versión de app: ${e.message}")
+            null
+        }
+
+        val versionName = pInfo?.versionName ?: "1.0"
+        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            pInfo?.longVersionCode ?: 1
+        } else {
+            @Suppress("DEPRECATION")
+            pInfo?.versionCode ?: 1
+        }
+
+        tvSoftwareVersion.text = "Versión del software: v$versionName (Build $versionCode)"
+    }
+
+    private fun loadRepositoryReleases() {
+        lifecycleScope.launch {
+            fetchedReleases = updateManager.fetchReleases()
+            if (fetchedReleases.isNotEmpty()) {
+                val tagList = fetchedReleases.map { "${it.tagName} (${it.name})" }
+                val adapter = ArrayAdapter(this@DeviceInfoActivity, android.R.layout.simple_spinner_item, tagList)
+                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                spnVersions.adapter = adapter
+
+                spnVersions.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                        val selected = fetchedReleases[position]
+                        etVersionTag.setText(selected.tagName)
+                    }
+
+                    override fun onNothingSelected(parent: AdapterView<*>?) {}
+                }
+
+                etVersionTag.setText(fetchedReleases[0].tagName)
+            } else {
+                val defaultList = listOf("v1.0.0 (Sin conexión / Por defecto)")
+                val adapter = ArrayAdapter(this@DeviceInfoActivity, android.R.layout.simple_spinner_item, defaultList)
+                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                spnVersions.adapter = adapter
+                etVersionTag.setText("v1.0.0")
+            }
+        }
+    }
+
+    private fun startApkDownload(downloadUrl: String, versionLabel: String) {
+        lifecycleScope.launch {
+            setUiDownloading(true)
+            tvDownloadStatus.text = "Iniciando descarga de $versionLabel..."
+
+            val downloadedFile = updateManager.downloadApk(downloadUrl) { percent, bytesDownloaded, _ ->
+                runOnUiThread {
+                    if (percent >= 0) {
+                        pbDownloadProgress.isIndeterminate = false
+                        pbDownloadProgress.progress = percent
+                        tvDownloadStatus.text = "Descargando $versionLabel: $percent%"
+                    } else {
+                        pbDownloadProgress.isIndeterminate = true
+                        tvDownloadStatus.text = "Descargando... (${bytesDownloaded / 1024} KB)"
+                    }
+                }
+            }
+
+            setUiDownloading(false)
+
+            if (downloadedFile != null && downloadedFile.exists()) {
+                tvDownloadStatus.text = "✅ Descarga completada. Abriendo instalador..."
+                val installed = updateManager.installApk(downloadedFile)
+                if (!installed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+                    Toast.makeText(
+                        this@DeviceInfoActivity,
+                        "Por favor autorice la instalación de aplicaciones desconocidas en los ajustes e intente de nuevo.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } else {
+                tvDownloadStatus.visibility = View.VISIBLE
+                tvDownloadStatus.text = "❌ Error al descargar la versión especificada."
+                Toast.makeText(
+                    this@DeviceInfoActivity,
+                    "No se pudo descargar el archivo APK desde el repositorio.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    private fun setUiDownloading(isDownloading: Boolean) {
+        btnCheckUpdates.isEnabled = !isDownloading
+        btnInstallSelected.isEnabled = !isDownloading
+        spnVersions.isEnabled = !isDownloading
+        etVersionTag.isEnabled = !isDownloading
+
+        if (isDownloading) {
+            pbDownloadProgress.visibility = View.VISIBLE
+            pbDownloadProgress.progress = 0
+            tvDownloadStatus.visibility = View.VISIBLE
         }
     }
 
@@ -160,5 +320,24 @@ class DeviceInfoActivity : BaseActivity() {
 
         Log.d(TAG, "💾 Guardado: modelo=$modelo, serie=$serie")
         Toast.makeText(this, "✅ Configuración guardada", Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        saveDeviceInfoSilently()
+    }
+
+    private fun saveDeviceInfoSilently() {
+        val modelo = etModelo.text.toString().trim()
+        val serie = etSerie.text.toString().trim()
+
+        if (modelo.isNotEmpty() && serie.isNotEmpty()) {
+            val prefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString(PREF_DEVICE_MODEL, modelo)
+                .putString(PREF_DEVICE_SERIAL, serie)
+                .apply()
+            Log.d(TAG, "💾 Guardado automático: modelo=$modelo, serie=$serie")
+        }
     }
 }
