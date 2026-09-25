@@ -27,12 +27,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import coil.ImageLoader
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
-import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -157,21 +155,12 @@ class LogoSettingsActivity : BaseActivity() {
     }
 
     private fun regenerateMulticolorColors() {
-        val logoPath = prefs.getString("LogoPath", null)
-        val fallback = try {
-            Color.parseColor(prefs.getString("BackgroundColor", "#0F3E82"))
-        } catch (e: Exception) {
-            Color.parseColor("#0F3E82")
-        }
-
-        lifecycleScope.launch {
-            val colors = LogoColorTheme.generateFromLogo(this@LogoSettingsActivity, logoPath, fallback)
-            val hexColors = colors.joinToString(",") { String.format("#%06X", 0xFFFFFF and it) }
-            prefs.edit().putString("MulticolorColors", hexColors).apply()
-            showMulticolorPreview(colors)
-            notifyMulticolorChanged()
-            Toast.makeText(this@LogoSettingsActivity, "Colores regenerados a partir del logo", Toast.LENGTH_SHORT).show()
-        }
+        val colors = LogoColorTheme.generateRandomPalette()
+        val hexColors = colors.joinToString(",") { String.format("#%06X", 0xFFFFFF and it) }
+        prefs.edit().putString("MulticolorColors", hexColors).apply()
+        showMulticolorPreview(colors)
+        notifyMulticolorChanged()
+        Toast.makeText(this, "Colores regenerados", Toast.LENGTH_SHORT).show()
     }
 
     private fun loadMulticolorPreview() {
