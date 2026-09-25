@@ -128,20 +128,7 @@ class SettingsActivity : BaseActivity() {
             startActivity(Intent(this, CalibTestActivity::class.java))
         }
 
-        // 11. ✅ Botón: Ajustes de Android (abre los Settings del sistema)
-        val btnAndroidSettings = findViewById<LinearLayout>(R.id.btnAndroidSettings)
-        btnAndroidSettings.setOnClickListener {
-            try {
-                val intent = Intent(android.provider.Settings.ACTION_SETTINGS)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            } catch (e: Exception) {
-                // Fallback: por si algún fabricante no expone ACTION_SETTINGS
-                startActivity(Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS))
-            }
-        }
-
-        // 12. Botón: Pantalla publicitaria — abre VideoLoopControl
+        // 11. Botón: Pantalla publicitaria — abre VideoLoopControl
         val btnAdvertisingScreen = findViewById<LinearLayout>(R.id.btnAdvertisingScreen)
         btnAdvertisingScreen?.setOnClickListener {
             startActivity(Intent(this, VideoLoopControlActivity::class.java))
