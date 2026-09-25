@@ -34,6 +34,7 @@ class TestElementsActivity : BaseActivity() {
         const val PREF_DEVICE_AZUCAR = "device_azucar"
         const val PREF_DEVICE_ACIDO_URICO = "device_acido_urico"
         const val PREF_DEVICE_COLESTEROL = "device_colesterol"
+        const val PREF_DEVICE_IC_CARD = "device_ic_card"
 
         /** Marca de la línea divisoria en el selector de velocidad. */
         private const val SEPARATOR = -1
@@ -139,6 +140,14 @@ class TestElementsActivity : BaseActivity() {
         val colesterolRow = createDeviceRow("Colesterol Total", PREF_DEVICE_COLESTEROL, devicePrefs, availablePorts)
         container.addView(colesterolRow)
         configRowsMap[PREF_DEVICE_COLESTEROL] = colesterolRow
+
+        // --- LÍNEA DIVISORIA ---
+        container.addView(createDividerLine())
+
+        // --- CREAR LECTOR TARJETA IC ---
+        val icCardRow = createDeviceRow("Lector de Tarjeta IC", PREF_DEVICE_IC_CARD, devicePrefs, availablePorts)
+        container.addView(icCardRow)
+        configRowsMap[PREF_DEVICE_IC_CARD] = icCardRow
 
         val initialColor = Color.parseColor(savedColor)
         applySwitchTint(initialColor)
@@ -366,7 +375,8 @@ class TestElementsActivity : BaseActivity() {
                 prefKey == PREF_DEVICE_TEMPERATURA ||
                 prefKey == PREF_DEVICE_AZUCAR ||
                 prefKey == PREF_DEVICE_ACIDO_URICO ||
-                prefKey == PREF_DEVICE_COLESTEROL
+                prefKey == PREF_DEVICE_COLESTEROL ||
+                prefKey == PREF_DEVICE_IC_CARD
 
         val isUsbDevice = prefKey == PREF_DEVICE_OXIGENO || prefKey == PREF_DEVICE_ECG
 
@@ -460,7 +470,8 @@ class TestElementsActivity : BaseActivity() {
                     PREF_DEVICE_ECG,
                     PREF_DEVICE_AZUCAR,
                     PREF_DEVICE_ACIDO_URICO,
-                    PREF_DEVICE_COLESTEROL
+                    PREF_DEVICE_COLESTEROL,
+                    PREF_DEVICE_IC_CARD
                 )
                 var activeCount = 0
                 for (key in allKeys) {

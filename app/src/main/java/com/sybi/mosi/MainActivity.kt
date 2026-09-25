@@ -189,7 +189,7 @@ class MainActivity : BaseActivity() {
             loadLogo(imgLogo, logoPath)
         } else {
             // Logo por defecto si no hay ninguno guardado
-            imgLogo.setImageResource(R.mipmap.ic_launcher)
+            imgLogo.setImageResource(R.drawable.sybi_logo_blanco)
         }
 
         btnSettings.setOnClickListener {
@@ -326,14 +326,14 @@ class MainActivity : BaseActivity() {
             val request = ImageRequest.Builder(imageView.context)
                 .data(data)
                 .target(imageView)
-                .error(R.mipmap.ic_launcher)
-                .placeholder(R.mipmap.ic_launcher)
+                .error(R.drawable.sybi_logo_blanco)
+                .placeholder(R.drawable.sybi_logo_blanco)
                 .build()
 
             imageLoader.enqueue(request)
         } catch (e: Exception) {
             Log.e(TAG, "Error cargando logo: ${e.message}")
-            imageView.setImageResource(R.mipmap.ic_launcher)
+            imageView.setImageResource(R.drawable.sybi_logo_blanco)
         }
     }
 

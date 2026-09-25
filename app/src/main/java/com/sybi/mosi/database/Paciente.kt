@@ -9,6 +9,7 @@ data class Paciente(
     @PrimaryKey(autoGenerate = true) val id_local: Long = 0,
     val id_usuario_web: Int? = null,
     val folio: String = "",
+    val tarjetaIc: String = "",
 
     // ===== DATOS PERSONALES =====
     val nombre: String,

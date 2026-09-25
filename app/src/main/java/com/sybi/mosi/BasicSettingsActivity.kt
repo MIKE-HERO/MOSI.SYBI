@@ -454,6 +454,7 @@ class BasicSettingsActivity : BaseActivity() {
     private fun actualizarEstadoWifi() {
         try {
             val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
             if (!wifiManager.isWifiEnabled) {
                 txtWifiStatus.text = "Apagado"
@@ -463,25 +464,28 @@ class BasicSettingsActivity : BaseActivity() {
             }
 
             val wifiInfo = wifiManager.connectionInfo
-            val isConnected = wifiInfo != null && wifiInfo.networkId != -1 && wifiInfo.bssid != null
+            val isWifiConnectedByWifiManager = wifiInfo != null && wifiInfo.networkId != -1 && wifiInfo.bssid != null
 
-            if (isConnected) {
-                val ssidRaw = wifiInfo.ssid ?: ""
+            var isWifiConnectedByCM = false
+            try {
+                val activeNetwork = cm.activeNetwork
+                val caps = cm.getNetworkCapabilities(activeNetwork)
+                if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                    isWifiConnectedByCM = true
+                }
+            } catch (_: Exception) {}
+
+            if (isWifiConnectedByWifiManager || isWifiConnectedByCM) {
+                val ssidRaw = wifiInfo?.ssid ?: ""
                 val ssid = if (ssidRaw.startsWith("\"") && ssidRaw.endsWith("\"")) {
                     ssidRaw.substring(1, ssidRaw.length - 1)
                 } else ssidRaw
 
                 val networkName = if (ssid.isNotEmpty() && ssid != "<unknown ssid>") ssid else "Conectado"
 
-                if (tieneAccesoInternet()) {
-                    txtWifiStatus.text = networkName
-                    txtWifiStatus.setTextColor(Color.parseColor("#2E7D32"))
-                    imgWifiIcon.setColorFilter(Color.parseColor("#4CAF50"))
-                } else {
-                    txtWifiStatus.text = "Sin conexión"
-                    txtWifiStatus.setTextColor(Color.parseColor("#E65100"))
-                    imgWifiIcon.setColorFilter(Color.parseColor("#FF9800"))
-                }
+                txtWifiStatus.text = networkName
+                txtWifiStatus.setTextColor(Color.parseColor("#2E7D32"))
+                imgWifiIcon.setColorFilter(Color.parseColor("#4CAF50"))
             } else {
                 txtWifiStatus.text = "Sin conexión"
                 txtWifiStatus.setTextColor(Color.parseColor("#E65100"))

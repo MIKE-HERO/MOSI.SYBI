@@ -10,6 +10,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.helpers.HWFatHelper
+import com.sybi.mosi.helpers.IcCardHelper
 import com.sybi.mosi.helpers.OxigenHelper
 import com.sybi.mosi.helpers.PressureHelper
 import com.sybi.mosi.helpers.TemperHelper
@@ -45,12 +46,14 @@ class SerialService : Service() {
     private var alturaPesoPortPath: String = ""
     private var presionPortPath: String = ""
     private var temperaturaPortPath: String = ""
+    private var icCardPortPath: String = ""
 
     // Helpers
     private lateinit var hwFatHelper: HWFatHelper
     private lateinit var temperHelper: TemperHelper
     private lateinit var pressureHelper: PressureHelper
     private lateinit var oxigenHelper: OxigenHelper
+    private lateinit var icCardHelper: IcCardHelper
     private var usbOxygenManager: UsbOxygenManager? = null
 
     // ✅ Flag para saber si hay una calibración en curso
@@ -71,6 +74,7 @@ class SerialService : Service() {
         temperHelper = TemperHelper(this)
         pressureHelper = PressureHelper(this)
         oxigenHelper = OxigenHelper(this)
+        icCardHelper = IcCardHelper(this)
 
         // Inicializar USB Oxygen Manager antes de abrir puertos
         val prefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
@@ -311,6 +315,17 @@ class SerialService : Service() {
             }
         }
 
+        // Lector Tarjeta IC
+        icCardPortPath = prefs.getString("device_ic_card_port", null) ?: ""
+        if (prefs.getBoolean("device_ic_card", true) &&
+            icCardPortPath.isNotEmpty() &&
+            icCardPortPath != "No se encontraron puertos") {
+            if (openPortInternalSimple(icCardPortPath, SerialBaudConfig.get(prefs, "device_ic_card"))) {
+                activePorts.add(icCardPortPath)
+                Log.i(TAG, "✅ Puerto abierto para Lector IC: $icCardPortPath")
+            }
+        }
+
         // Oxígeno (USB)
         if (prefs.getBoolean("device_oxigeno", true)) {
             activePorts.add("USB_OXYGEN")
@@ -472,6 +487,7 @@ class SerialService : Service() {
                 }
                 presionPortPath -> pressureHelper.parseData(data)
                 temperaturaPortPath -> temperHelper.parseData(data)
+                icCardPortPath -> icCardHelper.parseData(data)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error procesando datos de $portPath: ${e.message}")

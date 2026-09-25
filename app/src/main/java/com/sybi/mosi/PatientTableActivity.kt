@@ -203,6 +203,7 @@ class PatientTableActivity : BaseActivity() {
         row.addView(cell(paciente.curp.ifEmpty { "—" }))
         row.addView(cell(paciente.telefono))
         row.addView(cell(paciente.correo.ifEmpty { "—" }))
+        row.addView(cell(paciente.tarjetaIc.ifEmpty { "—" }))
         row.addView(cell(paciente.direccion.ifEmpty { "—" }))
         row.addView(cell(paciente.fecha_registro.ifEmpty { "—" }))
         row.addView(cell(paciente.fecha_registro_global.ifEmpty { "—" }))

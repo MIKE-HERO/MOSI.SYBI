@@ -388,6 +388,31 @@
                     </LinearLayout>
                 </LinearLayout>
 
+                <!-- ✅ NÚMERO DE TARJETA IC -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="16dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Número de Tarjeta IC (10 dígitos)"
+                        android:textSize="11sp"
+                        android:textColor="#0F3E82"
+                        android:textStyle="bold"/>
+                    <EditText
+                        android:id="@+id/etRegTarjetaIc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Pase su tarjeta por el lector o ingrese los 10 dígitos..."
+                        android:inputType="number"
+                        android:maxLength="10"
+                        android:padding="8dp"
+                        android:textSize="13sp"
+                        android:background="@android:drawable/edit_text"/>
+                </LinearLayout>
+
                 <!-- ✅ GÉNERO: 2 RadioButtons -->
                 <TextView
                     android:layout_width="wrap_content"

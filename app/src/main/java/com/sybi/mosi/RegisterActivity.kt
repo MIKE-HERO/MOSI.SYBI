@@ -43,6 +43,9 @@ class RegisterActivity : BaseActivity() {
     private lateinit var etRegTelefono: EditText
     private lateinit var etRegCorreo: EditText
     private lateinit var etRegDireccion: EditText
+    private lateinit var etRegTarjetaIc: EditText
+
+    private lateinit var icCardReceiver: BroadcastReceiver
 
     // ✅ Fecha con spinners
     private lateinit var spDia: Spinner
@@ -83,6 +86,19 @@ class RegisterActivity : BaseActivity() {
         etRegTelefono = findViewById(R.id.etRegTelefono)
         etRegCorreo = findViewById(R.id.etRegCorreo)
         etRegDireccion = findViewById(R.id.etRegDireccion)
+        etRegTarjetaIc = findViewById(R.id.etRegTarjetaIc)
+
+        // ✅ Registrar receptor para lector de tarjeta IC
+        icCardReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == "DEVICE_DATA_RECEIVED" && intent.getStringExtra("type") == "IC_CARD") {
+                    val cardNumber = intent.getStringExtra("card_number") ?: return
+                    etRegTarjetaIc.setText(cardNumber)
+                    Toast.makeText(this@RegisterActivity, "Tarjeta IC leída: $cardNumber", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(icCardReceiver, IntentFilter("DEVICE_DATA_RECEIVED"))
 
         spDia = findViewById(R.id.spDia)
         spMes = findViewById(R.id.spMes)
@@ -444,6 +460,7 @@ class RegisterActivity : BaseActivity() {
         val correo = etRegCorreo.text.toString().trim().lowercase()
         val curp = etRegCurp.text.toString().trim().uppercase()
         val direccion = etRegDireccion.text.toString().trim().uppercase()
+        val tarjetaIc = etRegTarjetaIc.text.toString().trim()
         val genero = getValorGenero()
 
         val fechaRegistro = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())
@@ -459,6 +476,7 @@ class RegisterActivity : BaseActivity() {
             telefono = tel,
             correo = correo,
             direccion = direccion,
+            tarjetaIc = tarjetaIc,
             fecha_registro = fechaRegistro
         )
 
@@ -584,5 +602,12 @@ class RegisterActivity : BaseActivity() {
 
     private fun toast(msg: String) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            LocalBroadcastManager.getInstance(this).unregisterReceiver(icCardReceiver)
+        } catch (_: Exception) {}
     }
 }
