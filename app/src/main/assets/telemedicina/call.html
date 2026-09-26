@@ -125,6 +125,19 @@
             let camaras = [];
             let indiceCamara = 0;
 
+            // Cada etapa avisa a Kotlin al terminar y falla con su nombre si se queda colgada, para
+            // saber dónde se atora la conexión (registro, cámara, stream, join o publish).
+            function etapa(nombre, promesa, ms) {
+                return new Promise((resolve, reject) => {
+                    const t = setTimeout(
+                        () => reject(new Error('Tiempo agotado en la etapa "' + nombre + '"')), ms || 12000);
+                    Promise.resolve(promesa).then(
+                        (valor) => { clearTimeout(t); emit('etapa', { nombre }); resolve(valor); },
+                        (err) => { clearTimeout(t); reject(err); }
+                    );
+                });
+            }
+
             // auth = { id, token } solo si la app de apiRTC usa autenticación con token JSON
             async function start(apiKey, codigo, auth) {
                 let session;
@@ -135,7 +148,7 @@
                         registro.id = auth.id;
                         registro.token = auth.token;
                     }
-                    session = await userAgent.register(registro);
+                    session = await etapa('registro', userAgent.register(registro));
                 } catch (err) {
                     emit('error', Object.assign({ etapa: 'registro' }, describirError(err)));
                     return;
@@ -165,19 +178,24 @@
                         });
                     });
 
-                    // Pedir la cámara una vez para que enumerateDevices devuelva todas las cámaras
-                    const prueba = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                    prueba.getTracks().forEach((track) => track.stop());
-                    camaras = (await navigator.mediaDevices.enumerateDevices())
-                        .filter((d) => d.kind === 'videoinput');
-
-                    localStream = await userAgent.createStream({
+                    // Igual que el módulo Ionic de la app de pacientes: createStream directo, sin abrir y
+                    // cerrar la cámara antes (en el quiosco esa doble apertura podía dejar la captura colgada).
+                    localStream = await etapa('stream-local', userAgent.createStream({
                         constraints: { audio: true, video: true }
-                    });
+                    }));
                     localStream.attachToElement(document.getElementById('local'));
 
-                    await conversation.join();
-                    await conversation.publish(localStream);
+                    // Con el permiso ya concedido, enumerateDevices devuelve las cámaras con sus ids.
+                    // Solo sirve para el botón de cambiar cámara, así que si falla no detiene la llamada.
+                    try {
+                        camaras = (await etapa('enumerar', navigator.mediaDevices.enumerateDevices(), 4000))
+                            .filter((d) => d.kind === 'videoinput');
+                    } catch (e) {
+                        camaras = [];
+                    }
+
+                    await etapa('join', conversation.join());
+                    await etapa('publish', conversation.publish(localStream));
                     emit('joined', { camaras: camaras.length });
                 } catch (err) {
                     emit('error', Object.assign({ etapa: 'start' }, describirError(err)));
