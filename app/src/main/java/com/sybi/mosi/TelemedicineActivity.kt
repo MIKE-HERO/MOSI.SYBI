@@ -83,6 +83,9 @@ class TelemedicineActivity : BaseActivity() {
         // Si no se logra entrar a la conversación en este tiempo se ofrece reconectar
         private const val TIMEOUT_CONEXION_MS = 30_000L
 
+        // Espera máxima a que cargue la página de video (SDK) antes de iniciar la consulta
+        private const val ESPERA_MOTOR_VIDEO_MS = 10_000L
+
         // Cada cuánto se revisa en Firestore si el médico pidió el respaldo WebRTC
         private const val INTERVALO_RESPALDO_MS = 3_000L
     }
@@ -128,6 +131,8 @@ class TelemedicineActivity : BaseActivity() {
     private var inicioLlamadaMs = 0L
     private var paginaLista = false
     private var sdkDisponible = false
+    private var webViewChrome = 0
+    private var errorSdk = ""
     private var inicioPendiente = false
     private var salidaJs: CompletableDeferred<Unit>? = null
     private var reconectando = false
@@ -325,6 +330,8 @@ class TelemedicineActivity : BaseActivity() {
             "ready" -> {
                 paginaLista = true
                 sdkDisponible = datos.optBoolean("sdk")
+                webViewChrome = datos.optInt("chrome")
+                errorSdk = datos.optString("errorSdk")
                 if (inicioPendiente) iniciarVideo()
             }
             "joined" -> {
@@ -417,8 +424,33 @@ class TelemedicineActivity : BaseActivity() {
     // ==========================================
     // FLUJO DE LA CONSULTA
     // ==========================================
+    /**
+     * Antes de reservar clave, registrar la consulta y avisar al médico se comprueba que este
+     * equipo puede hacer video (el SDK de apiRTC cargó). Si no, no se molesta al médico ni se
+     * gasta una clave en una consulta que no podría conectarse.
+     */
+    private suspend fun motorDeVideoListo(): Boolean {
+        withTimeoutOrNull(ESPERA_MOTOR_VIDEO_MS) {
+            while (!paginaLista) delay(100)
+        }
+        if (paginaLista && sdkDisponible) return true
+        Log.w(TAG, "🚫 Motor de video no disponible (página=$paginaLista, sdk=$sdkDisponible, chrome=$webViewChrome, $errorSdk)")
+        mostrarEstado(Estado.ERROR, mensajeSdkNoDisponible())
+        return false
+    }
+
+    private fun mensajeSdkNoDisponible(): String =
+        if (webViewChrome in 1..79 || errorSdk.contains("SyntaxError", ignoreCase = true)) {
+            val version = if (webViewChrome > 0) " (Chrome $webViewChrome)" else ""
+            "El WebView de este equipo$version es demasiado antiguo para la videollamada. " +
+                    "Actualiza \"Android System WebView\" o el sistema del equipo."
+        } else {
+            "No se pudo cargar el servicio de video. Revisa la conexión a internet."
+        }
+
     private fun iniciarConsulta() {
         lifecycleScope.launch {
+            if (!motorDeVideoListo()) return@launch
             try {
                 val clave = api.obtenerApikey(idUsuarioWeb, idCabina)
                 if (clave is TelemedicinaApi.ApiKeyResultado.ServidorLleno) {
@@ -482,7 +514,7 @@ class TelemedicineActivity : BaseActivity() {
         }
         inicioPendiente = false
         if (!sdkDisponible) {
-            mostrarEstado(Estado.ERROR, "No se pudo cargar el servicio de video. Revisa la conexión a internet.")
+            mostrarEstado(Estado.ERROR, mensajeSdkNoDisponible())
             return
         }
         ejecutarJs(
@@ -644,6 +676,11 @@ class TelemedicineActivity : BaseActivity() {
             respaldoConectado = false
             apiRtcLiberado = false
             saliendo = false
+            if (!sdkDisponible) {
+                // El SDK no cargó (p. ej. falló la red): se vuelve a cargar la página de video
+                paginaLista = false
+                webView.reload()
+            }
             mostrarEstado(Estado.BUSCANDO)
             verificarPermisosYComenzar()
         }
