@@ -180,7 +180,7 @@ class TelemedicinaApi(telemedicinaUrl: String) {
      * publica el servidor (utils/util.php), igual que la página, vía la API REST de Firestore.
      */
     suspend fun notificarMedicoFirestore(campos: JsonObject) {
-        val config = get(paginaUrl.resolve("utils/util.php")!!)
+        val config = obtenerConfigFirebase()
         val projectId = config.get("projectId").textoONulo()
             ?: throw TelemedicinaException("Configuración de Firebase sin projectId")
         val apiKey = config.get("apiKey").textoONulo()
@@ -213,6 +213,28 @@ class TelemedicinaApi(telemedicinaUrl: String) {
         // Solo se recuerda si el commit tuvo éxito: el respaldo lee y actualiza este mismo documento
         firestoreDocumento = nombreDocumento
         firestoreApiKey = apiKey
+    }
+
+    /**
+     * La web del paciente pide la configuración de Firebase a /telemedicina/utils/util.php, pero la
+     * URL configurada en Ajustes puede apuntar a otra carpeta (p. ej. telemedicina_v2), donde ese
+     * archivo no existe (404). Se prueba primero junto a la página y luego en /telemedicina/.
+     */
+    private suspend fun obtenerConfigFirebase(): JsonObject {
+        val candidatas = listOf(
+            paginaUrl.resolve("utils/util.php")!!,
+            origen.resolve("telemedicina/utils/util.php")!!
+        ).distinct()
+        var ultimoError: TelemedicinaException? = null
+        for (url in candidatas) {
+            try {
+                val config = get(url)
+                if (config.get("projectId") != null) return config
+            } catch (e: TelemedicinaException) {
+                ultimoError = e
+            }
+        }
+        throw ultimoError ?: TelemedicinaException("Configuración de Firebase sin projectId")
     }
 
     // ==========================================

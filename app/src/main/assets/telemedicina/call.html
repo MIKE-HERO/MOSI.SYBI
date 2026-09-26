@@ -215,7 +215,7 @@
                     emit('warning', Object.assign({ etapa: 'hangup' }, describirError(err)));
                 } finally {
                     try { if (localStream) localStream.release(); } catch (e) { }
-                    try { if (userAgent) userAgent.unregister(); } catch (e) { }
+                    try { if (userAgent) Promise.resolve(userAgent.unregister()).catch(() => { }); } catch (e) { }
                     conversation = null;
                     localStream = null;
                     userAgent = null;
