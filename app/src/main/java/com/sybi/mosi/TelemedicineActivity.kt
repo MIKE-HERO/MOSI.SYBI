@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -71,8 +72,8 @@ class TelemedicineActivity : BaseActivity() {
         const val EXTRA_ID_USUARIO_WEB = "id_usuario_web"
 
         private const val REQUEST_PERMISSIONS_CODE = 100
-        private const val CALL_PAGE_URL =
-            "https://${WebViewAssetLoader.DEFAULT_DOMAIN}/assets/telemedicina/call.html"
+        private const val CALL_PAGE_PATH = "/assets/telemedicina/call.html"
+        private val IPV4 = Regex("""\d{1,3}(\.\d{1,3}){3}""")
 
         // Igual que la web: si el médico no regresa en 40 min se cierra la consulta
         private const val AUSENCIA_MEDICO_MS = 40 * 60 * 1000L
@@ -249,7 +250,17 @@ class TelemedicineActivity : BaseActivity() {
     // ==========================================
     @SuppressLint("SetJavaScriptEnabled")
     private fun configurarWebView() {
+        // apiRTC autoriza las claves por dominio de la página. Sirviendo call.html (desde los assets
+        // de la app, sin red) con el dominio de la telemedicina, apiRTC la acepta igual que a la web;
+        // con el dominio genérico del WebView responde "applicationUUID is not authorized".
+        val hostTelemedicina = Uri.parse(TelemedicineSettingsActivity.getBaseUrl(this)).let {
+            it.host.takeIf { host -> it.scheme == "https" && host != null && '.' in host && !IPV4.matches(host) }
+        }
+        val dominioVideo = hostTelemedicina ?: WebViewAssetLoader.DEFAULT_DOMAIN
+        Log.d(TAG, "🌐 Página de video servida como $dominioVideo")
+
         val assetLoader = WebViewAssetLoader.Builder()
+            .setDomain(dominioVideo)
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
 
@@ -268,13 +279,13 @@ class TelemedicineActivity : BaseActivity() {
 
             // La página de video nunca debe navegar a otro sitio
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                request.url.host != WebViewAssetLoader.DEFAULT_DOMAIN
+                request.url.host != dominioVideo
         }
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) {
                 runOnUiThread {
-                    if (request.origin.host == WebViewAssetLoader.DEFAULT_DOMAIN) {
+                    if (request.origin.host == dominioVideo) {
                         val permitidos = request.resources.filter {
                             it == PermissionRequest.RESOURCE_VIDEO_CAPTURE ||
                                     it == PermissionRequest.RESOURCE_AUDIO_CAPTURE
@@ -293,7 +304,7 @@ class TelemedicineActivity : BaseActivity() {
         }
 
         webView.addJavascriptInterface(PuenteJs(), "MosiBridge")
-        webView.loadUrl(CALL_PAGE_URL)
+        webView.loadUrl("https://$dominioVideo$CALL_PAGE_PATH")
     }
 
     private inner class PuenteJs {
@@ -829,7 +840,7 @@ class TelemedicineActivity : BaseActivity() {
                     texto = mensaje ?: "Ocurrió un error en el servidor.",
                     accion = if (reconectable) "Reconectar" else "Reintentar",
                     accionSecundaria = "Salir",
-                    alSecundaria = { if (reconectable) colgar() else salir() }
+                    alSecundaria = { salir() }
                 ) { if (reconectable) reconectar() else reintentar() }
             }
 

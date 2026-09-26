@@ -34,7 +34,10 @@ import kotlinx.coroutines.runBlocking
 
 class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
-    companion object { private const val TAG = "MeasurementActivity" }
+    companion object {
+        private const val TAG = "MeasurementActivity"
+        private const val ERROR_COLOR = "#F44336"
+    }
 
     // ── Estado y managers ─────────────────────────────────
     private val state = MeasurementState()
@@ -614,10 +617,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun repeatCurrent() {
         cancelCountdownTimer()
+        setRepeatMode(false)
         completedMeasurements.remove(currentMeasurementType)
         getAudioName(currentMeasurementType, "start")?.let { playAudio(it, forceRestart = true) }
         if (!deviceManager.isAvailableFor(currentMeasurementType)) {
             showStatusMessage("Error: no se encuentra el dispositivo", "#F44336")
+            setRepeatMode(true)
             return
         }
         when (currentMeasurementType) {
@@ -837,6 +842,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun switchTab(title: String, key: String, group: LinearLayout?) {
         cancelCountdownTimer()
         controller.cancelTimers()
+        setRepeatMode(false)
         listOf(groupAlturaPeso, groupTemperatura, groupComposicion, groupPresion,
             groupOxigeno, groupEcg, groupAzucar, groupAcidoUrico, groupColesterol)
             .forEach { it.visibility = View.GONE }
@@ -1082,6 +1088,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         if (isFinishing || isDestroyed) return
         if (!deviceManager.isAvailableFor(currentMeasurementType)) {
             showStatusMessage("Error: no se encuentra el dispositivo", "#F44336")
+            setRepeatMode(true)
         }
     }
 
@@ -1240,17 +1247,36 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     // ── Callbacks del Controller ──────────────────────────
 
-    override fun onStatusMessage(message: String, color: String) = showStatusMessage(message, color)
+    override fun onStatusMessage(message: String, color: String) {
+        showStatusMessage(message, color)
+        // El controlador reporta los fallos ("no se encuentra el dispositivo", "Error de medición...")
+        // solo como mensaje en rojo: en ese caso también se ofrece "Reintentar" arriba.
+        if (color.equals(ERROR_COLOR, ignoreCase = true)) {
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed) setRepeatMode(true)
+            }
+        }
+    }
 
     override fun onMeasurementComplete() {
         runOnUiThread {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
             showStatusMessage("Medición completada correctamente", "#4CAF50")
+            setRepeatMode(false)
             updateButtonVisibility()
             checkLastMeasurement()
             getAudioName(currentMeasurementType, "exito")?.let { playAudio(it, forceRestart = true) }
             startCountdownToNextTab()
         }
+    }
+
+    /**
+     * El botón superior derecho es "Repetir" cuando ya hay resultado y "Reintentar" cuando la
+     * medición falló (sin resultado no había forma de volver a intentarla desde la barra superior).
+     */
+    private fun setRepeatMode(error: Boolean) {
+        btnRepeat.text = if (error) "Reintentar" else "Repetir"
+        if (error) btnRepeat.visibility = View.VISIBLE
     }
 
     override fun onMeasurementError() {
@@ -1262,6 +1288,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             layoutResultadosEcg.visibility = View.GONE
             showStatusMessage("Error de medición, favor de repetir", "#F44336")
             updateButtonVisibility()
+            setRepeatMode(true)
             getAudioName(currentMeasurementType, "error")?.let { playAudio(it, forceRestart = true) }
         }
     }
