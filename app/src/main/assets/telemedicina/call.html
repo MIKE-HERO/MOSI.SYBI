@@ -52,10 +52,23 @@
             }
         }
 
+        // apiRTC a veces rechaza con objetos ({ error: Error }, { message }, ...) en lugar de Error
         function describirError(err) {
+            let actual = err;
+            while (actual && typeof actual === 'object' && !(actual instanceof Error) && actual.error) {
+                actual = actual.error;
+            }
+            let mensaje = actual && (actual.message || actual.reason);
+            if (!mensaje) {
+                try {
+                    mensaje = typeof actual === 'string' ? actual : JSON.stringify(actual);
+                } catch (e) {
+                    mensaje = String(actual);
+                }
+            }
             return {
-                nombre: (err && err.name) || '',
-                mensaje: String((err && err.message) || err)
+                nombre: (actual && actual.name) || '',
+                mensaje: String(mensaje)
             };
         }
     </script>
@@ -75,9 +88,16 @@
             let indiceCamara = 0;
 
             async function start(apiKey, codigo) {
+                let session;
                 try {
                     userAgent = new apiRTC.UserAgent({ uri: apiKey });
-                    const session = await userAgent.register({ cloudUrl: 'https://cloud.apirtc.com' });
+                    session = await userAgent.register({ cloudUrl: 'https://cloud.apirtc.com' });
+                } catch (err) {
+                    emit('error', Object.assign({ etapa: 'registro' }, describirError(err)));
+                    return;
+                }
+
+                try {
 
                     conversation = session.getOrCreateConversation(codigo);
 

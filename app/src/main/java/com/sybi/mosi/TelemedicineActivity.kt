@@ -321,10 +321,11 @@ class TelemedicineActivity : BaseActivity() {
     private fun mensajeErrorVideo(datos: JSONObject): String = when (datos.optString("nombre")) {
         "NotAllowedError" -> "Permiso denegado. Asegúrate de que la cámara y el micrófono estén habilitados."
         "NotFoundError" -> "No se encontró la cámara o el micrófono del equipo."
-        else -> if (datos.optString("etapa") == "sdk") {
-            "No se pudo cargar el servicio de video. Revisa la conexión a internet."
-        } else {
-            "Ocurrió un error en la videollamada: ${datos.optString("mensaje")}"
+        // El detalle técnico queda en el log ("Error de video"); al paciente solo un texto claro
+        else -> when (datos.optString("etapa")) {
+            "sdk" -> "No se pudo cargar el servicio de video. Revisa la conexión a internet."
+            "registro" -> "No se pudo conectar con el servicio de video. Intenta de nuevo en unos minutos."
+            else -> "Ocurrió un error en la videollamada. Intenta de nuevo en unos minutos."
         }
     }
 
