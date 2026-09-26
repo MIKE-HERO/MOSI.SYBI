@@ -51,7 +51,13 @@
                 reportar('llamada-recibida', { codigo: llamada.codigo });
 
                 const userAgent = new apiRTC.UserAgent({ uri: llamada.apikey });
-                const session = await userAgent.register({ cloudUrl: 'https://cloud.apirtc.com' });
+                const registro = { cloudUrl: 'https://cloud.apirtc.com' };
+                // Solo si la app de apiRTC usa autenticación con token JSON (el mock lo firma)
+                if (llamada.token) {
+                    registro.id = llamada.id;
+                    registro.token = llamada.token;
+                }
+                const session = await userAgent.register(registro);
                 const conversation = session.getOrCreateConversation(llamada.codigo);
 
                 conversation.on('streamListChanged', (info) => {

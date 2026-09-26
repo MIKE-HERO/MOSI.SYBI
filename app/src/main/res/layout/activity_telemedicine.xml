@@ -107,6 +107,17 @@
             android:visibility="gone" />
 
         <ImageButton
+            android:id="@+id/btnReconnect"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_marginEnd="32dp"
+            android:background="@drawable/bg_call_button_secondary"
+            android:contentDescription="Reconectar"
+            android:padding="20dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_reconnect" />
+
+        <ImageButton
             android:id="@+id/btnHangUp"
             android:layout_width="88dp"
             android:layout_height="88dp"
@@ -187,6 +198,16 @@
                     android:textColor="#FFFFFF"
                     android:textSize="15sp"
                     android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnStatusSecondary"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:textColor="#0F3E82"
+                    android:textSize="15sp"
+                    android:visibility="gone" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
     </FrameLayout>

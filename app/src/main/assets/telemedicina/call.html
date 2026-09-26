@@ -42,6 +42,39 @@
             background: #222;
             transform: scaleX(-1);
         }
+
+        /* Respaldo WebRTC: se muestra encima del video de apiRTC, que sigue de fondo */
+        #fallback {
+            position: absolute;
+            inset: 0;
+            display: none;
+            background: #000;
+        }
+
+        #fallback.activo {
+            display: block;
+        }
+
+        #fb-remote {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        #fb-local {
+            position: absolute;
+            top: 80px;
+            right: 16px;
+            width: 22%;
+            max-width: 320px;
+            aspect-ratio: 4 / 3;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            background: #222;
+            transform: scaleX(-1);
+        }
     </style>
     <script>
         function emit(tipo, datos) {
@@ -78,6 +111,11 @@
 <body>
     <div id="remote"></div>
     <video id="local" autoplay muted playsinline></video>
+    <div id="fallback">
+        <video id="fb-remote" autoplay playsinline></video>
+        <video id="fb-local" autoplay muted playsinline></video>
+    </div>
+    <script src="socket.io.min.js"></script>
 
     <script>
         const MosiCall = (() => {
@@ -87,11 +125,17 @@
             let camaras = [];
             let indiceCamara = 0;
 
-            async function start(apiKey, codigo) {
+            // auth = { id, token } solo si la app de apiRTC usa autenticación con token JSON
+            async function start(apiKey, codigo, auth) {
                 let session;
                 try {
                     userAgent = new apiRTC.UserAgent({ uri: apiKey });
-                    session = await userAgent.register({ cloudUrl: 'https://cloud.apirtc.com' });
+                    const registro = { cloudUrl: 'https://cloud.apirtc.com' };
+                    if (auth && auth.token) {
+                        registro.id = auth.id;
+                        registro.token = auth.token;
+                    }
+                    session = await userAgent.register(registro);
                 } catch (err) {
                     emit('error', Object.assign({ etapa: 'registro' }, describirError(err)));
                     return;
@@ -175,11 +219,129 @@
                     conversation = null;
                     localStream = null;
                     userAgent = null;
+                    indiceCamara = 0;
+                    // Sin esto, al reconectar quedaría el video remoto de la sesión anterior
+                    document.getElementById('remote').innerHTML = '';
                     emit('left', {});
                 }
             }
 
             return { start, switchCamera, hangup };
+        })();
+
+        /*
+         * Respaldo WebRTC (rol paciente). Réplica de telemedicina_v2/js/fallbackWebRTC-paciente.js:
+         * el paciente es quien crea la oferta y el médico responde; la señalización va por
+         * socket.io. La sala y el JWT los resuelve Kotlin (el servidor entrega las credenciales).
+         * apiRTC no se toca: sigue de fondo, igual que en la web.
+         */
+        const MosiFallback = (() => {
+            let socket = null;
+            let pc = null;
+            let stream = null;
+            let callId = '';
+            let terminado = false;
+
+            function userIdDeJwt(jwt) {
+                try {
+                    const b64 = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+                    const sub = JSON.parse(atob(b64)).sub;
+                    if (sub !== undefined && sub !== null) return String(sub);
+                } catch (e) { }
+                return '2';
+            }
+
+            function senal(payload) {
+                if (socket) socket.emit('signal', { callId, payload });
+            }
+
+            async function start(config) {
+                stop(false);
+                terminado = false;
+                callId = String(config.roomId);
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } },
+                        audio: true
+                    });
+                    document.getElementById('fb-local').srcObject = stream;
+
+                    pc = new RTCPeerConnection({ iceServers: config.iceServers });
+                    stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+
+                    const remoto = new MediaStream();
+                    const rv = document.getElementById('fb-remote');
+                    rv.srcObject = remoto;
+                    pc.ontrack = (evt) => {
+                        remoto.addTrack(evt.track);
+                        rv.play().catch(() => { });
+                    };
+                    pc.onicecandidate = (evt) => {
+                        if (evt.candidate) senal({ candidate: evt.candidate });
+                    };
+                    pc.onconnectionstatechange = () => {
+                        emit('fallback', { estado: pc ? pc.connectionState : 'closed' });
+                        if (pc && pc.connectionState === 'failed') {
+                            emit('error', { etapa: 'fallback', nombre: '', mensaje: 'La conexión de respaldo falló' });
+                        }
+                    };
+
+                    socket = io(config.socketUrl, {
+                        path: '/socket.io',
+                        transports: ['websocket'],
+                        auth: { token: config.jwt }
+                    });
+                    socket.on('connect', () => {
+                        socket.emit('join-call', { callId, userId: userIdDeJwt(config.jwt) }, () => { });
+                        emit('fallback', { estado: 'sala' });
+                    });
+                    socket.on('connect_error', (err) => {
+                        emit('error', Object.assign({ etapa: 'fallback' }, describirError(err)));
+                    });
+                    socket.on('signal', async (msg) => {
+                        const p = msg && msg.payload;
+                        if (!p || !pc) return;
+                        try {
+                            if (p.join) {
+                                const oferta = await pc.createOffer();
+                                await pc.setLocalDescription(oferta);
+                                senal({ offer: pc.localDescription });
+                            } else if (p.answer) {
+                                await pc.setRemoteDescription(p.answer);
+                            } else if (p.candidate) {
+                                await pc.addIceCandidate(p.candidate);
+                            }
+                        } catch (err) {
+                            emit('warning', Object.assign({ etapa: 'fallback-signal' }, describirError(err)));
+                        }
+                    });
+                    // Si el médico se va del respaldo, la web del paciente termina todo
+                    socket.on('leave-call', () => stop(true));
+
+                    document.getElementById('fallback').classList.add('activo');
+                } catch (err) {
+                    emit('error', Object.assign({ etapa: 'fallback' }, describirError(err)));
+                }
+            }
+
+            function stop(avisar) {
+                const habiaSesion = !!(socket || pc || stream);
+                try { if (socket) socket.disconnect(); } catch (e) { }
+                try { if (pc) pc.close(); } catch (e) { }
+                try { if (stream) stream.getTracks().forEach((t) => t.stop()); } catch (e) { }
+                socket = null;
+                pc = null;
+                stream = null;
+                document.getElementById('fallback').classList.remove('activo');
+                document.getElementById('fb-remote').srcObject = null;
+                document.getElementById('fb-local').srcObject = null;
+                if (avisar && habiaSesion && !terminado) {
+                    terminado = true;
+                    emit('fallback', { estado: 'terminado' });
+                }
+            }
+
+            return { start, stop: () => stop(false), finalizar: () => stop(true) };
         })();
 
         window.addEventListener('load', () => {

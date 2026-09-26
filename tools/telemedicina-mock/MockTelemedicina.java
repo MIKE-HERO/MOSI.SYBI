@@ -32,8 +32,13 @@ import java.util.regex.Pattern;
  */
 public class MockTelemedicina {
 
-    // Clave pública de demostración de apiRTC
-    private static final String APIKEY_DEMO = "apzkey:myDemoApiKey";
+    // Clave pública de demostración de apiRTC (ya no está autorizada). Para probar video de verdad:
+    //   APIRTC_KEY=<apikey de una app de pruebas>  (opcional) APIRTC_SECRET=<clave secreta de la
+    //   autenticación por token JSON de esa app>. Se leen del entorno; nunca se guardan en archivos.
+    private static final String APIRTC_KEY = System.getenv("APIRTC_KEY");
+    private static final String APIRTC_SECRET = System.getenv("APIRTC_SECRET");
+    private static final String APIKEY_DEMO =
+            APIRTC_KEY != null && !APIRTC_KEY.isBlank() ? "apiKey:" + APIRTC_KEY : "apzkey:myDemoApiKey";
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private static volatile String modo = "normal";
@@ -83,7 +88,8 @@ public class MockTelemedicina {
                 }
             }
             case "/__ultima-llamada" ->
-                    responder(ex, 200, "{\"codigo\":\"" + ultimoCodigo + "\",\"apikey\":\"" + APIKEY_DEMO + "\"}");
+                    responder(ex, 200, "{\"codigo\":\"" + ultimoCodigo + "\",\"apikey\":\"" + APIKEY_DEMO
+                            + "\",\"id\":\"medico-mock\",\"token\":\"" + tokenApiRtc("medico-mock") + "\"}");
             case "/__medico-estado" -> {
                 registrar("👩‍⚕️ Médico: " + cuerpo);
                 responder(ex, 200, "{}");
@@ -101,7 +107,8 @@ public class MockTelemedicina {
             case "/system/ML/obtenerApikeyMedico/API/index.php" -> {
                 if (metodo.equals("POST")) responder(ex, 200, "{\"ok\":true}");
                 else if (modo.equals("lleno")) responder(ex, 200, "{\"mensaje\":\"Servidor lleno\"}");
-                else responder(ex, 200, "{\"id_apikeyMedico\":7,\"apikey\":\"" + APIKEY_DEMO + "\"}");
+                else responder(ex, 200, "{\"id_apikeyMedico\":7,\"apikey\":\"" + APIKEY_DEMO
+                        + "\",\"apirtc_id\":\"paciente-mock\",\"apirtc_token\":\"" + tokenApiRtc("paciente-mock") + "\"}");
             }
             case "/system/ML/Notificaciones/API/medicos.php" -> {
                 if (modo.equals("espera")) responder(ex, 200, "{\"status\":404,\"data\":[]}");
@@ -109,7 +116,7 @@ public class MockTelemedicina {
                         "{\"status\":200,\"data\":[{\"id\":15,\"nombre\":\"Dra. Prueba Local\",\"id_Sucursal\":3}]}");
             }
             case "/system/ML/Notificaciones/API/logTelemedicina.php" -> responder(ex, 200, "{\"id\":42}");
-            case "/system/ML/Notificaciones/API/notificacion.php" -> {
+            case "/system/ML/Notificaciones/API/notificacion_v2.php" -> {
                 if (modo.equals("error")) {
                     responder(ex, 500, "{\"error\":\"falla simulada\"}");
                     return;
@@ -124,6 +131,27 @@ public class MockTelemedicina {
                     responder(ex, 200, "{\"data\":[{\"nombre\":\"Dra. Prueba Local\"}]}");
             case "/system/ML/Notificaciones/API/cancelarNotificacion.php" -> responder(ex, 200, "{\"ok\":true}");
             default -> responder(ex, 404, "{\"error\":\"no existe en el mock\"}");
+        }
+    }
+
+    /** JWT HS256 de apiRTC (autenticación con token JSON) o "" si no hay clave secreta configurada. */
+    private static String tokenApiRtc(String userId) {
+        if (APIRTC_KEY == null || APIRTC_SECRET == null || APIRTC_SECRET.isBlank()) return "";
+        try {
+            var b64 = java.util.Base64.getUrlEncoder().withoutPadding();
+            long ahora = System.currentTimeMillis() / 1000;
+            String cabecera = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
+            String carga = "{\"grants\":{\"apiRTC_UserAgent_Id\":\"" + userId + "\"},\"sub\":\"" + APIRTC_KEY
+                    + "\",\"aud\":\"apiRTC\",\"iat\":" + ahora + ",\"exp\":" + (ahora + 3600)
+                    + ",\"jti\":\"" + java.util.UUID.randomUUID() + "\"}";
+            String firmando = b64.encodeToString(cabecera.getBytes(StandardCharsets.UTF_8)) + "."
+                    + b64.encodeToString(carga.getBytes(StandardCharsets.UTF_8));
+            var mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(new javax.crypto.spec.SecretKeySpec(APIRTC_SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return firmando + "." + b64.encodeToString(mac.doFinal(firmando.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            registrar("💥 No se pudo firmar el token de apiRTC: " + e.getClass().getSimpleName());
+            return "";
         }
     }
 

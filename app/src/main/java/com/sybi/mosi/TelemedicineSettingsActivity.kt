@@ -46,6 +46,13 @@ class TelemedicineSettingsActivity : BaseActivity() {
             return enabled
         }
 
+        const val PREF_FALLBACK_ENABLED = "telemedicine_fallback_enabled"
+
+        /** Respaldo WebRTC del paciente; apagado por defecto hasta validarlo contra el servidor real. */
+        fun isFallbackEnabled(context: Context): Boolean =
+            context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+                .getBoolean(PREF_FALLBACK_ENABLED, false)
+
         fun getBaseUrl(context: Context): String {
             val devicePrefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
             val savedUrl = devicePrefs.getString(PREF_TELEMEDICINE_BASE_URL, DEFAULT_BASE_URL)
@@ -70,6 +77,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
 
     private lateinit var sideBar: View
     private lateinit var switchTelemedicine: Switch
+    private lateinit var switchFallback: Switch
     private lateinit var etBaseUrl: EditText
     private lateinit var etCabina: EditText
     private lateinit var etCliente: AutoCompleteTextView
@@ -120,6 +128,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
     private fun initViews() {
         sideBar = findViewById(R.id.sideBarLayout)
         switchTelemedicine = findViewById(R.id.switchTelemedicine)
+        switchFallback = findViewById(R.id.switchFallback)
         etBaseUrl = findViewById(R.id.etBaseUrl)
         etCabina = findViewById(R.id.etCabinaNumber)
         etCliente = findViewById(R.id.etCliente)
@@ -142,6 +151,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
         val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
 
         switchTelemedicine.isChecked = devicePrefs.getBoolean(PREF_TELEMEDICINE_ENABLED, false)
+        switchFallback.isChecked = devicePrefs.getBoolean(PREF_FALLBACK_ENABLED, false)
 
         val urlGuardada = devicePrefs.getString(PREF_TELEMEDICINE_BASE_URL, DEFAULT_BASE_URL)
         etBaseUrl.setText(if (!urlGuardada.isNullOrBlank()) urlGuardada else DEFAULT_BASE_URL)
@@ -300,6 +310,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
 
         devicePrefs.edit()
             .putBoolean(PREF_TELEMEDICINE_ENABLED, enabled)
+            .putBoolean(PREF_FALLBACK_ENABLED, switchFallback.isChecked)
             .putString(PREF_TELEMEDICINE_BASE_URL, rawBaseUrl)
             .putString(PREF_CABINA_NUMBER, cabina)
             .putString(PREF_CLIENTE, idClienteSeleccionado)
@@ -330,5 +341,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
     private fun applySwitchTint(originalColor: Int) {
         switchTelemedicine.thumbDrawable?.setColorFilter(originalColor, PorterDuff.Mode.SRC_ATOP)
         switchTelemedicine.trackDrawable?.setColorFilter(originalColor, PorterDuff.Mode.SRC_ATOP)
+        switchFallback.thumbDrawable?.setColorFilter(originalColor, PorterDuff.Mode.SRC_ATOP)
+        switchFallback.trackDrawable?.setColorFilter(originalColor, PorterDuff.Mode.SRC_ATOP)
     }
 }

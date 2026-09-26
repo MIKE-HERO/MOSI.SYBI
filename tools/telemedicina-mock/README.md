@@ -39,7 +39,7 @@ Antes de abrir la consulta, elige qué responderán los PHP:
 curl "http://127.0.0.1:8787/__modo?valor=normal"   # médico disponible → videollamada
 curl "http://127.0.0.1:8787/__modo?valor=lleno"    # "Servidor lleno"
 curl "http://127.0.0.1:8787/__modo?valor=espera"   # sin médico → lista de espera
-curl "http://127.0.0.1:8787/__modo?valor=error"    # notificacion.php responde 500
+curl "http://127.0.0.1:8787/__modo?valor=error"    # notificacion_v2.php responde 500
 curl "http://127.0.0.1:8787/__log"                 # peticiones que hizo la app
 ```
 

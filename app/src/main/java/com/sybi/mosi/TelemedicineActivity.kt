@@ -43,8 +43,12 @@ import com.sybi.mosi.telemedicina.TelemedicinaException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -74,6 +78,12 @@ class TelemedicineActivity : BaseActivity() {
         private const val AUSENCIA_MEDICO_MS = 40 * 60 * 1000L
         private const val ESPERA_SALIDA_JS_MS = 5000L
         private const val REGRESO_AUTOMATICO_MS = 10_000L
+
+        // Si no se logra entrar a la conversación en este tiempo se ofrece reconectar
+        private const val TIMEOUT_CONEXION_MS = 30_000L
+
+        // Cada cuánto se revisa en Firestore si el médico pidió el respaldo WebRTC
+        private const val INTERVALO_RESPALDO_MS = 3_000L
     }
 
     private lateinit var topBar: View
@@ -84,6 +94,7 @@ class TelemedicineActivity : BaseActivity() {
     private lateinit var webView: WebView
     private lateinit var callControls: LinearLayout
     private lateinit var btnSwitchCamera: ImageButton
+    private lateinit var btnReconnect: ImageButton
     private lateinit var btnHangUp: ImageButton
     private lateinit var statusOverlay: View
     private lateinit var progressStatus: ProgressBar
@@ -91,6 +102,7 @@ class TelemedicineActivity : BaseActivity() {
     private lateinit var tvStatusTitle: TextView
     private lateinit var tvStatusMessage: TextView
     private lateinit var btnStatusAction: Button
+    private lateinit var btnStatusSecondary: Button
 
     private lateinit var api: TelemedicinaApi
     private var colorReceiver: BroadcastReceiver? = null
@@ -110,12 +122,27 @@ class TelemedicineActivity : BaseActivity() {
     // Estado de la videollamada
     private var apikeyLlamada: String = ""
     private var codigoConversacion: String = ""
+    private var authApiRtc: JSONObject? = null
     private var nombreMedico: String = ""
     private var inicioLlamadaMs = 0L
     private var paginaLista = false
     private var sdkDisponible = false
     private var inicioPendiente = false
     private var salidaJs: CompletableDeferred<Unit>? = null
+    private var reconectando = false
+
+    // Respaldo WebRTC (apagado por defecto en Ajustes)
+    private var vigilanciaRespaldo: Job? = null
+    private var respaldoIniciado = false
+    private var respaldoConectado = false
+    private var apiRtcLiberado = false
+
+    private val tiempoConexion = Runnable {
+        if (estado == Estado.CONECTANDO && !saliendo) {
+            Log.w(TAG, "⏱️ No se logró entrar a la conversación en ${TIMEOUT_CONEXION_MS / 1000} s")
+            mostrarEstado(Estado.ERROR, "La conexión está tardando más de lo normal. Puedes intentar reconectar.")
+        }
+    }
 
     private val cronometro = object : Runnable {
         override fun run() {
@@ -163,6 +190,7 @@ class TelemedicineActivity : BaseActivity() {
         btnEndCall.setOnClickListener { confirmarSalida() }
         btnHangUp.setOnClickListener { confirmarSalida() }
         btnSwitchCamera.setOnClickListener { ejecutarJs("MosiCall.switchCamera()") }
+        btnReconnect.setOnClickListener { reconectar() }
 
         mostrarEstado(Estado.BUSCANDO)
         verificarPermisosYComenzar()
@@ -177,6 +205,7 @@ class TelemedicineActivity : BaseActivity() {
         webView = findViewById(R.id.callWebView)
         callControls = findViewById(R.id.callControls)
         btnSwitchCamera = findViewById(R.id.btnSwitchCamera)
+        btnReconnect = findViewById(R.id.btnReconnect)
         btnHangUp = findViewById(R.id.btnHangUp)
         statusOverlay = findViewById(R.id.statusOverlay)
         progressStatus = findViewById(R.id.progressStatus)
@@ -184,6 +213,7 @@ class TelemedicineActivity : BaseActivity() {
         tvStatusTitle = findViewById(R.id.tvStatusTitle)
         tvStatusMessage = findViewById(R.id.tvStatusMessage)
         btnStatusAction = findViewById(R.id.btnStatusAction)
+        btnStatusSecondary = findViewById(R.id.btnStatusSecondary)
     }
 
     // ==========================================
@@ -287,6 +317,7 @@ class TelemedicineActivity : BaseActivity() {
                 if (inicioPendiente) iniciarVideo()
             }
             "joined" -> {
+                handler.removeCallbacks(tiempoConexion)
                 btnSwitchCamera.visibility = if (datos.optInt("camaras") > 1) View.VISIBLE else View.GONE
                 if (estado == Estado.CONECTANDO) {
                     tvStatusMessage.text = "Esperando a que $nombreMedico se una a la llamada."
@@ -307,8 +338,15 @@ class TelemedicineActivity : BaseActivity() {
             }
             "left" -> salidaJs?.complete(Unit)
             "warning" -> Log.w(TAG, "⚠️ Aviso de video: $datos")
+            "fallback" -> manejarEventoRespaldo(datos.optString("estado"))
             "error" -> {
                 Log.e(TAG, "❌ Error de video: $datos")
+                if (datos.optString("etapa") == "fallback") {
+                    // El respaldo es un canal alterno: su falla no debe tumbar la consulta principal
+                    detenerRespaldo()
+                    respaldoFallo()
+                    return
+                }
                 if (estado == Estado.CONECTANDO || estado == Estado.EN_LLAMADA ||
                     estado == Estado.MEDICO_DESCONECTADO
                 ) {
@@ -391,6 +429,9 @@ class TelemedicineActivity : BaseActivity() {
                 nombreMedico = medico.nombre.ifBlank { "el médico" }
                 codigoConversacion = generarCodigo(6)
                 apikeyLlamada = clave.apikey
+                authApiRtc = clave.apirtcToken?.let {
+                    JSONObject().put("id", clave.apirtcId ?: "paciente-$idUsuarioWeb").put("token", it)
+                }
 
                 val campos = JsonObject().apply {
                     add("id_medico", medico.id)
@@ -415,6 +456,7 @@ class TelemedicineActivity : BaseActivity() {
                 inicioLlamadaMs = SystemClock.elapsedRealtime()
                 mostrarEstado(Estado.CONECTANDO)
                 iniciarVideo()
+                vigilarRespaldo()
             } catch (e: TelemedicinaException) {
                 Log.e(TAG, "❌ Error iniciando la consulta: ${e.message}", e)
                 mostrarEstado(Estado.ERROR, "${e.message}. Intenta de nuevo en unos minutos.")
@@ -432,7 +474,168 @@ class TelemedicineActivity : BaseActivity() {
             mostrarEstado(Estado.ERROR, "No se pudo cargar el servicio de video. Revisa la conexión a internet.")
             return
         }
-        ejecutarJs("MosiCall.start(${JSONObject.quote(apikeyLlamada)}, ${JSONObject.quote(codigoConversacion)})")
+        ejecutarJs(
+            "MosiCall.start(${JSONObject.quote(apikeyLlamada)}, ${JSONObject.quote(codigoConversacion)}, " +
+                    "${authApiRtc ?: "null"})"
+        )
+        handler.removeCallbacks(tiempoConexion)
+        handler.postDelayed(tiempoConexion, TIMEOUT_CONEXION_MS)
+    }
+
+    // ==========================================
+    // RESPALDO WebRTC (lado paciente)
+    // ==========================================
+    /**
+     * Igual que la web: el médico decide cuándo (escribe fallback_status='iniciando' en el
+     * documento de la consulta) y el paciente crea la sala. apiRTC sigue de fondo.
+     */
+    private fun vigilarRespaldo() {
+        if (!TelemedicineSettingsActivity.isFallbackEnabled(this)) return
+        vigilanciaRespaldo?.cancel()
+        vigilanciaRespaldo = lifecycleScope.launch {
+            while (isActive && !saliendo) {
+                delay(INTERVALO_RESPALDO_MS)
+                val fb = api.leerEstadoFallback() ?: continue
+                when {
+                    fb.eliminado || fb.status == "cancelado" -> {
+                        val huboRespaldo = respaldoIniciado
+                        respaldoIniciado = false
+                        detenerRespaldo()
+                        if (huboRespaldo && !respaldoConectado) respaldoFallo()
+                    }
+                    fb.status == "iniciando" && !respaldoIniciado -> iniciarRespaldo()
+                    // 'terminado' lo escribe el médico en TODO cierre; solo importa si usamos el respaldo
+                    fb.status == "terminado" && respaldoIniciado -> {
+                        detenerRespaldo()
+                        colgar()
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun iniciarRespaldo() {
+        respaldoIniciado = true
+        Log.d(TAG, "🛟 El médico pidió el respaldo WebRTC")
+        try {
+            val credenciales = api.obtenerCredencialesFallback(idUsuarioWeb)
+            val roomId = api.crearSalaFallback(credenciales)
+            api.publicarSalaFallback(roomId)
+
+            // Decisión de diseño (distinta a la web): apiRTC se libera antes de abrir el respaldo
+            // para no capturar cámara y micrófono dos veces ni mantener dos conexiones activas.
+            apiRtcLiberado = true
+            salidaJs = CompletableDeferred()
+            ejecutarJs("MosiCall.hangup()")
+            withTimeoutOrNull(ESPERA_SALIDA_JS_MS) { salidaJs?.await() }
+
+            val config = JSONObject().apply {
+                put("roomId", roomId)
+                put("socketUrl", credenciales.socketUrl)
+                put("jwt", credenciales.jwt)
+                put("iceServers", JSONArray(credenciales.iceServers.toString()))
+            }
+            ejecutarJs("MosiFallback.start($config)")
+            handler.removeCallbacks(tiempoConexion)
+            handler.postDelayed(tiempoConexion, TIMEOUT_CONEXION_MS)
+        } catch (e: TelemedicinaException) {
+            // La web solo registra la falla; aquí, si apiRTC ya se liberó, se ofrece reconectar
+            Log.e(TAG, "❌ No se pudo iniciar el respaldo: ${e.message}", e)
+            respaldoFallo()
+        }
+    }
+
+    /** El respaldo no logró conectar: si apiRTC ya se había liberado no queda canal, así que se ofrece reconectar. */
+    private fun respaldoFallo() {
+        if (apiRtcLiberado && !saliendo && llamadaActiva()) {
+            mostrarEstado(Estado.ERROR, "No se pudo establecer el canal de respaldo. Puedes intentar reconectar.")
+        }
+    }
+
+    private fun manejarEventoRespaldo(estadoRtc: String) {
+        Log.d(TAG, "🛟 Respaldo: $estadoRtc")
+        when (estadoRtc) {
+            "connected" -> {
+                respaldoConectado = true
+                btnReconnect.visibility = View.GONE
+                btnSwitchCamera.visibility = View.GONE
+                handler.removeCallbacks(tiempoConexion)
+                handler.removeCallbacks(ausenciaMedico)
+                if (!saliendo && (estado == Estado.CONECTANDO || estado == Estado.MEDICO_DESCONECTADO ||
+                            estado == Estado.ERROR)
+                ) {
+                    mostrarEstado(Estado.EN_LLAMADA)
+                    actualizarNombreMedico()
+                }
+            }
+            // El médico salió del canal de respaldo: la consulta terminó
+            "terminado" -> {
+                detenerRespaldo()
+                colgar()
+            }
+        }
+    }
+
+    private fun detenerRespaldo() {
+        respaldoConectado = false
+        btnReconnect.visibility = View.VISIBLE
+        ejecutarJs("MosiFallback.stop()")
+    }
+
+    // ==========================================
+    // RECONECTAR / REINTENTAR
+    // ==========================================
+    /** Hay una sala ya creada y notificada al médico, así que se puede volver a entrar a ella. */
+    private fun puedeReconectar() = !saliendo && idNotificacion != null &&
+            apikeyLlamada.isNotEmpty() && codigoConversacion.isNotEmpty()
+
+    /**
+     * Cierra la sesión de video y vuelve a entrar a la MISMA conversación (misma clave y código),
+     * sin crear otra notificación: el médico sigue viendo la misma consulta.
+     */
+    private fun reconectar() {
+        if (reconectando || !puedeReconectar()) return
+        reconectando = true
+        handler.removeCallbacks(tiempoConexion)
+        handler.removeCallbacks(ausenciaMedico)
+        tvDoctorName.visibility = View.GONE
+        mostrarEstado(Estado.CONECTANDO)
+        lifecycleScope.launch {
+            // Reconectar a apiRTC reemplaza al respaldo, si estaba abierto
+            ejecutarJs("MosiFallback.stop()")
+            respaldoConectado = false
+            btnReconnect.visibility = View.VISIBLE
+            salidaJs = CompletableDeferred()
+            ejecutarJs("MosiCall.hangup()")
+            withTimeoutOrNull(ESPERA_SALIDA_JS_MS) { salidaJs?.await() }
+            apiRtcLiberado = false
+            reconectando = false
+            if (!saliendo && !isDestroyed) iniciarVideo()
+        }
+    }
+
+    /** Sin sala creada: libera lo reservado y arranca el flujo completo desde cero. */
+    private fun reintentar() {
+        if (saliendo) return
+        saliendo = true
+        mostrarEstado(Estado.FINALIZANDO)
+        lifecycleScope.launch {
+            liberarRecursos()
+            idApikeyMedico = null
+            idNotificacion = null
+            idCola = null
+            apikeyLlamada = ""
+            codigoConversacion = ""
+            authApiRtc = null
+            inicioLlamadaMs = 0L
+            recursosLiberados = false
+            respaldoIniciado = false
+            respaldoConectado = false
+            apiRtcLiberado = false
+            saliendo = false
+            mostrarEstado(Estado.BUSCANDO)
+            verificarPermisosYComenzar()
+        }
     }
 
     private fun actualizarNombreMedico() {
@@ -501,6 +704,8 @@ class TelemedicineActivity : BaseActivity() {
         recursosLiberados = true
         handler.removeCallbacks(cronometro)
         handler.removeCallbacks(ausenciaMedico)
+        vigilanciaRespaldo?.cancel()
+        if (respaldoIniciado) ejecutarJs("MosiFallback.stop()")
 
         val notificacion = idNotificacion
         val apikey = idApikeyMedico
@@ -518,6 +723,8 @@ class TelemedicineActivity : BaseActivity() {
             runCatching { api.cancelarNotificacion(notificacion) }
                 .onFailure { Log.e(TAG, "❌ Error cancelando notificación: ${it.message}") }
         }
+        // Igual que la web: si la consulta no llegó a registrarse (lista de espera o falla de
+        // notificacion_v2) la clave NO se libera; la válvula de 2 h del SQL la recupera.
 
         idCola?.let { cola ->
             runCatching { api.salirListaEspera(cola) }
@@ -613,18 +820,32 @@ class TelemedicineActivity : BaseActivity() {
                 accion = "Aceptar"
             ) { irAInicio() }
 
-            Estado.ERROR -> panel(
-                cargando = false,
-                titulo = "No se pudo completar la consulta",
-                texto = mensaje ?: "Ocurrió un error en el servidor.",
-                accion = "Salir"
-            ) { salir() }
+            Estado.ERROR -> {
+                handler.removeCallbacks(tiempoConexion)
+                val reconectable = puedeReconectar()
+                panel(
+                    cargando = false,
+                    titulo = "No se pudo completar la consulta",
+                    texto = mensaje ?: "Ocurrió un error en el servidor.",
+                    accion = if (reconectable) "Reconectar" else "Reintentar",
+                    accionSecundaria = "Salir",
+                    alSecundaria = { if (reconectable) colgar() else salir() }
+                ) { if (reconectable) reconectar() else reintentar() }
+            }
 
             Estado.EN_LLAMADA, Estado.MEDICO_DESCONECTADO -> Unit
         }
     }
 
-    private fun panel(cargando: Boolean, titulo: String, texto: String, accion: String?, alPulsar: () -> Unit) {
+    private fun panel(
+        cargando: Boolean,
+        titulo: String,
+        texto: String,
+        accion: String?,
+        accionSecundaria: String? = null,
+        alSecundaria: () -> Unit = {},
+        alPulsar: () -> Unit
+    ) {
         progressStatus.visibility = if (cargando) View.VISIBLE else View.GONE
         ivStatusIcon.visibility = if (cargando) View.GONE else View.VISIBLE
         tvStatusTitle.text = titulo
@@ -632,6 +853,9 @@ class TelemedicineActivity : BaseActivity() {
         btnStatusAction.visibility = if (accion != null) View.VISIBLE else View.GONE
         btnStatusAction.text = accion.orEmpty()
         btnStatusAction.setOnClickListener { alPulsar() }
+        btnStatusSecondary.visibility = if (accionSecundaria != null) View.VISIBLE else View.GONE
+        btnStatusSecondary.text = accionSecundaria.orEmpty()
+        btnStatusSecondary.setOnClickListener { alSecundaria() }
     }
 
     // ==========================================

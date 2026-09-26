@@ -44,7 +44,16 @@ class TelemedicinaApi(telemedicinaUrl: String) {
 
     sealed class ApiKeyResultado {
         data class ServidorLleno(val mensaje: String) : ApiKeyResultado()
-        data class Asignada(val idApikeyMedico: JsonElement, val apikey: String) : ApiKeyResultado()
+        /**
+         * [apirtcId]/[apirtcToken] solo vienen si la app de apiRTC usa autenticación con token JSON;
+         * la web actual no los usa, así que normalmente son nulos.
+         */
+        data class Asignada(
+            val idApikeyMedico: JsonElement,
+            val apikey: String,
+            val apirtcId: String? = null,
+            val apirtcToken: String? = null
+        ) : ApiKeyResultado()
     }
 
     data class Medico(val datos: JsonObject) {
@@ -82,7 +91,12 @@ class TelemedicinaApi(telemedicinaUrl: String) {
 
         val apikey = resp.get("apikey").textoONulo()
             ?: throw TelemedicinaException("El servidor no asignó una clave de videollamada")
-        return ApiKeyResultado.Asignada(resp.get("id_apikeyMedico") ?: JsonNull.INSTANCE, apikey)
+        return ApiKeyResultado.Asignada(
+            resp.get("id_apikeyMedico") ?: JsonNull.INSTANCE,
+            apikey,
+            resp.get("apirtc_id").textoONulo()?.takeIf { it.isNotBlank() },
+            resp.get("apirtc_token").textoONulo()?.takeIf { it.isNotBlank() }
+        )
     }
 
     /** Libera la clave de apiRTC y registra los minutos consumidos. */
@@ -144,8 +158,12 @@ class TelemedicinaApi(telemedicinaUrl: String) {
     // ==========================================
     // NOTIFICACIÓN AL MÉDICO
     // ==========================================
+    /**
+     * Usa notificacion_v2.php, igual que la web: si el paciente ya tiene una notificación activa
+     * hoy la reutiliza en vez de insertar una fila nueva por cada intento.
+     */
     suspend fun registrarNotificacion(campos: JsonObject): Notificacion {
-        val resp = post(origen.resolve("system/ML/Notificaciones/API/notificacion.php")!!, campos, FORM)
+        val resp = post(origen.resolve("system/ML/Notificaciones/API/notificacion_v2.php")!!, campos, FORM)
         val idNotificacion = resp.get("id_notificacion")
             ?: throw TelemedicinaException("El servidor no devolvió el id de la notificación")
         return Notificacion(idNotificacion, resp.get("st_sucursal") ?: JsonNull.INSTANCE)
@@ -169,8 +187,9 @@ class TelemedicinaApi(telemedicinaUrl: String) {
             ?: throw TelemedicinaException("Configuración de Firebase sin apiKey")
 
         val raiz = "projects/$projectId/databases/(default)/documents"
+        val nombreDocumento = "$raiz/notificacionesMedicos/${generarIdDocumento()}"
         val documento = JsonObject().apply {
-            addProperty("name", "$raiz/notificacionesMedicos/${generarIdDocumento()}")
+            addProperty("name", nombreDocumento)
             add("fields", JsonObject().apply {
                 for ((clave, valor) in campos.entrySet()) add(clave, aValorFirestore(valor))
             })
@@ -191,6 +210,100 @@ class TelemedicinaApi(telemedicinaUrl: String) {
         val url = "https://firestore.googleapis.com/v1/$raiz:commit".toHttpUrl()
             .newBuilder().addQueryParameter("key", apiKey).build()
         post(url, body, JSON)
+        // Solo se recuerda si el commit tuvo éxito: el respaldo lee y actualiza este mismo documento
+        firestoreDocumento = nombreDocumento
+        firestoreApiKey = apiKey
+    }
+
+    // ==========================================
+    // RESPALDO WebRTC (lado paciente)
+    // ==========================================
+    /** Estado del respaldo en el documento de Firestore de esta consulta. [eliminado] = el médico ya lo borró. */
+    data class EstadoFallback(val status: String?, val roomId: String?, val eliminado: Boolean = false)
+
+    /** Datos que entrega el servidor para el respaldo; el JWT es del rol paciente. */
+    data class CredencialesFallback(
+        val apiBase: String,
+        val socketUrl: String,
+        val jwt: String,
+        val iceServers: JsonArray
+    )
+
+    /**
+     * Pide al servidor el token del paciente y los servidores ICE del respaldo. El servidor es
+     * quien inicia sesión con las cuentas de servicio: la app no guarda ninguna contraseña.
+     */
+    suspend fun obtenerCredencialesFallback(idUsuarioWeb: Int): CredencialesFallback {
+        val url = paginaUrl.resolve("utils/fallback_paciente.php")!!.newBuilder()
+            .addQueryParameter("id_usuarioWeb", idUsuarioWeb.toString())
+            .build()
+        val resp = get(url)
+        fun campo(nombre: String) = resp.get(nombre).textoONulo()?.takeIf { it.isNotBlank() }
+            ?: throw TelemedicinaException("Credenciales de respaldo incompletas ($nombre)")
+        return CredencialesFallback(
+            apiBase = campo("apiBase").trimEnd('/'),
+            socketUrl = campo("socketUrl"),
+            jwt = campo("jwt"),
+            iceServers = resp.get("iceServers") as? JsonArray ?: JsonArray()
+        )
+    }
+
+    /** Solo el paciente crea la sala (POST /rooms); el médico se une con /rooms/{id}/join. */
+    suspend fun crearSalaFallback(credenciales: CredencialesFallback): String {
+        val request = Request.Builder()
+            .url("${credenciales.apiBase}/rooms".toHttpUrl())
+            .header("Authorization", "Bearer ${credenciales.jwt}")
+            .post("".toRequestBody(null))
+            .build()
+        val resp = ejecutar(request)
+        // La respuesta puede ser {room:{id}} o el objeto de la sala directamente
+        val sala = resp.get("room") as? JsonObject ?: resp
+        return sala.get("id").textoONulo()
+            ?: throw TelemedicinaException("El servidor de respaldo no devolvió la sala")
+    }
+
+    private var firestoreDocumento: String? = null
+    private var firestoreApiKey: String? = null
+
+    /** Lee fallback_status / fallback_room_id del documento que creó esta consulta. */
+    suspend fun leerEstadoFallback(): EstadoFallback? {
+        val doc = firestoreDocumento ?: return null
+        val url = "https://firestore.googleapis.com/v1/$doc".toHttpUrl()
+            .newBuilder().addQueryParameter("key", firestoreApiKey).build()
+        return withContext(Dispatchers.IO) {
+            try {
+                client.newCall(Request.Builder().url(url).get().build()).execute().use { resp ->
+                    if (resp.code == 404) return@use EstadoFallback(null, null, eliminado = true)
+                    if (!resp.isSuccessful) return@use null
+                    @Suppress("DEPRECATION")
+                    val campos = (JsonParser().parse(resp.body?.string().orEmpty()) as? JsonObject)
+                        ?.get("fields") as? JsonObject
+                    fun texto(nombre: String) =
+                        ((campos?.get(nombre) as? JsonObject)?.get("stringValue")).textoONulo()
+                    EstadoFallback(texto("fallback_status"), texto("fallback_room_id"))
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ No se pudo leer el estado del respaldo: ${e.message}")
+                null
+            }
+        }
+    }
+
+    /** El paciente publica 'sala_lista' con el id de la sala, igual que la web. */
+    suspend fun publicarSalaFallback(roomId: String) {
+        val doc = firestoreDocumento ?: throw TelemedicinaException("No hay documento de Firestore")
+        val url = "https://firestore.googleapis.com/v1/$doc".toHttpUrl().newBuilder()
+            .addQueryParameter("updateMask.fieldPaths", "fallback_status")
+            .addQueryParameter("updateMask.fieldPaths", "fallback_room_id")
+            .addQueryParameter("key", firestoreApiKey)
+            .build()
+        val cuerpo = JsonObject().apply {
+            add("fields", JsonObject().apply {
+                add("fallback_status", aValorFirestore(JsonPrimitive("sala_lista")))
+                add("fallback_room_id", aValorFirestore(JsonPrimitive(roomId)))
+            })
+        }
+        ejecutar(Request.Builder().url(url).patch(cuerpo.toString().toRequestBody(JSON)).build())
     }
 
     // ==========================================
