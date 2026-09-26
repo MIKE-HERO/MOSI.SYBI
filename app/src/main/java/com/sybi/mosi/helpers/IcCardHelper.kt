@@ -15,7 +15,7 @@ class IcCardHelper(private val context: Context) {
 
     fun parseData(data: ByteArray) {
         val text = String(data, Charsets.US_ASCII)
-        Log.d(TAG, "💳 Lector IC RX bytes: ${data.joinToString(" ") { "%02X".format(it) }} | text: '${text.trim()}'")
+        Log.d(TAG, "💳 Lector IC RX text: ${text.trim()}")
 
         for (char in text) {
             if (char == '\r' || char == '\n') {
@@ -25,16 +25,13 @@ class IcCardHelper(private val context: Context) {
                     processCardCode(cardCode)
                 }
             } else {
-                // Permitir dígitos (0-9) y letras hexadecimales (A-F, a-f)
-                if (char.isLetterOrDigit()) {
-                    stringBuilder.append(char)
-                    // Si el búfer alcanza 10 o más caracteres válidos sin salto de línea, procesar también
-                    if (stringBuilder.length >= 10) {
-                        val cardCode = stringBuilder.toString().trim()
-                        if (cardCode.length in 6..20 && cardCode.all { it.isLetterOrDigit() }) {
-                            stringBuilder.clear()
-                            processCardCode(cardCode)
-                        }
+                stringBuilder.append(char)
+                // Si acumulamos 10 o más dígitos y viene sin salto de línea explícito
+                if (stringBuilder.length >= 10) {
+                    val cardCode = stringBuilder.toString().trim()
+                    if (cardCode.length == 10 && cardCode.all { it.isDigit() }) {
+                        stringBuilder.clear()
+                        processCardCode(cardCode)
                     }
                 }
             }
@@ -42,16 +39,16 @@ class IcCardHelper(private val context: Context) {
     }
 
     private fun processCardCode(code: String) {
-        val cleanCode = code.filter { it.isLetterOrDigit() }.uppercase()
-        if (cleanCode.length in 6..20) {
-            Log.d(TAG, "✅ Tarjeta IC leída correctamente: $cleanCode")
+        // Filtrar y tomar los 10 dígitos numéricos de la tarjeta
+        val cleanCode = code.filter { it.isDigit() }
+        if (cleanCode.length >= 10) {
+            val cardId = cleanCode.takeLast(10)
+            Log.d(TAG, "✅ Tarjeta IC leída correctamente: $cardId")
 
             val intent = Intent("DEVICE_DATA_RECEIVED")
             intent.putExtra("type", "IC_CARD")
-            intent.putExtra("card_number", cleanCode)
+            intent.putExtra("card_number", cardId)
             LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
-        } else {
-            Log.d(TAG, "⚠️ Código de tarjeta ignorado por longitud inválida (${cleanCode.length}): $cleanCode")
         }
     }
 

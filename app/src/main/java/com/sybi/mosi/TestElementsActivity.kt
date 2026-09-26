@@ -38,6 +38,8 @@ class TestElementsActivity : BaseActivity() {
 
         /** Marca de la línea divisoria en el selector de velocidad. */
         private const val SEPARATOR = -1
+
+
     }
 
     private val allSwitches = mutableListOf<Switch>()
@@ -74,6 +76,7 @@ class TestElementsActivity : BaseActivity() {
         val availablePorts = scanAvailablePorts()
         val container = findViewById<LinearLayout>(R.id.deviceListContainer)
         val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        DeviceDefaults.ensureDefaultPorts(devicePrefs)
 
         // --- CREAR ALTURA/PESO ---
         val alturaPesoRow = createDeviceRow("Altura / Peso", PREF_DEVICE_ALTURA_PESO, devicePrefs, availablePorts)
@@ -402,11 +405,34 @@ class TestElementsActivity : BaseActivity() {
                 1f
             )
 
-            // Cargar puerto guardado
+
+            // Cargar puerto guardado o, si no hay, el puerto por defecto del dispositivo
             val savedPort = prefs.getString("${prefKey}_port", null)
-            if (savedPort != null) {
-                val position = availablePorts.indexOf(savedPort)
-                if (position >= 0) spinnerPort?.setSelection(position)
+            val defaultPort = DeviceDefaults.DEFAULT_PORTS[prefKey]
+
+            // Preferencia: puerto guardado > puerto por defecto > primera opción disponible
+            val portToSelect = when {
+                savedPort != null && availablePorts.contains(savedPort) -> savedPort
+                defaultPort != null && availablePorts.contains(defaultPort) -> defaultPort
+                else -> null
+            }
+
+            if (portToSelect != null) {
+                val position = availablePorts.indexOf(portToSelect)
+                if (position >= 0) {
+                    spinnerPort?.setSelection(position)
+                    // Guardar el puerto por defecto la primera vez, para que quede persistido
+                    if (savedPort == null) {
+                        prefs.edit().putString("${prefKey}_port", portToSelect).apply()
+                    }
+                }
+            } else if (defaultPort != null) {
+                // El puerto por defecto no está disponible: avisar (opcional)
+                Toast.makeText(
+                    this,
+                    "Puerto por defecto $defaultPort no disponible para $deviceName",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
 
             // Guardar automáticamente cuando se selecciona un puerto

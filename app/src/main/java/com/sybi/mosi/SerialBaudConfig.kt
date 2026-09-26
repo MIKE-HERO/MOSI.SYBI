@@ -24,6 +24,9 @@ object SerialBaudConfig {
 
     fun defaultFor(deviceKey: String): Int = when (deviceKey) {
         "device_altura_peso" -> 115200
+        "device_presion" -> 115200
+        "device_temperatura" -> 600
+        "device_ic_card" -> 9600
         else -> 9600
     }
 

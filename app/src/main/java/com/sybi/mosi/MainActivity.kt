@@ -218,6 +218,9 @@ class MainActivity : BaseActivity() {
             gestureDetector.onTouchEvent(event)
             true
         }
+
+        val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        DeviceDefaults.ensureDefaultPorts(devicePrefs)
     }
 
     // ==========================================
@@ -536,4 +539,5 @@ class MainActivity : BaseActivity() {
         navAcidoUrico.visibility = if (isDeviceActive("device_acido_urico")) View.VISIBLE else View.GONE
         navColesterol.visibility = if (isDeviceActive("device_colesterol")) View.VISIBLE else View.GONE
     }
+
 }
