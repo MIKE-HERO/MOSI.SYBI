@@ -90,14 +90,27 @@ object PacienteSyncHelper {
 
     private fun parsearFechaRegistroAPI(fechaAPI: String?): String {
         if (fechaAPI.isNullOrBlank()) return ""
-        return try {
-            val formatoEntrada = SimpleDateFormat("MMM d yyyy hh:mma", Locale.US)
-            val fecha = formatoEntrada.parse(fechaAPI)
-            val formatoSalida = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-            fecha?.let { formatoSalida.format(it) } ?: ""
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parseando fecha registro: $fechaAPI", e)
-            ""
+        val formatos = listOf(
+            SimpleDateFormat("MMM d yyyy hh:mma", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US),
+            SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
+        )
+        val formatoSalida = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        for (f in formatos) {
+            try {
+                f.isLenient = true
+                val fecha = f.parse(fechaAPI)
+                if (fecha != null) {
+                    return formatoSalida.format(fecha)
+                }
+            } catch (_: Exception) {
+                // continuar
+            }
         }
+        return fechaAPI.ifBlank { "" }
     }
 }

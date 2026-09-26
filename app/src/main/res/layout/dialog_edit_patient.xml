@@ -117,6 +117,14 @@
                     android:inputType="textCapCharacters"
                     android:textSize="14sp" />
 
+                <TextView style="@style/LabelStyle" android:text="Tarjeta IC / Número de Tarjeta" />
+                <EditText
+                    android:id="@+id/etEditTarjetaIc"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:textSize="14sp" />
+
                 <TextView style="@style/LabelStyle" android:text="Dirección" />
                 <EditText
                     android:id="@+id/etEditDireccion"

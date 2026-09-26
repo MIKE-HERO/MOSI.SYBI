@@ -18,6 +18,7 @@ import com.sybi.mosi.database.AppDatabase
 import com.sybi.mosi.database.Paciente
 import com.sybi.mosi.network.UsuarioWeb
 import com.sybi.mosi.repository.PacienteRemoteRepository
+import com.sybi.mosi.repository.PacienteSyncHelper
 import kotlinx.coroutines.runBlocking
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -43,6 +44,10 @@ class RegisterActivity : BaseActivity() {
     private lateinit var etRegTelefono: EditText
     private lateinit var etRegCorreo: EditText
     private lateinit var etRegDireccion: EditText
+    private lateinit var etRegTarjetaIc: EditText
+    private lateinit var layoutTarjetaIcContainer: LinearLayout
+
+    private lateinit var icCardReceiver: BroadcastReceiver
 
     // ✅ Fecha con spinners
     private lateinit var spDia: Spinner
@@ -83,6 +88,28 @@ class RegisterActivity : BaseActivity() {
         etRegTelefono = findViewById(R.id.etRegTelefono)
         etRegCorreo = findViewById(R.id.etRegCorreo)
         etRegDireccion = findViewById(R.id.etRegDireccion)
+        etRegTarjetaIc = findViewById(R.id.etRegTarjetaIc)
+        layoutTarjetaIcContainer = findViewById(R.id.layoutTarjetaIcContainer)
+
+        val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+        val icLoginEnabled = userPrefs.getBoolean("login_ic", true)
+        if (!icLoginEnabled) {
+            layoutTarjetaIcContainer.visibility = View.GONE
+        } else {
+            layoutTarjetaIcContainer.visibility = View.VISIBLE
+        }
+
+        // ✅ Registrar receptor para lector de tarjeta IC
+        icCardReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == "DEVICE_DATA_RECEIVED" && intent.getStringExtra("type") == "IC_CARD") {
+                    val cardNumber = intent.getStringExtra("card_number") ?: return
+                    etRegTarjetaIc.setText(cardNumber)
+                    Toast.makeText(this@RegisterActivity, "Tarjeta IC leída: $cardNumber", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(icCardReceiver, IntentFilter("DEVICE_DATA_RECEIVED"))
 
         spDia = findViewById(R.id.spDia)
         spMes = findViewById(R.id.spMes)
@@ -427,6 +454,19 @@ class RegisterActivity : BaseActivity() {
 
         if (TextUtils.isEmpty(genero)) { toast("Seleccione el género"); return false }
 
+        val tel = etRegTelefono.text.toString().trim()
+        if (TextUtils.isEmpty(tel)) { toast("Ingrese el número de teléfono"); return false }
+
+        val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+        val icLoginEnabled = userPrefs.getBoolean("login_ic", true)
+        if (icLoginEnabled) {
+            val tarjetaIc = etRegTarjetaIc.text.toString().trim()
+            if (TextUtils.isEmpty(tarjetaIc)) {
+                toast("Ingrese o escanee el número de tarjeta IC")
+                return false
+            }
+        }
+
         return true
     }
 
@@ -444,6 +484,7 @@ class RegisterActivity : BaseActivity() {
         val correo = etRegCorreo.text.toString().trim().lowercase()
         val curp = etRegCurp.text.toString().trim().uppercase()
         val direccion = etRegDireccion.text.toString().trim().uppercase()
+        val tarjetaIc = etRegTarjetaIc.text.toString().trim()
         val genero = getValorGenero()
 
         val fechaRegistro = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())
@@ -459,6 +500,7 @@ class RegisterActivity : BaseActivity() {
             telefono = tel,
             correo = correo,
             direccion = direccion,
+            tarjetaIc = tarjetaIc,
             fecha_registro = fechaRegistro
         )
 
@@ -564,15 +606,28 @@ class RegisterActivity : BaseActivity() {
 
     private fun parsearFechaRegistroAPI(fechaAPI: String?): String {
         if (fechaAPI.isNullOrBlank()) return ""
-        return try {
-            val formatoEntrada = SimpleDateFormat("MMM d yyyy hh:mma", Locale.US)
-            val fecha = formatoEntrada.parse(fechaAPI)
-            val formatoSalida = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-            fecha?.let { formatoSalida.format(it) } ?: ""
-        } catch (e: Exception) {
-            Log.e("ParseFecha", "Error parseando: $fechaAPI", e)
-            ""
+        val formatos = listOf(
+            SimpleDateFormat("MMM d yyyy hh:mma", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US),
+            SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
+        )
+        val formatoSalida = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        for (f in formatos) {
+            try {
+                f.isLenient = true
+                val fecha = f.parse(fechaAPI)
+                if (fecha != null) {
+                    return formatoSalida.format(fecha)
+                }
+            } catch (_: Exception) {
+                // continuar
+            }
         }
+        return fechaAPI.ifBlank { "" }
     }
 
     private fun irALogin() {
@@ -584,5 +639,12 @@ class RegisterActivity : BaseActivity() {
 
     private fun toast(msg: String) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            LocalBroadcastManager.getInstance(this).unregisterReceiver(icCardReceiver)
+        } catch (_: Exception) {}
     }
 }

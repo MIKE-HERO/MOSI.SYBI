@@ -135,7 +135,10 @@ class LoginActivity : BaseActivity() {
         }
 
         optionIc.setOnClickListener {
-            Toast.makeText(this, "Inicio de sesión por tarjeta IC (en desarrollo)", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this, IcCardLoginActivity::class.java)
+            val sessionType = if (isMedicionSelected) "measurement" else "telemedicine"
+            intent.putExtra("session_type", sessionType)
+            startActivity(intent)
         }
 
         // ✅ Botón de invitado: va directo a mediciones sin login ni perfil

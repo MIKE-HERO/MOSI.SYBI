@@ -78,6 +78,7 @@
                     <TextView android:id="@+id/hCurp"       style="@style/CellHeader" android:text="CURP" />
                     <TextView android:id="@+id/hTelefono"   style="@style/CellHeader" android:text="Teléfono" />
                     <TextView android:id="@+id/hCorreo"     style="@style/CellHeader" android:text="Correo" />
+                    <TextView android:id="@+id/hTarjetaIc"  style="@style/CellHeader" android:text="Tarjeta IC" />
                     <TextView android:id="@+id/hDireccion"  style="@style/CellHeader" android:text="Dirección" />
                     <TextView android:id="@+id/hFecRegLocal" style="@style/CellHeader" android:text="Fec. Reg. Local" />
                     <TextView android:id="@+id/hFecRegGlobal" style="@style/CellHeader" android:text="Fec. Reg. Global" />

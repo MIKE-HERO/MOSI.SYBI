@@ -226,7 +226,7 @@ class LogoSettingsActivity : BaseActivity() {
         if (logoPath != null) {
             loadLogo(imgPreview, logoPath)
         } else {
-            imgPreview.setImageResource(R.mipmap.ic_launcher)
+            imgPreview.setImageResource(R.drawable.sybi_logo_blanco)
         }
     }
 
@@ -244,13 +244,13 @@ class LogoSettingsActivity : BaseActivity() {
             val request = ImageRequest.Builder(imageView.context)
                 .data(data)
                 .target(imageView)
-                .error(R.mipmap.ic_launcher)
-                .placeholder(R.mipmap.ic_launcher)
+                .error(R.drawable.sybi_logo_blanco)
+                .placeholder(R.drawable.sybi_logo_blanco)
                 .build()
 
             imageLoader.enqueue(request)
         } catch (e: Exception) {
-            imageView.setImageResource(R.mipmap.ic_launcher)
+            imageView.setImageResource(R.drawable.sybi_logo_blanco)
         }
     }
 

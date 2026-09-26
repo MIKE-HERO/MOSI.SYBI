@@ -24,6 +24,14 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- 🔥 NUEVO: Permiso para leer el estado del WiFi y su SSID -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- Para Android 10+ (se ignora en 7.1.2 pero no molesta) -->
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
@@ -55,7 +63,6 @@
             android:value="true" />
 
         <!-- Pantalla principal -->
-
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -71,6 +78,7 @@
         <!-- Todas las Activities internas -->
         <activity android:name=".LoginActivity" android:exported="false" />
         <activity android:name=".PhoneLoginActivity" android:exported="false" />
+        <activity android:name=".IcCardLoginActivity" android:exported="false" />
         <activity android:name=".ProfileActivity" android:exported="false" />
         <activity android:name=".MeasurementActivity" android:exported="false" />
         <activity android:name=".ResultsActivity" android:exported="false" />

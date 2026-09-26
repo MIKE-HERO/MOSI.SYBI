@@ -71,7 +71,6 @@ class DeviceInfoActivity : BaseActivity() {
     private lateinit var tvSoftwareVersion: TextView
     private lateinit var btnCheckUpdates: Button
     private lateinit var spnVersions: Spinner
-    private lateinit var etVersionTag: EditText
     private lateinit var btnInstallSelected: Button
     private lateinit var pbDownloadProgress: ProgressBar
     private lateinit var tvDownloadStatus: TextView
@@ -95,7 +94,6 @@ class DeviceInfoActivity : BaseActivity() {
         tvSoftwareVersion = findViewById(R.id.tvSoftwareVersion)
         btnCheckUpdates = findViewById(R.id.btnCheckUpdates)
         spnVersions = findViewById(R.id.spnVersions)
-        etVersionTag = findViewById(R.id.etVersionTag)
         btnInstallSelected = findViewById(R.id.btnInstallSelected)
         pbDownloadProgress = findViewById(R.id.pbDownloadProgress)
         tvDownloadStatus = findViewById(R.id.tvDownloadStatus)
@@ -138,26 +136,77 @@ class DeviceInfoActivity : BaseActivity() {
 
         // ── Botón Buscar Actualizaciones (Manual/Última) ──
         btnCheckUpdates.setOnClickListener {
-            val latestUrl = if (fetchedReleases.isNotEmpty()) {
-                fetchedReleases[0].downloadUrl
-            } else {
-                UpdateManager.LATEST_APK_URL
+            lifecycleScope.launch {
+                var releases = fetchedReleases
+                if (releases.isEmpty()) {
+                    releases = updateManager.fetchReleases()
+                    fetchedReleases = releases
+                }
+
+                if (releases.isNotEmpty()) {
+                    val latestRelease = releases[0]
+                    val pInfo = try {
+                        packageManager.getPackageInfo(packageName, 0)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error obteniendo versión de app: ${e.message}")
+                        null
+                    }
+                    val installedVersion = pInfo?.versionName?.trim()?.removePrefix("v")?.removePrefix("V") ?: ""
+                    val latestVersion = latestRelease.tagName.trim().removePrefix("v").removePrefix("V")
+
+                    if (installedVersion.isNotEmpty() && latestVersion.isNotEmpty() && installedVersion == latestVersion) {
+                        Toast.makeText(
+                            this@DeviceInfoActivity,
+                            "Ya tienes instalada la versión más reciente (${latestRelease.tagName})",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        tvDownloadStatus.visibility = View.VISIBLE
+                        tvDownloadStatus.text = "✅ Ya tienes instalada la versión más reciente (${latestRelease.tagName})."
+                        return@launch
+                    }
+
+                    startApkDownload(latestRelease.downloadUrl, "Última versión (${latestRelease.tagName})")
+                } else {
+                    startApkDownload(UpdateManager.LATEST_APK_URL, "Última versión disponible")
+                }
             }
-            startApkDownload(latestUrl, "Última versión disponible")
         }
 
-        // ── Botón Instalar versión seleccionada / Tag ──
+        // ── Botón Instalar versión seleccionada ──
         btnInstallSelected.setOnClickListener {
-            val tag = etVersionTag.text.toString().trim()
-            if (tag.isEmpty()) {
-                Toast.makeText(this, "Por favor ingrese un tag de versión válido", Toast.LENGTH_SHORT).show()
+            if (fetchedReleases.isEmpty()) {
+                Toast.makeText(this, "No hay versiones disponibles para instalar", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            val matchingRelease = fetchedReleases.find { it.tagName.equals(tag, ignoreCase = true) }
-            val downloadUrl = matchingRelease?.downloadUrl ?: updateManager.getDownloadUrlForTag(tag)
+            val position = spnVersions.selectedItemPosition
+            if (position in fetchedReleases.indices) {
+                val selected = fetchedReleases[position]
 
-            startApkDownload(downloadUrl, "Versión $tag")
+                val pInfo = try {
+                    packageManager.getPackageInfo(packageName, 0)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error obteniendo versión de app: ${e.message}")
+                    null
+                }
+                val installedVersion = pInfo?.versionName?.trim()?.removePrefix("v")?.removePrefix("V") ?: ""
+                val selectedVersion = selected.tagName.trim().removePrefix("v").removePrefix("V")
+
+                if (installedVersion.isNotEmpty() && selectedVersion.isNotEmpty() && installedVersion == selectedVersion) {
+                    Toast.makeText(
+                        this@DeviceInfoActivity,
+                        "Ya tienes instalada la versión ${selected.tagName}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    tvDownloadStatus.visibility = View.VISIBLE
+                    tvDownloadStatus.text = "✅ Ya tienes instalada la versión ${selected.tagName}."
+                    return@setOnClickListener
+                }
+
+                startApkDownload(selected.downloadUrl, "Versión ${selected.tagName}")
+            } else {
+                Toast.makeText(this, "Por favor seleccione una versión válida", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -192,19 +241,19 @@ class DeviceInfoActivity : BaseActivity() {
                 spnVersions.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                     override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                         val selected = fetchedReleases[position]
-                        etVersionTag.setText(selected.tagName)
+                        tvSoftwareVersion.text = "Versión del software: ${selected.tagName}"
                     }
 
                     override fun onNothingSelected(parent: AdapterView<*>?) {}
                 }
 
-                etVersionTag.setText(fetchedReleases[0].tagName)
+                tvSoftwareVersion.text = "Versión del software: ${fetchedReleases[0].tagName}"
             } else {
                 val defaultList = listOf("v1.0.0 (Sin conexión / Por defecto)")
                 val adapter = ArrayAdapter(this@DeviceInfoActivity, android.R.layout.simple_spinner_item, defaultList)
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 spnVersions.adapter = adapter
-                etVersionTag.setText("v1.0.0")
+                tvSoftwareVersion.text = "Versión del software: v1.0.0"
             }
         }
     }
@@ -255,7 +304,6 @@ class DeviceInfoActivity : BaseActivity() {
         btnCheckUpdates.isEnabled = !isDownloading
         btnInstallSelected.isEnabled = !isDownloading
         spnVersions.isEnabled = !isDownloading
-        etVersionTag.isEnabled = !isDownloading
 
         if (isDownloading) {
             pbDownloadProgress.visibility = View.VISIBLE

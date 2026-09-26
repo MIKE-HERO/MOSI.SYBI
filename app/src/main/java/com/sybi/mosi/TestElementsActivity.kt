@@ -34,9 +34,12 @@ class TestElementsActivity : BaseActivity() {
         const val PREF_DEVICE_AZUCAR = "device_azucar"
         const val PREF_DEVICE_ACIDO_URICO = "device_acido_urico"
         const val PREF_DEVICE_COLESTEROL = "device_colesterol"
+        const val PREF_DEVICE_IC_CARD = "device_ic_card"
 
         /** Marca de la línea divisoria en el selector de velocidad. */
         private const val SEPARATOR = -1
+
+
     }
 
     private val allSwitches = mutableListOf<Switch>()
@@ -73,6 +76,7 @@ class TestElementsActivity : BaseActivity() {
         val availablePorts = scanAvailablePorts()
         val container = findViewById<LinearLayout>(R.id.deviceListContainer)
         val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        DeviceDefaults.ensureDefaultPorts(devicePrefs)
 
         // --- CREAR ALTURA/PESO ---
         val alturaPesoRow = createDeviceRow("Altura / Peso", PREF_DEVICE_ALTURA_PESO, devicePrefs, availablePorts)
@@ -139,6 +143,14 @@ class TestElementsActivity : BaseActivity() {
         val colesterolRow = createDeviceRow("Colesterol Total", PREF_DEVICE_COLESTEROL, devicePrefs, availablePorts)
         container.addView(colesterolRow)
         configRowsMap[PREF_DEVICE_COLESTEROL] = colesterolRow
+
+        // --- LÍNEA DIVISORIA ---
+        container.addView(createDividerLine())
+
+        // --- CREAR LECTOR TARJETA IC ---
+        val icCardRow = createDeviceRow("Lector de Tarjeta IC", PREF_DEVICE_IC_CARD, devicePrefs, availablePorts)
+        container.addView(icCardRow)
+        configRowsMap[PREF_DEVICE_IC_CARD] = icCardRow
 
         val initialColor = Color.parseColor(savedColor)
         applySwitchTint(initialColor)
@@ -366,7 +378,8 @@ class TestElementsActivity : BaseActivity() {
                 prefKey == PREF_DEVICE_TEMPERATURA ||
                 prefKey == PREF_DEVICE_AZUCAR ||
                 prefKey == PREF_DEVICE_ACIDO_URICO ||
-                prefKey == PREF_DEVICE_COLESTEROL
+                prefKey == PREF_DEVICE_COLESTEROL ||
+                prefKey == PREF_DEVICE_IC_CARD
 
         val isUsbDevice = prefKey == PREF_DEVICE_OXIGENO || prefKey == PREF_DEVICE_ECG
 
@@ -392,11 +405,34 @@ class TestElementsActivity : BaseActivity() {
                 1f
             )
 
-            // Cargar puerto guardado
+
+            // Cargar puerto guardado o, si no hay, el puerto por defecto del dispositivo
             val savedPort = prefs.getString("${prefKey}_port", null)
-            if (savedPort != null) {
-                val position = availablePorts.indexOf(savedPort)
-                if (position >= 0) spinnerPort?.setSelection(position)
+            val defaultPort = DeviceDefaults.DEFAULT_PORTS[prefKey]
+
+            // Preferencia: puerto guardado > puerto por defecto > primera opción disponible
+            val portToSelect = when {
+                savedPort != null && availablePorts.contains(savedPort) -> savedPort
+                defaultPort != null && availablePorts.contains(defaultPort) -> defaultPort
+                else -> null
+            }
+
+            if (portToSelect != null) {
+                val position = availablePorts.indexOf(portToSelect)
+                if (position >= 0) {
+                    spinnerPort?.setSelection(position)
+                    // Guardar el puerto por defecto la primera vez, para que quede persistido
+                    if (savedPort == null) {
+                        prefs.edit().putString("${prefKey}_port", portToSelect).apply()
+                    }
+                }
+            } else if (defaultPort != null) {
+                // El puerto por defecto no está disponible: avisar (opcional)
+                Toast.makeText(
+                    this,
+                    "Puerto por defecto $defaultPort no disponible para $deviceName",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
 
             // Guardar automáticamente cuando se selecciona un puerto
@@ -460,7 +496,8 @@ class TestElementsActivity : BaseActivity() {
                     PREF_DEVICE_ECG,
                     PREF_DEVICE_AZUCAR,
                     PREF_DEVICE_ACIDO_URICO,
-                    PREF_DEVICE_COLESTEROL
+                    PREF_DEVICE_COLESTEROL,
+                    PREF_DEVICE_IC_CARD
                 )
                 var activeCount = 0
                 for (key in allKeys) {

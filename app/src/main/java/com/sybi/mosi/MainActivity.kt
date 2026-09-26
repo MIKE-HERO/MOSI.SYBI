@@ -189,7 +189,7 @@ class MainActivity : BaseActivity() {
             loadLogo(imgLogo, logoPath)
         } else {
             // Logo por defecto si no hay ninguno guardado
-            imgLogo.setImageResource(R.mipmap.ic_launcher)
+            imgLogo.setImageResource(R.drawable.sybi_logo_blanco)
         }
 
         btnSettings.setOnClickListener {
@@ -218,6 +218,9 @@ class MainActivity : BaseActivity() {
             gestureDetector.onTouchEvent(event)
             true
         }
+
+        val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        DeviceDefaults.ensureDefaultPorts(devicePrefs)
     }
 
     // ==========================================
@@ -326,14 +329,14 @@ class MainActivity : BaseActivity() {
             val request = ImageRequest.Builder(imageView.context)
                 .data(data)
                 .target(imageView)
-                .error(R.mipmap.ic_launcher)
-                .placeholder(R.mipmap.ic_launcher)
+                .error(R.drawable.sybi_logo_blanco)
+                .placeholder(R.drawable.sybi_logo_blanco)
                 .build()
 
             imageLoader.enqueue(request)
         } catch (e: Exception) {
             Log.e(TAG, "Error cargando logo: ${e.message}")
-            imageView.setImageResource(R.mipmap.ic_launcher)
+            imageView.setImageResource(R.drawable.sybi_logo_blanco)
         }
     }
 
@@ -536,4 +539,5 @@ class MainActivity : BaseActivity() {
         navAcidoUrico.visibility = if (isDeviceActive("device_acido_urico")) View.VISIBLE else View.GONE
         navColesterol.visibility = if (isDeviceActive("device_colesterol")) View.VISIBLE else View.GONE
     }
+
 }
