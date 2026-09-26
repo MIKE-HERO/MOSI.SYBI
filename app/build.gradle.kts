@@ -62,6 +62,8 @@ dependencies {
     implementation("com.google.android.material:material:1.9.0")
 
     implementation("androidx.browser:browser:1.6.0")
+    // WebViewAssetLoader: sirve el motor de video de telemedicina desde assets con origen https
+    implementation("androidx.webkit:webkit:1.8.0")
 
     // CameraX
     implementation("androidx.camera:camera-core:1.3.0")

@@ -11,6 +11,7 @@ import android.util.Base64
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.database.AppDatabase
@@ -90,8 +91,17 @@ class ProfileActivity : BaseActivity() {
         // --- BOTÓN ACCESO ---
         btnAccess.setOnClickListener {
             if (sessionType == "telemedicine") {
+                // Igual que en ResultsActivity: sin id_usuario_web el médico no puede atenderlo
+                if (idUsuarioWeb <= 0) {
+                    Toast.makeText(
+                        this,
+                        "Este paciente no está dado de alta en el sistema del doctor",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@setOnClickListener
+                }
                 val intent = Intent(this, TelemedicineActivity::class.java)
-                intent.putExtra("id_usuario_web", idUsuarioWeb)
+                intent.putExtra(TelemedicineActivity.EXTRA_ID_USUARIO_WEB, idUsuarioWeb)
                 startActivity(intent)
             } else {
                 val intent = Intent(this, MeasurementActivity::class.java)

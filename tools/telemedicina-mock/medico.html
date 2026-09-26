@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Médico de prueba</title>
+    <!--
+        Simula al médico para probar la videollamada de la app contra MockTelemedicina.
+        Espera la notificación que registra la app, entra a la misma conversación de apiRTC
+        y publica su cámara. Reporta cada paso al mock (/__log).
+
+        Parámetros opcionales:
+          ?colgarEn=30   el médico sale de la llamada después de N segundos
+    -->
+    <style>
+        body { font-family: sans-serif; margin: 16px; background: #111; color: #eee; }
+        #estado { margin-bottom: 12px; }
+        video { width: 45%; background: #000; margin-right: 8px; }
+    </style>
+    <script src="https://cdn.apirtc.com/apiRTC/apiRTC-latest.min.js"></script>
+</head>
+<body>
+    <h2>👩‍⚕️ Médico de prueba</h2>
+    <div id="estado">Esperando llamada de la app…</div>
+    <video id="local" autoplay muted playsinline></video>
+    <div id="remote"></div>
+
+    <script>
+        const params = new URLSearchParams(location.search);
+        const colgarEn = parseInt(params.get('colgarEn') || '0', 10);
+
+        function reportar(evento, datos) {
+            const texto = evento + (datos ? ' ' + JSON.stringify(datos) : '');
+            document.getElementById('estado').textContent = texto;
+            fetch('/__medico-estado', { method: 'POST', body: texto }).catch(() => { });
+        }
+
+        async function esperarLlamada() {
+            const previo = (await (await fetch('/__ultima-llamada')).json()).codigo;
+            reportar('esperando', { codigoPrevio: previo });
+            while (true) {
+                const actual = await (await fetch('/__ultima-llamada')).json();
+                if (actual.codigo && actual.codigo !== previo) return actual;
+                await new Promise((r) => setTimeout(r, 1000));
+            }
+        }
+
+        async function atender() {
+            try {
+                const llamada = await esperarLlamada();
+                reportar('llamada-recibida', { codigo: llamada.codigo });
+
+                const userAgent = new apiRTC.UserAgent({ uri: llamada.apikey });
+                const registro = { cloudUrl: 'https://cloud.apirtc.com' };
+                // Solo si la app de apiRTC usa autenticación con token JSON (el mock lo firma)
+                if (llamada.token) {
+                    registro.id = llamada.id;
+                    registro.token = llamada.token;
+                }
+                const session = await userAgent.register(registro);
+                const conversation = session.getOrCreateConversation(llamada.codigo);
+
+                conversation.on('streamListChanged', (info) => {
+                    if (info.listEventType === 'added' && info.isRemote === true) {
+                        conversation.subscribeToMedia(info.streamId);
+                    }
+                });
+                conversation.on('streamAdded', (stream) => {
+                    stream.addInDiv('remote', 'remote-media-' + stream.streamId, {}, false);
+                    reportar('video-paciente-recibido', { streamId: stream.streamId });
+                });
+                conversation.on('streamRemoved', (stream) => {
+                    stream.removeFromDiv('remote', 'remote-media-' + stream.streamId);
+                    reportar('paciente-salio', { streamId: stream.streamId });
+                });
+
+                const local = await userAgent.createStream({ constraints: { audio: true, video: true } });
+                local.attachToElement(document.getElementById('local'));
+                await conversation.join();
+                await conversation.publish(local);
+                reportar('medico-publicando', { codigo: llamada.codigo });
+
+                if (colgarEn > 0) {
+                    setTimeout(async () => {
+                        await conversation.leave();
+                        conversation.destroy();
+                        local.release();
+                        reportar('medico-colgo', { despuesDeSegundos: colgarEn });
+                    }, colgarEn * 1000);
+                }
+            } catch (err) {
+                let actual = err;
+                while (actual && typeof actual === 'object' && !(actual instanceof Error) && actual.error) actual = actual.error;
+                reportar('error', { nombre: actual && actual.name, mensaje: String((actual && actual.message) || JSON.stringify(actual)) });
+            }
+        }
+
+        atender();
+    </script>
+</body>
+</html>

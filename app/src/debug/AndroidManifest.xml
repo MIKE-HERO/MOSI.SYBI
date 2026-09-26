@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solo en builds debug: accesos para pruebas que no existen en release -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Abre la consulta de telemedicina sin pasar por login/registro.
+             Ver tools/telemedicina-mock/README.md para el comando de adb. -->
+        <activity
+            android:name=".DebugTelemedicineLauncherActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay" />
+    </application>
+
+</manifest>
