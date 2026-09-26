@@ -19,12 +19,16 @@ class IcCardLoginActivity : BaseActivity() {
     private lateinit var tvStatus: TextView
     private var currentColor: String = "#0F3E82"
     private lateinit var dataReceiver: BroadcastReceiver
+    private var sessionType: String = "measurement"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ic_login)
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+
+        // ✅ Guardar el session_type que viene de la activity que abrió esta pantalla
+        sessionType = intent.getStringExtra("session_type") ?: "measurement"
 
         sideBar = findViewById(R.id.sideBarLayout)
         tvStatus = findViewById(R.id.tvIcStatus)
@@ -61,7 +65,6 @@ class IcCardLoginActivity : BaseActivity() {
 
         Thread {
             runBlocking {
-                // ✅ Buscar paciente por número de tarjeta IC
                 val paciente = pacienteDao.obtenerPacientePorTarjetaIc(cardNumber)
 
                 runOnUiThread {
@@ -78,7 +81,7 @@ class IcCardLoginActivity : BaseActivity() {
                         intent.putExtra("correo", paciente.correo)
                         intent.putExtra("direccion", paciente.direccion)
 
-                        val sessionType = intent.getStringExtra("session_type") ?: "measurement"
+                        // ✅ Usar el session_type guardado al abrir esta activity
                         intent.putExtra("session_type", sessionType)
 
                         startActivity(intent)

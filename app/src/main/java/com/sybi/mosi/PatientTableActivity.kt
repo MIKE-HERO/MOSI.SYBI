@@ -45,6 +45,9 @@ class PatientTableActivity : BaseActivity() {
     private val seleccionados = mutableSetOf<Long>()
     private var currentColor: String = "#0F3E82"
 
+    private var icCardReceiver: BroadcastReceiver? = null
+    private var etEditTarjetaIc: EditText? = null
+
     // ✅ Para manejar la edición de foto
     private var idPacienteEditando: Long = 0L
     private var imgEditPreview: com.google.android.material.imageview.ShapeableImageView? = null
@@ -111,6 +114,20 @@ class PatientTableActivity : BaseActivity() {
         }
         LocalBroadcastManager.getInstance(this)
             .registerReceiver(colorReceiver, IntentFilter("ACTION_UPDATE_THEME"))
+
+        icCardReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == "DEVICE_DATA_RECEIVED" && intent.getStringExtra("type") == "IC_CARD") {
+                    val cardNumber = intent.getStringExtra("card_number") ?: return
+                    etEditTarjetaIc?.setText(cardNumber)
+                    Toast.makeText(this@PatientTableActivity, "Tarjeta IC leída: $cardNumber", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            icCardReceiver!!,
+            IntentFilter("DEVICE_DATA_RECEIVED")
+        )
 
         actualizarBotones()
         loadPatients()
@@ -373,6 +390,7 @@ class PatientTableActivity : BaseActivity() {
                 val etTel = dialog.findViewById<EditText>(R.id.etEditTelefono)
                 val etCor = dialog.findViewById<EditText>(R.id.etEditCorreo)
                 val etCurp = dialog.findViewById<EditText>(R.id.etEditCurp)
+                etEditTarjetaIc = dialog.findViewById(R.id.etEditTarjetaIc)
                 val etDir = dialog.findViewById<EditText>(R.id.etEditDireccion)
                 val btnSave = dialog.findViewById<Button>(R.id.btnSaveEdit)
                 val btnCancel = dialog.findViewById<Button>(R.id.btnCancelEdit)
@@ -392,9 +410,10 @@ class PatientTableActivity : BaseActivity() {
                 etTel.setText(p.telefono)
                 etCor.setText(p.correo)
                 etCurp.setText(p.curp)
+                etEditTarjetaIc?.setText(p.tarjetaIc)
                 etDir.setText(p.direccion)
 
-                val editTexts = listOf(etNombre, etApPaterno, etApMaterno, etTel, etCor, etCurp, etDir)
+                val editTexts = listOf(etNombre, etApPaterno, etApMaterno, etTel, etCor, etCurp, etEditTarjetaIc!!, etDir)
                 editTexts.forEach {
                     it.clearFocus()
                 }
@@ -460,6 +479,7 @@ class PatientTableActivity : BaseActivity() {
                         telefono = etTel.text.toString().trim(),
                         correo = etCor.text.toString().trim().lowercase(),
                         curp = etCurp.text.toString().trim().uppercase(),
+                        tarjetaIc = etEditTarjetaIc?.text.toString().trim() ?: p.tarjetaIc,
                         direccion = etDir.text.toString().trim().uppercase(),
                         foto = nuevaFotoBase64
                     )
@@ -486,6 +506,7 @@ class PatientTableActivity : BaseActivity() {
                     capturedBitmap = null
                     isCameraActive = false
                     currentDialog = null
+                    etEditTarjetaIc = null
                 }
 
                 dialog.show()
@@ -682,6 +703,9 @@ class PatientTableActivity : BaseActivity() {
     // ==========================================
     override fun onDestroy() {
         super.onDestroy()
+        icCardReceiver?.let {
+            LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
+        }
         cameraProvider?.unbindAll()
         cameraProvider = null
         imageCapture = null

@@ -14,9 +14,13 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.database.AppDatabase
+import com.sybi.mosi.network.RetrofitClient
 import com.google.android.material.imageview.ShapeableImageView
 import kotlinx.coroutines.runBlocking
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class ProfileActivity : BaseActivity() {
 
@@ -68,7 +72,6 @@ class ProfileActivity : BaseActivity() {
 
         // --- MOSTRAR DATOS ---
         findViewById<TextView>(R.id.tvUserName).text = "$nombre $apellidoPaterno $apellidoMaterno"
-        findViewById<TextView>(R.id.tvPatientId).text = idLocal.toString()
         findViewById<TextView>(R.id.tvPatientPhone).text = telefono
         findViewById<TextView>(R.id.tvPatientBirthDate).text = fechaNacimiento
         findViewById<TextView>(R.id.tvPatientGender).text = generoDisplay(genero)
@@ -81,7 +84,7 @@ class ProfileActivity : BaseActivity() {
         // ✅ Bloquear botón hasta tener idUsuarioWeb cargado
         btnAccess.isEnabled = false
 
-        cargarIdUsuarioWeb(idLocal) {
+        cargarDatosPacienteRoom(idLocal) {
             runOnUiThread {
                 btnAccess.isEnabled = true
             }
@@ -112,11 +115,11 @@ class ProfileActivity : BaseActivity() {
     }
 
     /**
-     * ✅ Carga el id_usuario_web del paciente desde Room.
+     * ✅ Carga los datos del paciente desde Room (id_usuario_web y fecha_ultima_medicion).
      */
-    private fun cargarIdUsuarioWeb(idLocal: Long, onComplete: () -> Unit) {
+    private fun cargarDatosPacienteRoom(idLocal: Long, onComplete: () -> Unit) {
         if (idLocal == 0L) {
-            android.util.Log.w("ProfileActivity", "⚠️ idLocal=0, no se puede cargar idUsuarioWeb")
+            android.util.Log.w("ProfileActivity", "⚠️ idLocal=0, no se puede cargar datos")
             onComplete()
             return
         }
@@ -127,11 +130,27 @@ class ProfileActivity : BaseActivity() {
                     val db = AppDatabase.getInstance(this@ProfileActivity)
                     val p = db.pacienteDao().obtenerPacientePorIdLocal(idLocal)
                     idUsuarioWeb = p?.id_usuario_web ?: 0
+
+                    // Consultar última medición localmente en la base de datos de resultados
+                    val resultados = db.resultadoDao().obtenerResultadosPorIdLocal(idLocal)
+                    val ultimaMedicion = resultados.firstOrNull()?.fecha_medicion ?: ""
+
                     android.util.Log.d("ProfileActivity",
-                        "📥 id_usuario_web cargado desde Room: $idUsuarioWeb")
+                        "📥 Paciente cargado desde Room: idUsuarioWeb=$idUsuarioWeb, ultimaMedicion=$ultimaMedicion")
+
+                    runOnUiThread {
+                        findViewById<TextView>(R.id.tvLastMeasurementDate).text = if (ultimaMedicion.isNotBlank()) {
+                            ultimaMedicion
+                        } else {
+                            "Sin mediciones previas"
+                        }
+                    }
                 } catch (e: Exception) {
                     android.util.Log.e("ProfileActivity",
-                        "❌ Error cargando id_usuario_web: ${e.message}", e)
+                        "❌ Error cargando datos de paciente: ${e.message}", e)
+                    runOnUiThread {
+                        findViewById<TextView>(R.id.tvLastMeasurementDate).text = "Sin mediciones previas"
+                    }
                 } finally {
                     onComplete()
                 }

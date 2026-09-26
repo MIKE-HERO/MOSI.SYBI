@@ -26,6 +26,7 @@ import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.database.AppDatabase
 import com.sybi.mosi.repository.PacienteRemoteRepository
+import com.sybi.mosi.repository.PacienteSyncHelper
 import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
@@ -369,15 +370,28 @@ class FaceRegistrationActivity : BaseActivity() {
 
     private fun parsearFechaRegistroAPI(fechaAPI: String?): String {
         if (fechaAPI.isNullOrBlank()) return ""
-        return try {
-            val formatoEntrada = java.text.SimpleDateFormat("MMM d yyyy hh:mma", java.util.Locale.US)
-            val fecha = formatoEntrada.parse(fechaAPI)
-            val formatoSalida = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
-            fecha?.let { formatoSalida.format(it) } ?: ""
-        } catch (e: Exception) {
-            android.util.Log.e("ParseFecha", "Error parseando: $fechaAPI", e)
-            ""
+        val formatos = listOf(
+            SimpleDateFormat("MMM d yyyy hh:mma", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US),
+            SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.US)
+        )
+        val formatoSalida = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        for (f in formatos) {
+            try {
+                f.isLenient = true
+                val fecha = f.parse(fechaAPI)
+                if (fecha != null) {
+                    return formatoSalida.format(fecha)
+                }
+            } catch (_: Exception) {
+                // continuar
+            }
         }
+        return fechaAPI.ifBlank { "" }
     }
 
     private fun bitmapToBase64(bitmap: Bitmap): String {

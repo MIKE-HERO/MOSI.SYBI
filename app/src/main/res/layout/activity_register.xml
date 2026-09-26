@@ -349,7 +349,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Teléfono"
+                            android:text="Teléfono*"
                             android:textSize="11sp"
                             android:textColor="#555555"
                             android:textStyle="bold"/>
@@ -372,7 +372,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Correo (opcional)"
+                            android:text="Correo"
                             android:textSize="11sp"
                             android:textColor="#555555"
                             android:textStyle="bold"/>
@@ -390,6 +390,7 @@
 
                 <!-- ✅ NÚMERO DE TARJETA IC -->
                 <LinearLayout
+                    android:id="@+id/layoutTarjetaIcContainer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"

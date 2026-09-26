@@ -68,11 +68,11 @@ open class BaseActivity : AppCompatActivity() {
     }
 
     /**
-     * Reinicia el temporizador de inactividad del teclado (5 segundos).
+     * Reinicia el temporizador de inactividad del teclado (3 segundos).
      */
     fun resetKeyboardInactivityTimer() {
         keyboardHandler.removeCallbacks(hideKeyboardRunnable)
-        keyboardHandler.postDelayed(hideKeyboardRunnable, 5000)
+        keyboardHandler.postDelayed(hideKeyboardRunnable, 2000)
     }
 
     /**

@@ -78,6 +78,7 @@
         <!-- Todas las Activities internas -->
         <activity android:name=".LoginActivity" android:exported="false" />
         <activity android:name=".PhoneLoginActivity" android:exported="false" />
+        <activity android:name=".IcCardLoginActivity" android:exported="false" />
         <activity android:name=".ProfileActivity" android:exported="false" />
         <activity android:name=".MeasurementActivity" android:exported="false" />
         <activity android:name=".ResultsActivity" android:exported="false" />
