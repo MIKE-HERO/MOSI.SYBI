@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Videollamada MOSI</title>
+    <!--
+        Motor de video de la consulta de telemedicina.
+        Solo maneja audio/video con apiRTC; toda la interfaz y el flujo con el servidor
+        viven en TelemedicineActivity. Se comunica con Kotlin a través de window.MosiBridge.
+    -->
+    <style>
+        html, body {
+            margin: 0;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #remote {
+            position: absolute;
+            inset: 0;
+        }
+
+        #remote video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        #local {
+            position: absolute;
+            top: 80px;
+            right: 16px;
+            width: 22%;
+            max-width: 320px;
+            aspect-ratio: 4 / 3;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            background: #222;
+            transform: scaleX(-1);
+        }
+    </style>
+    <script>
+        function emit(tipo, datos) {
+            try {
+                window.MosiBridge.onEvent(tipo, JSON.stringify(datos || {}));
+            } catch (e) {
+                console.error('MosiBridge no disponible', e);
+            }
+        }
+
+        function describirError(err) {
+            return {
+                nombre: (err && err.name) || '',
+                mensaje: String((err && err.message) || err)
+            };
+        }
+    </script>
+    <script src="https://cdn.apirtc.com/apiRTC/apiRTC-latest.min.js"
+            onerror="emit('error', { etapa: 'sdk', mensaje: 'No se pudo cargar apiRTC' })"></script>
+</head>
+<body>
+    <div id="remote"></div>
+    <video id="local" autoplay muted playsinline></video>
+
+    <script>
+        const MosiCall = (() => {
+            let userAgent = null;
+            let conversation = null;
+            let localStream = null;
+            let camaras = [];
+            let indiceCamara = 0;
+
+            async function start(apiKey, codigo) {
+                try {
+                    userAgent = new apiRTC.UserAgent({ uri: apiKey });
+                    const session = await userAgent.register({ cloudUrl: 'https://cloud.apirtc.com' });
+
+                    conversation = session.getOrCreateConversation(codigo);
+
+                    conversation.on('streamListChanged', (info) => {
+                        if (info.listEventType === 'added' && info.isRemote === true) {
+                            conversation.subscribeToMedia(info.streamId)
+                                .catch((err) => emit('warning', Object.assign({ etapa: 'subscribe' }, describirError(err))));
+                        }
+                    });
+
+                    conversation.on('streamAdded', (stream) => {
+                        stream.addInDiv('remote', 'remote-media-' + stream.streamId, {}, false);
+                        emit('remoteAdded', { streamId: stream.streamId });
+                    });
+
+                    conversation.on('streamRemoved', (stream) => {
+                        stream.removeFromDiv('remote', 'remote-media-' + stream.streamId);
+                        emit('remoteRemoved', {
+                            streamId: stream.streamId,
+                            restantes: document.getElementById('remote').children.length
+                        });
+                    });
+
+                    // Pedir la cámara una vez para que enumerateDevices devuelva todas las cámaras
+                    const prueba = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    prueba.getTracks().forEach((track) => track.stop());
+                    camaras = (await navigator.mediaDevices.enumerateDevices())
+                        .filter((d) => d.kind === 'videoinput');
+
+                    localStream = await userAgent.createStream({
+                        constraints: { audio: true, video: true }
+                    });
+                    localStream.attachToElement(document.getElementById('local'));
+
+                    await conversation.join();
+                    await conversation.publish(localStream);
+                    emit('joined', { camaras: camaras.length });
+                } catch (err) {
+                    emit('error', Object.assign({ etapa: 'start' }, describirError(err)));
+                }
+            }
+
+            async function switchCamera() {
+                if (!conversation || camaras.length < 2) return;
+
+                indiceCamara = (indiceCamara + 1) % camaras.length;
+                try {
+                    conversation.unpublish(localStream);
+                    localStream.release();
+
+                    localStream = await userAgent.createStream({
+                        constraints: {
+                            audio: true,
+                            video: { deviceId: { exact: camaras[indiceCamara].deviceId } }
+                        }
+                    });
+                    localStream.attachToElement(document.getElementById('local'));
+                    await conversation.publish(localStream);
+                } catch (err) {
+                    emit('warning', Object.assign({ etapa: 'switchCamera' }, describirError(err)));
+                }
+            }
+
+            async function hangup() {
+                try {
+                    if (conversation) {
+                        await conversation.leave();
+                        conversation.destroy();
+                    }
+                } catch (err) {
+                    emit('warning', Object.assign({ etapa: 'hangup' }, describirError(err)));
+                } finally {
+                    try { if (localStream) localStream.release(); } catch (e) { }
+                    try { if (userAgent) userAgent.unregister(); } catch (e) { }
+                    conversation = null;
+                    localStream = null;
+                    userAgent = null;
+                    emit('left', {});
+                }
+            }
+
+            return { start, switchCamera, hangup };
+        })();
+
+        window.addEventListener('load', () => {
+            emit('ready', { sdk: typeof apiRTC !== 'undefined' });
+        });
+    </script>
+</body>
+</html>
