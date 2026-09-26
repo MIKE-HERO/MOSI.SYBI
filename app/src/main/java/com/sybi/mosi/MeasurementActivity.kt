@@ -1444,12 +1444,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         updateButtonVisibility()
         checkLastMeasurement()
         if (VideoLoopRemote.isMeasurementMuteEnabled(this)) {
-            lifecycleScope.launch {
-                val ok = VideoLoopRemote.setMuted(this@MeasurementActivity, true)
-                if (!ok) {
-                    Log.w(TAG, "No se pudo silenciar el video en " +
-                            VideoLoopRemote.getSavedHostPort(this@MeasurementActivity))
-                }
+            // Solo se silencia si el usuario tenía VideoLoop con sonido; si lo silenció, se respeta
+            val appContext = applicationContext
+            CoroutineScope(Dispatchers.IO).launch {
+                VideoLoopRemote.silenciarMientras(appContext, TAG)
             }
         }
     }
@@ -1490,12 +1488,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         try { LocalBroadcastManager.getInstance(this).unregisterReceiver(waveReceiver) } catch (_: Exception) {}
         if (VideoLoopRemote.isMeasurementMuteEnabled(this)) {
             val appContext = applicationContext
+            // Devuelve el audio solo si lo silenció la app; si el usuario lo había silenciado, sigue así
             CoroutineScope(Dispatchers.IO).launch {
-                val ok = VideoLoopRemote.setMuted(appContext, false)
-                if (!ok) {
-                    Log.w(TAG, "No se pudo reactivar el audio en " +
-                            VideoLoopRemote.getSavedHostPort(appContext))
-                }
+                VideoLoopRemote.restaurarSilencio(appContext, TAG)
             }
         }
     }

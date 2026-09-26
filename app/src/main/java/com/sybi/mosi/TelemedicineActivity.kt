@@ -8,6 +8,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.hardware.camera2.CameraManager
+import android.hardware.usb.UsbConstants
+import android.hardware.usb.UsbManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -334,6 +337,16 @@ class TelemedicineActivity : BaseActivity() {
                 errorSdk = datos.optString("errorSdk")
                 if (inicioPendiente) iniciarVideo()
             }
+            // Avance del video en pantalla: así se ve en qué paso se detiene sin revisar el log
+            "etapa" -> if (estado == Estado.CONECTANDO) {
+                tvStatusMessage.text = when (datos.optString("nombre")) {
+                    "registro" -> "Conectado al servicio de video. Abriendo la cámara y el micrófono…"
+                    "stream-local" -> "Cámara abierta. Entrando a la sala con $nombreMedico…"
+                    "enumerar" -> "Cámara abierta. Entrando a la sala con $nombreMedico…"
+                    "join" -> "En la sala. Enviando tu video…"
+                    else -> tvStatusMessage.text.toString()
+                }
+            }
             "joined" -> {
                 handler.removeCallbacks(tiempoConexion)
                 btnSwitchCamera.visibility = if (datos.optInt("camaras") > 1) View.VISIBLE else View.GONE
@@ -377,8 +390,12 @@ class TelemedicineActivity : BaseActivity() {
     private fun mensajeErrorVideo(datos: JSONObject): String = when (datos.optString("nombre")) {
         "NotAllowedError" -> "Permiso denegado. Asegúrate de que la cámara y el micrófono estén habilitados."
         "NotFoundError" -> "No se encontró la cámara o el micrófono del equipo."
+        "NotReadableError" -> "La cámara está siendo usada por otra aplicación o no responde. Desconéctala, vuelve a conectarla y presiona Reconectar."
         // El detalle técnico queda en el log ("Error de video"); al paciente solo un texto claro
-        else -> when (datos.optString("etapa")) {
+        else -> if (datos.optString("mensaje").contains("stream-local")) {
+            // La captura de la cámara no respondió a tiempo: casi siempre es la cámara (USB) desconectada
+            "No se pudo abrir la cámara. Revisa que la cámara USB esté conectada y presiona Reconectar."
+        } else when (datos.optString("etapa")) {
             "sdk" -> "No se pudo cargar el servicio de video. Revisa la conexión a internet."
             "registro" -> "No se pudo conectar con el servicio de video. Intenta de nuevo en unos minutos."
             else -> "Ocurrió un error en la videollamada. Intenta de nuevo en unos minutos."
@@ -448,8 +465,40 @@ class TelemedicineActivity : BaseActivity() {
             "No se pudo cargar el servicio de video. Revisa la conexión a internet."
         }
 
+    /**
+     * Sin cámara no hay videollamada: antes de reservar clave y avisar al médico se comprueba que
+     * Android ve una cámara (incluida una USB/externa). Si la cámara USB está conectada pero el
+     * equipo no la expone como cámara, se avisa aparte porque no es un problema de conexión.
+     */
+    private fun camaraDisponible(): Boolean {
+        val hay = runCatching {
+            (getSystemService(Context.CAMERA_SERVICE) as CameraManager).cameraIdList.isNotEmpty()
+        }.getOrDefault(true)
+        if (hay) return true
+
+        val usbVideo = runCatching {
+            (getSystemService(Context.USB_SERVICE) as UsbManager).deviceList.values.any { dispositivo ->
+                dispositivo.deviceClass == UsbConstants.USB_CLASS_VIDEO ||
+                        (0 until dispositivo.interfaceCount).any {
+                            dispositivo.getInterface(it).interfaceClass == UsbConstants.USB_CLASS_VIDEO
+                        }
+            }
+        }.getOrDefault(false)
+        Log.w(TAG, "🚫 Sin cámara para la videollamada (usbVideoConectado=$usbVideo)")
+        mostrarEstado(
+            Estado.ERROR,
+            if (usbVideo) {
+                "Hay una cámara USB conectada, pero este equipo no la reconoce como cámara para videollamadas."
+            } else {
+                "No se detectó ninguna cámara. Conecta la cámara USB y presiona Reintentar."
+            }
+        )
+        return false
+    }
+
     private fun iniciarConsulta() {
         lifecycleScope.launch {
+            if (!camaraDisponible()) return@launch
             if (!motorDeVideoListo()) return@launch
             try {
                 val clave = api.obtenerApikey(idUsuarioWeb, idCabina)
@@ -836,7 +885,7 @@ class TelemedicineActivity : BaseActivity() {
             Estado.CONECTANDO -> panel(
                 cargando = true,
                 titulo = "Conectando con $nombreMedico",
-                texto = "Preparando la cámara y el micrófono…",
+                texto = "Conectando con el servicio de video…",
                 accion = "Cancelar consulta"
             ) { colgar() }
 
@@ -911,12 +960,10 @@ class TelemedicineActivity : BaseActivity() {
     // ==========================================
     override fun onResume() {
         super.onResume()
-        lifecycleScope.launch {
-            val ok = VideoLoopRemote.setMuted(this@TelemedicineActivity, true)
-            if (!ok) {
-                Log.w(TAG, "No se pudo silenciar el video en " +
-                        VideoLoopRemote.getSavedHostPort(this@TelemedicineActivity))
-            }
+        // Se silencia VideoLoop solo si el usuario lo tenía con sonido (ver VideoLoopRemote.silenciarMientras)
+        val appContext = applicationContext
+        CoroutineScope(Dispatchers.IO).launch {
+            VideoLoopRemote.silenciarMientras(appContext, TAG)
         }
     }
 
@@ -937,8 +984,9 @@ class TelemedicineActivity : BaseActivity() {
         super.onDestroy()
 
         val appContext = applicationContext
+        // Devuelve el audio solo si lo silenció la app; si el usuario lo había silenciado, sigue así
         CoroutineScope(Dispatchers.IO).launch {
-            VideoLoopRemote.setMuted(appContext, false)
+            VideoLoopRemote.restaurarSilencio(appContext, TAG)
         }
     }
 }

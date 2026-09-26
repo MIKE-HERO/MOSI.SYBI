@@ -19,6 +19,8 @@ import java.net.URLEncoder
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
@@ -171,6 +173,68 @@ object VideoLoopRemote {
     /** Silencia (true) o reactiva (false) el audio de VideoLoop, devolviendo el estado o el error. */
     suspend fun sendMuted(context: Context, muted: Boolean): Result = withAutoDiscovery(context) { host, port ->
         send("POST", host, port, "/audio", "{\"muted\":$muted}", getSavedKey(context))
+    }
+
+    // ==========================================
+    // SILENCIO TEMPORAL (consulta / medición) RESPETANDO AL USUARIO
+    // ==========================================
+
+    private const val PREF_SILENCIADO_POR_APP = "videoloop_silenciado_por_app"
+    private val silencioMutex = Mutex()
+    private val pantallasQueSilencian = mutableSetOf<String>()
+    private var silenciadoPorApp = false
+
+    /**
+     * Silencia VideoLoop mientras [pantalla] (consulta o medición) está abierta, pero solo si el
+     * usuario lo tenía con sonido. Si ya estaba en silencio (lo silenció la persona) no se toca, y
+     * al terminar tampoco se reactiva: permanece en silencio hasta que el usuario active el audio;
+     * a partir de ahí vuelve a silenciarse durante las consultas.
+     *
+     * Se puede llamar varias veces por pantalla (p. ej. en cada onResume); cada pantalla cuenta una vez.
+     */
+    suspend fun silenciarMientras(context: Context, pantalla: String): Boolean = silencioMutex.withLock {
+        val yaSilencian = pantallasQueSilencian.isNotEmpty()
+        pantallasQueSilencian.add(pantalla)
+        if (yaSilencian) return@withLock true   // otra pantalla ya resolvió el estado del usuario
+
+        val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val estado = getStatus(context).status ?: getStatus(context).status
+        if (estado == null) {
+            // Sin poder leer el estado no se adivina: si la red falla, tampoco llegaría la orden
+            Log.w(TAG, "No se pudo leer el estado de VideoLoop; no se cambia el silencio")
+            pantallasQueSilencian.remove(pantalla)
+            return@withLock false
+        }
+        if (estado.muted) {
+            // Silenciado por el usuario, salvo que sea una marca nuestra de una sesión que no alcanzó a restaurar
+            silenciadoPorApp = prefs.getBoolean(PREF_SILENCIADO_POR_APP, false)
+            return@withLock true
+        }
+        val ok = sendMuted(context, true).ok
+        silenciadoPorApp = ok
+        prefs.edit().putBoolean(PREF_SILENCIADO_POR_APP, ok).apply()
+        if (!ok) pantallasQueSilencian.remove(pantalla)
+        ok
+    }
+
+    /**
+     * Devuelve el audio solo si lo silenciamos nosotros y la última pantalla que silenciaba se cerró.
+     * Si el usuario cambió el silencio mientras tanto, se respeta lo que dejó.
+     */
+    suspend fun restaurarSilencio(context: Context, pantalla: String) = silencioMutex.withLock {
+        if (!pantallasQueSilencian.remove(pantalla) || pantallasQueSilencian.isNotEmpty()) return@withLock
+        if (!silenciadoPorApp) return@withLock
+
+        val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val estado = getStatus(context).status
+        // Si ya está con sonido, el usuario lo activó durante la consulta: no hay nada que devolver
+        val ok = if (estado != null && !estado.muted) true else sendMuted(context, false).ok
+        if (ok) {
+            silenciadoPorApp = false
+            prefs.edit().putBoolean(PREF_SILENCIADO_POR_APP, false).apply()
+        } else {
+            Log.w(TAG, "No se pudo reactivar el audio en ${getSavedHostPort(context)}")
+        }
     }
 
     /** Volumen del reproductor de VideoLoop, 0–100 (independiente del silencio). */
