@@ -89,8 +89,11 @@ class TelemedicineActivity : BaseActivity() {
         // Espera máxima a que cargue la página de video (SDK) antes de iniciar la consulta
         private const val ESPERA_MOTOR_VIDEO_MS = 10_000L
 
-        // Cada cuánto se revisa en Firestore si el médico pidió el respaldo WebRTC
+        // Cada cuánto se revisa en Firestore si el médico pidió el respaldo WebRTC. Con la llamada
+        // ya establecida hay menos urgencia, así que se espacía para no gastar lecturas/batería
+        // de más durante minutos de consulta en los que apiRTC funciona bien.
         private const val INTERVALO_RESPALDO_MS = 3_000L
+        private const val INTERVALO_RESPALDO_ESTABLE_MS = 12_000L
     }
 
     private lateinit var topBar: View
@@ -552,6 +555,14 @@ class TelemedicineActivity : BaseActivity() {
             } catch (e: TelemedicinaException) {
                 Log.e(TAG, "❌ Error iniciando la consulta: ${e.message}", e)
                 mostrarEstado(Estado.ERROR, "${e.message}. Intenta de nuevo en unos minutos.")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e // la pantalla se está cerrando; no es un error que mostrar
+            } catch (e: Exception) {
+                // Cualquier fallo no previsto (JSON inesperado del servidor, etc.) no debe tumbar la
+                // app: sin este resguardo, una excepción distinta a TelemedicinaException se habría
+                // propagado sin capturar dentro de la corrutina.
+                Log.e(TAG, "❌ Error inesperado iniciando la consulta: ${e.message}", e)
+                mostrarEstado(Estado.ERROR, "Ocurrió un error inesperado. Intenta de nuevo en unos minutos.")
             }
         }
     }
@@ -586,7 +597,8 @@ class TelemedicineActivity : BaseActivity() {
         vigilanciaRespaldo?.cancel()
         vigilanciaRespaldo = lifecycleScope.launch {
             while (isActive && !saliendo) {
-                delay(INTERVALO_RESPALDO_MS)
+                val intervalo = if (estado == Estado.EN_LLAMADA) INTERVALO_RESPALDO_ESTABLE_MS else INTERVALO_RESPALDO_MS
+                delay(intervalo)
                 val fb = api.leerEstadoFallback() ?: continue
                 when {
                     fb.eliminado || fb.status == "cancelado" -> {
@@ -688,14 +700,23 @@ class TelemedicineActivity : BaseActivity() {
     private fun reconectar() {
         if (reconectando || !puedeReconectar()) return
         reconectando = true
-        handler.removeCallbacks(tiempoConexion)
-        handler.removeCallbacks(ausenciaMedico)
-        tvDoctorName.visibility = View.GONE
-        mostrarEstado(Estado.CONECTANDO)
         lifecycleScope.launch {
-            // Reconectar a apiRTC reemplaza al respaldo, si estaba abierto
+            // Misma comprobación que al iniciar la consulta: si la cámara ya no está (p. ej. se
+            // desconectó el USB entre intentos) se avisa aquí, en vez de fallar dentro del JS.
+            if (!camaraDisponible()) {
+                reconectando = false
+                return@launch
+            }
+            handler.removeCallbacks(tiempoConexion)
+            handler.removeCallbacks(ausenciaMedico)
+            tvDoctorName.visibility = View.GONE
+            mostrarEstado(Estado.CONECTANDO)
+
+            // Reconectar a apiRTC reemplaza al respaldo, si estaba abierto; se reinicia por completo
+            // para que si el médico vuelve a pedirlo más adelante en la misma consulta, se atienda
             ejecutarJs("MosiFallback.stop()")
             respaldoConectado = false
+            respaldoIniciado = false
             btnReconnect.visibility = View.VISIBLE
             salidaJs = CompletableDeferred()
             ejecutarJs("MosiCall.hangup()")
