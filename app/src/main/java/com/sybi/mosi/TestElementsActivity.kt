@@ -38,8 +38,6 @@ class TestElementsActivity : BaseActivity() {
 
         /** Marca de la línea divisoria en el selector de velocidad. */
         private const val SEPARATOR = -1
-
-
     }
 
     private val allSwitches = mutableListOf<Switch>()
@@ -217,7 +215,7 @@ class TestElementsActivity : BaseActivity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 0) } // Eliminar margen inferior
+            ).apply { setMargins(0, 0, 0, 0) }
 
             // Ocultar si Altura/Peso no está activado
             val alturaPesoActive = prefs.getBoolean(PREF_DEVICE_ALTURA_PESO, true)
@@ -244,8 +242,12 @@ class TestElementsActivity : BaseActivity() {
         val switchView = Switch(this)
         allSwitches.add(switchView)
         switchView.apply {
-            // Desactivado por defecto
-            isChecked = false
+            // ✅ CAMBIO 1: Leer el valor guardado (default true en primera instalación,
+            //    igual que el resto de switches).
+            if (!prefs.contains(PREF_DEVICE_COMPOSICION)) {
+                prefs.edit().putBoolean(PREF_DEVICE_COMPOSICION, true).apply()
+            }
+            isChecked = prefs.getBoolean(PREF_DEVICE_COMPOSICION, true)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -323,7 +325,7 @@ class TestElementsActivity : BaseActivity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 0) } // Eliminar margen inferior
+            ).apply { setMargins(0, 0, 0, 0) }
         }
 
         // Fila superior con nombre y switch
@@ -358,7 +360,6 @@ class TestElementsActivity : BaseActivity() {
         row.addView(topRow)
 
         // --- FILA DE CONFIGURACIÓN ---
-        // Vertical: el puerto y la velocidad van cada uno en su propia línea
         val configRow = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, 16, 0, 0)
@@ -405,12 +406,10 @@ class TestElementsActivity : BaseActivity() {
                 1f
             )
 
-
             // Cargar puerto guardado o, si no hay, el puerto por defecto del dispositivo
             val savedPort = prefs.getString("${prefKey}_port", null)
             val defaultPort = DeviceDefaults.DEFAULT_PORTS[prefKey]
 
-            // Preferencia: puerto guardado > puerto por defecto > primera opción disponible
             val portToSelect = when {
                 savedPort != null && availablePorts.contains(savedPort) -> savedPort
                 defaultPort != null && availablePorts.contains(defaultPort) -> defaultPort
@@ -421,13 +420,11 @@ class TestElementsActivity : BaseActivity() {
                 val position = availablePorts.indexOf(portToSelect)
                 if (position >= 0) {
                     spinnerPort?.setSelection(position)
-                    // Guardar el puerto por defecto la primera vez, para que quede persistido
                     if (savedPort == null) {
                         prefs.edit().putString("${prefKey}_port", portToSelect).apply()
                     }
                 }
             } else if (defaultPort != null) {
-                // El puerto por defecto no está disponible: avisar (opcional)
                 Toast.makeText(
                     this,
                     "Puerto por defecto $defaultPort no disponible para $deviceName",
@@ -518,8 +515,9 @@ class TestElementsActivity : BaseActivity() {
                 // Si desactiva Altura/Peso, desactivar Composición también
                 if (prefKey == PREF_DEVICE_ALTURA_PESO) {
                     prefs.edit().putBoolean(PREF_DEVICE_COMPOSICION, false).apply()
-                    // Ocultar la fila de Composición
                     configRowsMap[PREF_DEVICE_COMPOSICION]?.visibility = View.GONE
+                    // ✅ CAMBIO 2: Reflejar en el switch de Composición el apagado
+                    updateComposicionSwitch(false)
                 }
             }
 
@@ -531,32 +529,37 @@ class TestElementsActivity : BaseActivity() {
 
             // Si es Altura/Peso, mostrar/ocultar Composición
             if (prefKey == PREF_DEVICE_ALTURA_PESO) {
-                configRowsMap[PREF_DEVICE_COMPOSICION]?.visibility = if (isChecked) View.VISIBLE else View.GONE
+                configRowsMap[PREF_DEVICE_COMPOSICION]?.visibility =
+                    if (isChecked) View.VISIBLE else View.GONE
 
-                // Si se activa Altura/Peso, NO activar Composición automáticamente
-                // Solo mostrar la fila para que el usuario decida
-                if (isChecked) {
-                    // Actualizar el switch de Composición a desactivado
-                    val composicionRow = configRowsMap[PREF_DEVICE_COMPOSICION]
-                    if (composicionRow is LinearLayout) {
-                        for (i in 0 until composicionRow.childCount) {
-                            val child = composicionRow.getChildAt(i)
-                            if (child is LinearLayout) {
-                                for (j in 0 until child.childCount) {
-                                    val subChild = child.getChildAt(j)
-                                    if (subChild is Switch) {
-                                        subChild.isChecked = false
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    prefs.edit().putBoolean(PREF_DEVICE_COMPOSICION, false).apply()
-                }
+                // ✅ CAMBIO 3: Al activar Altura/Peso NO forzamos Composición a false.
+                //    Solo se muestra la fila y se respeta lo que el usuario haya elegido
+                //    (que ya está persistido en prefs).
             }
         }
 
         return row
+    }
+
+    /**
+     * ✅ NUEVO: Refleja visualmente el estado del switch de Composición Corporal
+     * sin disparar loops raros. Se usa cuando Altura/Peso se desactiva.
+     */
+    private fun updateComposicionSwitch(checked: Boolean) {
+        val composicionRow = configRowsMap[PREF_DEVICE_COMPOSICION] as? LinearLayout ?: return
+        for (i in 0 until composicionRow.childCount) {
+            val child = composicionRow.getChildAt(i)
+            if (child is LinearLayout) {
+                for (j in 0 until child.childCount) {
+                    val subChild = child.getChildAt(j)
+                    if (subChild is Switch) {
+                        if (subChild.isChecked != checked) {
+                            subChild.isChecked = checked
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /** Línea horizontal (etiqueta + selector) dentro de la configuración de un dispositivo. */
@@ -569,11 +572,6 @@ class TestElementsActivity : BaseActivity() {
         )
     }
 
-    /**
-     * Selector de velocidad del puerto: de 600 a 115200 de 100 en 100 (★ = velocidad estándar),
-     * más "Personalizado…" para escribir cualquier valor. Se guarda al elegir y se aplica al salir
-     * de la pantalla, cuando se reabren los puertos.
-     */
     private fun createBaudSpinner(prefs: android.content.SharedPreferences, prefKey: String): Spinner {
         val spinner = Spinner(this)
         spinner.layoutParams = LinearLayout.LayoutParams(
@@ -586,9 +584,6 @@ class TestElementsActivity : BaseActivity() {
 
     private fun bindBaudSpinner(spinner: Spinner, prefs: android.content.SharedPreferences, prefKey: String) {
         val current = SerialBaudConfig.get(prefs, prefKey)
-        // Arriba: "Personalizado…", el valor personalizado guardado (si lo hay) y las estándar ★.
-        // Abajo: todo el rango de 600 a 115200 de 100 en 100.
-        // null = "Personalizado…"; SEPARATOR = línea divisoria (no seleccionable)
         val standardInRange = SerialBaudConfig.OPTIONS.filter { SerialBaudConfig.isStandard(it) }
         val values = mutableListOf<Int?>(null)
         if (current !in SerialBaudConfig.OPTIONS) values.add(current)
@@ -616,7 +611,7 @@ class TestElementsActivity : BaseActivity() {
                 if (value == null) {
                     showCustomBaudDialog(spinner, prefs, prefKey)
                 } else if (value == SEPARATOR) {
-                    bindBaudSpinner(spinner, prefs, prefKey) // la línea divisoria no es una opción
+                    bindBaudSpinner(spinner, prefs, prefKey)
                 } else if (value != SerialBaudConfig.get(prefs, prefKey)) {
                     SerialBaudConfig.set(prefs, prefKey, value)
                     if (!SerialBaudConfig.isStandard(value)) warnNonStandardBaud(value)
@@ -636,7 +631,7 @@ class TestElementsActivity : BaseActivity() {
             .setTitle("Velocidad personalizada")
             .setMessage(
                 "Escriba la velocidad en baudios (${SerialBaudConfig.CUSTOM_MIN} a ${SerialBaudConfig.CUSTOM_MAX}).\n\n" +
-                    "Las marcadas con ★ son las estándar que admite el puerto."
+                        "Las marcadas con ★ son las estándar que admite el puerto."
             )
             .setView(input)
             .setPositiveButton("Aceptar") { _, _ ->

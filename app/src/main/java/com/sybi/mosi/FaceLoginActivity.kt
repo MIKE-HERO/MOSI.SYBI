@@ -25,6 +25,7 @@ import com.sybi.mosi.database.AppDatabase
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
+import com.google.mlkit.vision.face.FaceLandmark
 import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
 
@@ -173,10 +174,10 @@ class FaceLoginActivity : BaseActivity() {
         if (mediaImage != null) {
             val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
 
-            // Configurar detector de rostros
+            // Configurar detector de rostros con LANDMARK_MODE_ALL para biometría geométrica
             val options = FaceDetectorOptions.Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
                 .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
                 .build()
 
@@ -190,12 +191,29 @@ class FaceLoginActivity : BaseActivity() {
                         tvStatus.text = "Rostro detectado, reconociendo..."
                         tvStatus.setTextColor(Color.parseColor("#FF9800"))
 
-                        // Convertir imagen a Bitmap para comparar
                         val bitmap = imageProxy.toBitmap()
                         val rotatedBitmap = rotateBitmap(bitmap, imageProxy.imageInfo.rotationDegrees)
 
-                        // Procesar reconocimiento
-                        processFaceLogin(rotatedBitmap)
+                        val face = faces[0]
+                        val liveSignature = extraerFirma(face)
+                        val bounds = face.boundingBox
+                        val left = maxOf(0, bounds.left)
+                        val top = maxOf(0, bounds.top)
+                        val right = minOf(rotatedBitmap.width, bounds.right)
+                        val bottom = minOf(rotatedBitmap.height, bounds.bottom)
+
+                        val croppedFace = if (right > left && bottom > top) {
+                            try {
+                                Bitmap.createBitmap(rotatedBitmap, left, top, right - left, bottom - top)
+                            } catch (e: Exception) {
+                                rotatedBitmap
+                            }
+                        } else {
+                            rotatedBitmap
+                        }
+
+                        // Procesar reconocimiento con el rostro recortado y su firma geométrica
+                        processFaceLogin(croppedFace, liveSignature)
                     } else {
                         tvStatus.text = "Coloque su rostro frente a la cámara"
                         tvStatus.setTextColor(Color.parseColor("#4CAF50"))
@@ -213,9 +231,9 @@ class FaceLoginActivity : BaseActivity() {
         }
     }
 
-    private fun processFaceLogin(bitmap: Bitmap) {
-        // Redimensionar para reducir tamaño
-        val resizedBitmap = resizeBitmap(bitmap, 480, 640)
+    private fun processFaceLogin(bitmap: Bitmap, liveSignature: Triple<Float, Float, Float>?) {
+        // Redimensionar a tamaño estándar
+        val resizedBitmap = resizeBitmap(bitmap, 300, 300)
 
         // Convertir a Base64
         val base64Image = bitmapToBase64(resizedBitmap)
@@ -226,28 +244,32 @@ class FaceLoginActivity : BaseActivity() {
 
         Thread {
             runBlocking {
-                // Obtener todos los pacientes y buscar coincidencia
                 val pacientes = pacienteDao.obtenerTodosLosPacientes()
 
-                var pacienteEncontrado: com.sybi.mosi.database.Paciente? = null
+                var mejorPaciente: com.sybi.mosi.database.Paciente? = null
+                var mayorSimilitud = 0f
+                val umbral = 0.78f // Umbral estricto para evitar falsos positivos
 
                 for (paciente in pacientes) {
-                    if (paciente.foto != null) {
-                        // Comparar fotos (simplificado - en producción usar comparación más robusta)
-                        val fotoGuardada = paciente.foto
-                        if (fotoGuardada != null && compararFotos(base64Image, fotoGuardada)) {
-                            pacienteEncontrado = paciente
-                            break
+                    val fotoGuardada = paciente.foto
+                    if (!fotoGuardada.isNullOrEmpty()) {
+                        val similitud = calcularSimilitudEntreBase64(base64Image, fotoGuardada, liveSignature)
+                        android.util.Log.d("FaceLoginActivity", "Paciente ${paciente.nombre} (ID: ${paciente.id_local}) - Similitud final: $similitud")
+                        if (similitud > mayorSimilitud) {
+                            mayorSimilitud = similitud
+                            mejorPaciente = paciente
                         }
                     }
                 }
 
+                val pacienteEncontrado = if (mejorPaciente != null && mayorSimilitud >= umbral) mejorPaciente else null
+
                 if (pacienteEncontrado != null) {
-                    val paciente = pacienteEncontrado!!
+                    val paciente = pacienteEncontrado
                     runOnUiThread {
                         Toast.makeText(
                             this@FaceLoginActivity,
-                            "¡Reconocimiento exitoso! Bienvenido ${paciente.nombre}",
+                            "¡Reconocimiento exitoso! Bienvenido ${paciente.nombre} (${(mayorSimilitud * 100).toInt()}%)",
                             Toast.LENGTH_LONG
                         ).show()
 
@@ -281,7 +303,7 @@ class FaceLoginActivity : BaseActivity() {
                     runOnUiThread {
                         Toast.makeText(
                             this@FaceLoginActivity,
-                            "No se encontró ningún paciente con este rostro",
+                            "No se encontró ningún paciente con este rostro (${(mayorSimilitud * 100).toInt()}%)",
                             Toast.LENGTH_LONG
                         ).show()
                         // Permitir reintentar
@@ -294,9 +316,73 @@ class FaceLoginActivity : BaseActivity() {
         }.start()
     }
 
-    private fun compararFotos(foto1: String, foto2: String): Boolean {
+    private fun extraerFirma(face: com.google.mlkit.vision.face.Face): Triple<Float, Float, Float>? {
+        val leftEye = face.getLandmark(FaceLandmark.LEFT_EYE)?.position
+        val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)?.position
+        val nose = face.getLandmark(FaceLandmark.NOSE_BASE)?.position
+        val mouth = face.getLandmark(FaceLandmark.MOUTH_BOTTOM)?.position
+        val bounds = face.boundingBox
+
+        if (leftEye == null || rightEye == null || nose == null || mouth == null || bounds.width() == 0 || bounds.height() == 0) {
+            return null
+        }
+
+        val eyeDist = Math.hypot((leftEye.x - rightEye.x).toDouble(), (leftEye.y - rightEye.y).toDouble()).toFloat()
+        val r1 = eyeDist / bounds.width().toFloat()
+
+        val eyeMidX = (leftEye.x + rightEye.x) / 2f
+        val eyeMidY = (leftEye.y + rightEye.y) / 2f
+        val eyeToNose = Math.hypot((eyeMidX - nose.x).toDouble(), (eyeMidY - nose.y).toDouble()).toFloat()
+        val r2 = eyeToNose / bounds.height().toFloat()
+
+        val noseToMouth = Math.hypot((nose.x - mouth.x).toDouble(), (nose.y - mouth.y).toDouble()).toFloat()
+        val r3 = noseToMouth / bounds.height().toFloat()
+
+        return Triple(r1, r2, r3)
+    }
+
+    data class FaceData(
+        val bitmap: Bitmap,
+        val signature: Triple<Float, Float, Float>?
+    )
+
+    private fun extraerDatosRostroDeBitmap(bitmap: Bitmap): FaceData? {
+        val image = InputImage.fromBitmap(bitmap, 0)
+        val options = FaceDetectorOptions.Builder()
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
+            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
+            .build()
+
+        val detector = FaceDetection.getClient(options)
         try {
-            // Decodificar ambas fotos
+            val task = detector.process(image)
+            val faces = com.google.android.gms.tasks.Tasks.await(task)
+            if (faces.isNotEmpty()) {
+                val face = faces[0]
+                val signature = extraerFirma(face)
+                val bounds = face.boundingBox
+                val left = maxOf(0, bounds.left)
+                val top = maxOf(0, bounds.top)
+                val right = minOf(bitmap.width, bounds.right)
+                val bottom = minOf(bitmap.height, bounds.bottom)
+
+                if (right > left && bottom > top) {
+                    val cropped = Bitmap.createBitmap(bitmap, left, top, right - left, bottom - top)
+                    detector.close()
+                    return FaceData(cropped, signature)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("FaceLoginActivity", "Error extrayendo rostro de foto guardada: ${e.message}")
+        } finally {
+            detector.close()
+        }
+        return null
+    }
+
+    private fun calcularSimilitudEntreBase64(foto1: String, foto2: String, liveFaceSignature: Triple<Float, Float, Float>?): Float {
+        try {
             val bytes1 = Base64.decode(foto1, Base64.DEFAULT)
             val bytes2 = Base64.decode(foto2, Base64.DEFAULT)
 
@@ -304,19 +390,66 @@ class FaceLoginActivity : BaseActivity() {
             val bmp2 = android.graphics.BitmapFactory.decodeByteArray(bytes2, 0, bytes2.size)
 
             if (bmp1 != null && bmp2 != null) {
-                // Comparar tamaño
-                if (bmp1.width == bmp2.width && bmp1.height == bmp2.height) {
-                    // Comparar píxeles (simplificado)
-                    // En producción usar comparación más avanzada (ML Kit, OpenCV, etc.)
-                    return true // Por ahora aceptar cualquier coincidencia de tamaño
-                }
-            }
+                val faceData2 = extraerDatosRostroDeBitmap(bmp2)
+                val bmp2Rostro = faceData2?.bitmap ?: bmp2
+                val storedSignature = faceData2?.signature
 
-            // Si no pueden decodificar o no coinciden, retornar false
-            return false
+                val pixelSimilarity = calcularSimilitudCoseno(bmp1, bmp2Rostro)
+
+                // Validación geométrica de biometría facial (landmarks)
+                if (liveFaceSignature != null && storedSignature != null) {
+                    val diff1 = Math.abs(liveFaceSignature.first - storedSignature.first)
+                    val diff2 = Math.abs(liveFaceSignature.second - storedSignature.second)
+                    val diff3 = Math.abs(liveFaceSignature.third - storedSignature.third)
+
+                    android.util.Log.d("FaceLoginActivity", "Diferencias geométricas: $diff1, $diff2, $diff3")
+
+                    // Si las proporciones faciales difieren en más del 18%, es otra persona
+                    if (diff1 > 0.18f || diff2 > 0.18f || diff3 > 0.18f) {
+                        android.util.Log.d("FaceLoginActivity", "❌ Rechazado por proporciones faciales distintas (diferente persona)")
+                        return 0.40f // Forzar puntaje bajo para rechazar
+                    }
+                }
+
+                return pixelSimilarity
+            }
         } catch (e: Exception) {
-            return false
+            android.util.Log.e("FaceLoginActivity", "Error calculando similitud: ${e.message}")
         }
+        return 0f
+    }
+
+    private fun calcularSimilitudCoseno(bmp1: Bitmap, bmp2: Bitmap): Float {
+        val size = 64
+        val b1 = Bitmap.createScaledBitmap(bmp1, size, size, true)
+        val b2 = Bitmap.createScaledBitmap(bmp2, size, size, true)
+
+        val pixels1 = IntArray(size * size)
+        val pixels2 = IntArray(size * size)
+        b1.getPixels(pixels1, 0, size, 0, 0, size, size)
+        b2.getPixels(pixels2, 0, size, 0, 0, size, size)
+
+        var dotProduct = 0.0
+        var norm1 = 0.0
+        var norm2 = 0.0
+
+        for (i in pixels1.indices) {
+            val p1 = pixels1[i]
+            val p2 = pixels2[i]
+
+            val r1 = Color.red(p1); val g1 = Color.green(p1); val b1_ch = Color.blue(p1)
+            val r2 = Color.red(p2); val g2 = Color.green(p2); val b2_ch = Color.blue(p2)
+
+            val gray1 = 0.299 * r1 + 0.587 * g1 + 0.114 * b1_ch
+            val gray2 = 0.299 * r2 + 0.587 * g2 + 0.114 * b2_ch
+
+            dotProduct += gray1 * gray2
+            norm1 += gray1 * gray1
+            norm2 += gray2 * gray2
+        }
+
+        if (norm1 == 0.0 || norm2 == 0.0) return 0f
+        return (dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2))).toFloat()
     }
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
