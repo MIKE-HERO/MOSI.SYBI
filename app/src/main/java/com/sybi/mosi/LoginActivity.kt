@@ -87,12 +87,6 @@ class LoginActivity : BaseActivity() {
 
         val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
 
-        // ✅ OCULTAR BOTÓN DE INVITADO SI ESTÁ DESACTIVADO
-        val guestEnabled = userPrefs.getBoolean("guest_enable", true)
-        if (!guestEnabled) {
-            btnGuestAccess.visibility = View.GONE
-        }
-
         fun isEnabled(key: String) = userPrefs.getBoolean(key, true)
 
         if (!isEnabled("login_phone")) optionPhone.visibility = View.GONE
@@ -142,11 +136,9 @@ class LoginActivity : BaseActivity() {
         }
 
         // ✅ Botón de invitado: va directo a mediciones sin login ni perfil
-        if (guestEnabled) {
-            btnGuestAccess.setOnClickListener {
-                val intent = Intent(this, MeasurementActivity::class.java)
-                startActivity(intent)
-            }
+        btnGuestAccess.setOnClickListener {
+            val intent = Intent(this, MeasurementActivity::class.java)
+            startActivity(intent)
         }
 
         btnRegister.setOnClickListener {
@@ -157,13 +149,18 @@ class LoginActivity : BaseActivity() {
     // ✅ RECEPTOR PARA ACTUALIZAR LA VISIBILIDAD DEL BOTÓN DE INVITADO
     override fun onResume() {
         super.onResume()
+        updateGuestButtonVisibility()
+    }
+
+    private fun updateGuestButtonVisibility() {
         val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
         val guestEnabled = userPrefs.getBoolean("guest_enable", true)
 
-        if (guestEnabled) {
+        // ✅ Solo se muestra en la pestaña de Medición si está activado
+        if (isMedicionSelected && guestEnabled) {
             btnGuestAccess.visibility = View.VISIBLE
         } else {
-            btnGuestAccess.visibility = View.GONE
+            btnGuestAccess.visibility = View.INVISIBLE
         }
     }
 
@@ -181,6 +178,7 @@ class LoginActivity : BaseActivity() {
             tabMedicion.setBackgroundColor(Color.parseColor("#E0E0E0"))
             tvMedicion.setTextColor(Color.parseColor("#757575"))
         }
+        updateGuestButtonVisibility()
     }
 
     private fun applyColorTheme(colorHex: String) {
