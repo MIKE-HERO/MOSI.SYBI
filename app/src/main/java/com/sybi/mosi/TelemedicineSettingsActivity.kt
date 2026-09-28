@@ -148,6 +148,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
         }
 
         findViewById<Button>(R.id.btnDiagCamara).setOnClickListener { mostrarDiagnosticoCamara() }
+        findViewById<Button>(R.id.btnDiagWebView).setOnClickListener { mostrarDiagnosticoWebView() }
 
         findViewById<Button>(R.id.btnConcederPermisos).setOnClickListener {
             val estado = PermisosAdmin.aplicar(this)
@@ -218,6 +219,29 @@ class TelemedicineSettingsActivity : BaseActivity() {
             }
             Log.i(TAG, "🔎 Apertura real de cámaras:$aperturas")
         }
+    }
+
+    private fun mostrarDiagnosticoWebView() {
+        val informe = DiagnosticoWebView.generar(this)
+        Log.i(TAG, "🔎 Diagnóstico de WebView:\n$informe")
+        val texto = android.widget.TextView(this).apply {
+            text = informe
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 13f
+            setPadding(48, 24, 48, 24)
+            setTextIsSelectable(true)
+        }
+        val scroll = android.widget.ScrollView(this).apply { addView(texto) }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Diagnóstico de WebView")
+            .setView(scroll)
+            .setPositiveButton("Copiar") { _, _ ->
+                val portapapeles = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                portapapeles.setPrimaryClip(android.content.ClipData.newPlainText("Diagnóstico de WebView", informe))
+                Toast.makeText(this, "Copiado al portapapeles", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
     }
 
     private fun loadSavedValues() {
