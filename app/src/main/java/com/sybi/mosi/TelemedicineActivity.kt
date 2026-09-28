@@ -12,6 +12,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbManager
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -163,6 +164,15 @@ class TelemedicineActivity : BaseActivity() {
     // Puente de cámara externa (ver camaraQueRequierePuente / iniciarPuenteCamara)
     private var puenteCamara: CamaraPuenteNativo? = null
     private var ultimoFramePuenteMs = 0L
+    private var idCamaraExternaActual: String? = null
+    private var previewPendiente = false
+    private var previewIniciada = false
+
+    // Enrutamiento de audio de la llamada (ver activarAudioLlamada / restaurarAudioLlamada)
+    private var audioManager: AudioManager? = null
+    private var modoAudioPrevio = AudioManager.MODE_NORMAL
+    private var speakerPrevio = false
+    private var audioLlamadaActivado = false
 
     private val tiempoConexion = Runnable {
         if (estado == Estado.CONECTANDO && !saliendo) {
@@ -209,6 +219,7 @@ class TelemedicineActivity : BaseActivity() {
 
         idCabina = TelemedicineSettingsActivity.getCabina(this).trim().ifEmpty { "1" }
         api = TelemedicinaApi(TelemedicineSettingsActivity.getBaseUrl(this))
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
 
         initViews()
         aplicarTemaGuardado()
@@ -357,6 +368,7 @@ class TelemedicineActivity : BaseActivity() {
                 sdkDisponible = datos.optBoolean("sdk")
                 webViewChrome = datos.optInt("chrome")
                 errorSdk = datos.optString("errorSdk")
+                if (previewPendiente) iniciarPreview()
                 if (inicioPendiente) iniciarVideo()
             }
             // Avance del video en pantalla: así se ve en qué paso se detiene sin revisar el log
@@ -391,6 +403,16 @@ class TelemedicineActivity : BaseActivity() {
                 }
             }
             "left" -> salidaJs?.complete(Unit)
+            "previewListo" -> Log.d(TAG, "🎥 Vista previa de cámara lista")
+            "previewError" -> Log.w(TAG, "⚠️ No se pudo preparar la vista previa de cámara: $datos")
+            "audioDevices" -> {
+                val dispositivos = datos.optJSONArray("dispositivos")
+                val lista = (0 until (dispositivos?.length() ?: 0)).joinToString("\n") {
+                    val d = dispositivos!!.getJSONObject(it)
+                    "   - id=${d.optString("deviceId")} label=\"${d.optString("label")}\""
+                }
+                Log.i(TAG, "🎤 Micrófonos que ve el WebView:\n${lista.ifEmpty { "   (ninguno)" }}")
+            }
             "warning" -> Log.w(TAG, "⚠️ Aviso de video: $datos")
             "fallback" -> manejarEventoRespaldo(datos.optString("estado"))
             "error" -> {
@@ -446,6 +468,7 @@ class TelemedicineActivity : BaseActivity() {
             Log.d(TAG, "⚠️ Permisos faltantes: $faltantes. Solicitando...")
             ActivityCompat.requestPermissions(this, faltantes.toTypedArray(), REQUEST_PERMISSIONS_CODE)
         } else {
+            iniciarPreview()
             iniciarConsulta()
         }
     }
@@ -454,6 +477,7 @@ class TelemedicineActivity : BaseActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_PERMISSIONS_CODE) {
             if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                iniciarPreview()
                 iniciarConsulta()
             } else {
                 mostrarEstado(
@@ -601,14 +625,66 @@ class TelemedicineActivity : BaseActivity() {
             mostrarEstado(Estado.ERROR, mensajeSdkNoDisponible())
             return
         }
-        val idCamaraExterna = camaraQueRequierePuente()
-        if (idCamaraExterna != null) iniciarPuenteCamara(idCamaraExterna) else detenerPuenteCamara()
+        if (!previewIniciada) iniciarPreview()
         ejecutarJs(
             "MosiCall.start(${JSONObject.quote(apikeyLlamada)}, ${JSONObject.quote(codigoConversacion)}, " +
-                    "${authApiRtc ?: "null"}, ${idCamaraExterna != null})"
+                    "${authApiRtc ?: "null"}, ${idCamaraExternaActual != null})"
         )
         handler.removeCallbacks(tiempoConexion)
         handler.postDelayed(tiempoConexion, TIMEOUT_CONEXION_MS)
+    }
+
+    /**
+     * Abre cámara y micrófono en cuanto se conceden los permisos, mucho antes de que se encuentre
+     * médico o se registre la consulta: así el paciente ve su propio recuadro de video mientras
+     * espera (ver #local en call.html, ya no tapado por el statusOverlay), y cuando por fin arranca
+     * la llamada de verdad, MosiCall.start() reutiliza esta cámara/micrófono ya abiertos en vez de
+     * volver a pedirlos, ahorrando tiempo y evitando abrir la cámara dos veces.
+     */
+    private fun iniciarPreview() {
+        if (!paginaLista) {
+            previewPendiente = true
+            return
+        }
+        previewPendiente = false
+        if (previewIniciada) return
+        previewIniciada = true
+        activarAudioLlamada()
+        idCamaraExternaActual = camaraQueRequierePuente()
+        idCamaraExternaActual?.let { iniciarPuenteCamara(it) }
+        ejecutarJs("MosiCall.prepararPreview(${idCamaraExternaActual != null})")
+    }
+
+    // ==========================================
+    // AUDIO DE LA LLAMADA
+    // ==========================================
+    /**
+     * El volumen que controla Ajustes (STREAM_MUSIC) es independiente del volumen con el que
+     * Android reproduce el audio de una llamada WebRTC (STREAM_VOICE_CALL, activo solo en modo
+     * MODE_IN_COMMUNICATION): sin esto, el equipo puede tener "todo el volumen" al tope y aun así
+     * no escucharse la consulta porque STREAM_VOICE_CALL nunca se tocó ni se subió a un nivel
+     * audible, y sin forzar el altavoz el audio podría salir por una salida casi inaudible.
+     */
+    private fun activarAudioLlamada() {
+        if (audioLlamadaActivado) return
+        val am = audioManager ?: return
+        audioLlamadaActivado = true
+        modoAudioPrevio = am.mode
+        speakerPrevio = am.isSpeakerphoneOn
+        am.mode = AudioManager.MODE_IN_COMMUNICATION
+        am.isSpeakerphoneOn = true
+        runCatching {
+            val max = am.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
+            am.setStreamVolume(AudioManager.STREAM_VOICE_CALL, max, 0)
+        }.onFailure { Log.w(TAG, "⚠️ No se pudo ajustar el volumen de llamada: ${it.message}") }
+    }
+
+    private fun restaurarAudioLlamada() {
+        if (!audioLlamadaActivado) return
+        audioLlamadaActivado = false
+        val am = audioManager ?: return
+        am.isSpeakerphoneOn = speakerPrevio
+        am.mode = modoAudioPrevio
     }
 
     // ==========================================
@@ -853,6 +929,8 @@ class TelemedicineActivity : BaseActivity() {
             respaldoIniciado = false
             respaldoConectado = false
             apiRtcLiberado = false
+            previewIniciada = false
+            idCamaraExternaActual = null
             saliendo = false
             if (!sdkDisponible) {
                 // El SDK no cargó (p. ej. falló la red): se vuelve a cargar la página de video
@@ -932,6 +1010,7 @@ class TelemedicineActivity : BaseActivity() {
         handler.removeCallbacks(ausenciaMedico)
         vigilanciaRespaldo?.cancel()
         detenerPuenteCamara()
+        restaurarAudioLlamada()
         if (respaldoIniciado) ejecutarJs("MosiFallback.stop()")
 
         val notificacion = idNotificacion
@@ -1131,6 +1210,7 @@ class TelemedicineActivity : BaseActivity() {
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         detenerPuenteCamara()
+        restaurarAudioLlamada()
         colorReceiver?.let { LocalBroadcastManager.getInstance(this).unregisterReceiver(it) }
         if (::api.isInitialized) liberarRecursosEnSegundoPlano()
         if (::webView.isInitialized) {

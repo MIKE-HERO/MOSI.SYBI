@@ -188,6 +188,59 @@
                 return etapa('camara', espera, timeoutMs).then(() => canvasPuente.captureStream(12));
             }
 
+            // Vista previa: cámara y micrófono se abren en cuanto Kotlin concede permisos, mucho
+            // antes de que exista una conversación de apiRTC (puede que ni siquiera haya médico
+            // todavía). Se muestran en #local para que el paciente se vea mientras espera, y start()
+            // los reutiliza en vez de volver a pedirlos si siguen vivos (ver streamVivo).
+            let previewVideo = null;
+            let previewAudio = null;
+
+            function streamVivo(stream, kind) {
+                if (!stream) return false;
+                const tracks = kind === 'video' ? stream.getVideoTracks() : stream.getAudioTracks();
+                return tracks.length > 0 && tracks.some((t) => t.readyState === 'live');
+            }
+
+            // Diagnóstico: qué micrófonos ve Chromium en este equipo. Los labels solo vienen llenos
+            // una vez que ya se concedió permiso y se abrió al menos un dispositivo de ese tipo, así
+            // que se llama después de abrir el micrófono, no antes.
+            async function logDispositivosAudio() {
+                try {
+                    const dispositivos = (await navigator.mediaDevices.enumerateDevices())
+                        .filter((d) => d.kind === 'audioinput')
+                        .map((d) => ({ deviceId: d.deviceId, label: d.label || '(sin nombre)' }));
+                    emit('audioDevices', { dispositivos });
+                } catch (err) {
+                    emit('audioDevices', Object.assign({ dispositivos: [] }, describirError(err)));
+                }
+            }
+
+            async function prepararPreview(puenteCamara) {
+                try {
+                    previewVideo = puenteCamara
+                        ? await abrirCamaraPuente(640, 480, 20000)
+                        : await abrirMedio('camara', 'video', { width: { ideal: 1280 }, height: { ideal: 720 } }, 45000);
+                    document.getElementById('local').srcObject = previewVideo;
+                    previewAudio = await abrirMedio('microfono', 'audio', true, 20000);
+                    logDispositivosAudio();
+                    emit('previewListo', {});
+                } catch (err) {
+                    emit('previewError', describirError(err));
+                }
+            }
+
+            async function obtenerVideoParaLlamada(puenteCamara) {
+                if (streamVivo(previewVideo, 'video')) return previewVideo;
+                return puenteCamara
+                    ? await abrirCamaraPuente(640, 480, 20000)
+                    : await abrirMedio('camara', 'video', { width: { ideal: 1280 }, height: { ideal: 720 } }, 45000);
+            }
+
+            async function obtenerAudioParaLlamada() {
+                if (streamVivo(previewAudio, 'audio')) return previewAudio;
+                return await abrirMedio('microfono', 'audio', true, 20000);
+            }
+
             // Cada etapa avisa a Kotlin al terminar y falla con su nombre si se queda colgada, para
             // saber dónde se atora la conexión (registro, cámara, micrófono, stream, join o publish).
             function etapa(nombre, promesa, ms) {
@@ -287,15 +340,12 @@
                         });
                     });
 
-                    // Cámara y micrófono se buscan/abren por separado (ver abrirMedio) en vez de un único
-                    // getUserMedia combinado; en equipos con cámara "legacy" (HAL antigua) esa apertura
-                    // combinada podía tardar mucho más de lo normal sin llegar a fallar ni a avisar.
-                    // Con cámara externa (puenteCamara) no se le pide nada de video al WebView: Kotlin
-                    // ya la está capturando con Camera2 y empujando frames a pushFrame().
-                    const streamVideo = puenteCamara
-                        ? await abrirCamaraPuente(640, 480, 20000)
-                        : await abrirMedio('camara', 'video', { width: { ideal: 1280 }, height: { ideal: 720 } }, 45000);
-                    const streamAudio = await abrirMedio('microfono', 'audio', true, 20000);
+                    // Cámara y micrófono ya deberían estar abiertos desde prepararPreview() (Kotlin la
+                    // dispara apenas concede permisos, mucho antes de llegar aquí); si siguen vivos se
+                    // reutilizan tal cual, sin volver a pedirlos. Si no (falló la vista previa, o esta
+                    // llamada es un reintento tras colgar), se abren aquí igual que antes.
+                    const streamVideo = await obtenerVideoParaLlamada(puenteCamara);
+                    const streamAudio = await obtenerAudioParaLlamada();
 
                     // Con la cámara ya abierta, enumerateDevices sí devuelve las demás cámaras con sus
                     // ids. Solo sirve para el botón de cambiar cámara, así que si falla no detiene la
@@ -373,7 +423,7 @@
                 }
             }
 
-            return { start, switchCamera, hangup, pushFrame };
+            return { start, switchCamera, hangup, pushFrame, prepararPreview };
         })();
 
         /*
