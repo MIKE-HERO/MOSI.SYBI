@@ -192,19 +192,32 @@ class TelemedicineSettingsActivity : BaseActivity() {
         val informe = DiagnosticoCamara.generar(this)
         Log.i(TAG, "🔎 Diagnóstico de cámara:\n$informe")
         val texto = android.widget.TextView(this).apply {
-            text = informe
+            text = "$informe\n\nProbando abrir cada cámara…"
             typeface = android.graphics.Typeface.MONOSPACE
             textSize = 13f
             setPadding(48, 24, 48, 24)
             setTextIsSelectable(true)
         }
         val scroll = android.widget.ScrollView(this).apply { addView(texto) }
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        val dialogo = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Diagnóstico de cámara y USB")
             .setView(scroll)
             .setPositiveButton("Actualizar") { _, _ -> mostrarDiagnosticoCamara() }
             .setNegativeButton("Cerrar", null)
             .show()
+
+        // Abrir la cámara de verdad puede tardar (o colgarse, que es justo lo que diagnostica):
+        // se hace aparte para no congelar el diálogo mientras se prueba.
+        lifecycleScope.launch {
+            val aperturas = StringBuilder("\n\nAPERTURA REAL DE CADA CÁMARA (Camera2, sin WebView)\n")
+            for (id in DiagnosticoCamara.idsCamaras(this@TelemedicineSettingsActivity)) {
+                if (!dialogo.isShowing) return@launch
+                val resultado = DiagnosticoCamara.probarApertura(this@TelemedicineSettingsActivity, id)
+                aperturas.append("   - cámara $id: $resultado\n")
+                if (dialogo.isShowing) texto.text = "$informe$aperturas"
+            }
+            Log.i(TAG, "🔎 Apertura real de cámaras:$aperturas")
+        }
     }
 
     private fun loadSavedValues() {
