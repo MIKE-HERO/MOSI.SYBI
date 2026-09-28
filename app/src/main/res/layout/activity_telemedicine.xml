@@ -128,13 +128,14 @@
             android:src="@drawable/ic_call_end" />
     </LinearLayout>
 
-    <!-- ESTADO DE LA CONSULTA (buscando médico, lista de espera, errores...) -->
+    <!-- ESTADO DE LA CONSULTA (buscando médico, lista de espera, errores...)
+         Sin fondo propio: así se ve el recuadro de la cámara (#local en call.html) mientras se
+         espera, y solo la tarjeta centrada (con su propio fondo blanco) tapa el video. -->
     <FrameLayout
         android:id="@+id/statusOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="64dp"
-        android:background="#F5F5F5"
         android:clickable="true"
         android:focusable="true">
 
