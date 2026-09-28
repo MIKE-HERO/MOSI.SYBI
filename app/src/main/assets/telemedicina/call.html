@@ -188,6 +188,79 @@
                 return etapa('camara', espera, timeoutMs).then(() => canvasPuente.captureStream(12));
             }
 
+            // Puente de micrófono: mismo motivo que el de cámara. getUserMedia({audio:true}) se
+            // cuelga en este WebView sin resolver ni rechazar (onPermissionRequest nunca llega a
+            // invocarse). AudioRecord nativo entrega PCM de 16 bits aquí, que se reproduce en un
+            // grafo de Web Audio (ScriptProcessorNode) hacia un MediaStreamAudioDestinationNode
+            // para obtener un MediaStreamTrack de audio real sin pasar por getUserMedia.
+            let audioCtxPuente = null;
+            let audioQueuePuente = [];
+            let huboFrameAudioPuente = false;
+            let resolverPrimerFrameAudioPuente = null;
+
+            function pushAudioFrame(base64Pcm16) {
+                if (!audioCtxPuente) return;
+                const raw = atob(base64Pcm16);
+                const n = raw.length >> 1;
+                const floats = new Float32Array(n);
+                for (let i = 0; i < n; i++) {
+                    let s = raw.charCodeAt(i * 2) | (raw.charCodeAt(i * 2 + 1) << 8);
+                    if (s >= 0x8000) s -= 0x10000;
+                    floats[i] = s / 32768;
+                }
+                audioQueuePuente.push(floats);
+                if (!huboFrameAudioPuente) {
+                    huboFrameAudioPuente = true;
+                    if (resolverPrimerFrameAudioPuente) resolverPrimerFrameAudioPuente();
+                }
+            }
+
+            function abrirMicrofonoPuente(timeoutMs) {
+                const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+                audioCtxPuente = new AudioContextCtor({ sampleRate: 16000 });
+                audioQueuePuente = [];
+                huboFrameAudioPuente = false;
+
+                const destino = audioCtxPuente.createMediaStreamDestination();
+                const proceso = audioCtxPuente.createScriptProcessor(2048, 0, 1);
+                let sobrante = null;
+                proceso.onaudioprocess = (evento) => {
+                    const salida = evento.outputBuffer.getChannelData(0);
+                    let listos = 0;
+                    if (sobrante) {
+                        const tomar = Math.min(sobrante.length, salida.length);
+                        salida.set(sobrante.subarray(0, tomar), 0);
+                        listos = tomar;
+                        sobrante = tomar < sobrante.length ? sobrante.subarray(tomar) : null;
+                    }
+                    while (listos < salida.length && audioQueuePuente.length > 0) {
+                        const bloque = audioQueuePuente.shift();
+                        const faltan = salida.length - listos;
+                        if (bloque.length <= faltan) {
+                            salida.set(bloque, listos);
+                            listos += bloque.length;
+                        } else {
+                            salida.set(bloque.subarray(0, faltan), listos);
+                            sobrante = bloque.subarray(faltan);
+                            listos += faltan;
+                        }
+                    }
+                    if (listos < salida.length) salida.fill(0, listos); // sin datos: silencio, no ruido
+                };
+                // Conectado también hacia destination (con ganancia 0): algunos navegadores dejan de
+                // llamar a onaudioprocess si el nodo no llega a ninguna salida real del contexto.
+                const silencio = audioCtxPuente.createGain();
+                silencio.gain.value = 0;
+                proceso.connect(silencio);
+                silencio.connect(audioCtxPuente.destination);
+                proceso.connect(destino);
+
+                audioCtxPuente.resume().catch(() => { });
+
+                const espera = new Promise((resolve) => { resolverPrimerFrameAudioPuente = resolve; });
+                return etapa('microfono', espera, timeoutMs).then(() => destino.stream);
+            }
+
             // Vista previa: cámara y micrófono se abren en cuanto Kotlin concede permisos, mucho
             // antes de que exista una conversación de apiRTC (puede que ni siquiera haya médico
             // todavía). Se muestran en #local para que el paciente se vea mientras espera, y start()
@@ -215,30 +288,37 @@
                 }
             }
 
-            async function prepararPreview(puenteCamara) {
+            // puenteNativo = true cuando Kotlin detectó un equipo/WebView limitado (ver
+            // camaraQueRequierePuente en TelemedicineActivity): activa tanto el puente de cámara
+            // como el de micrófono, evitando getUserMedia por completo para ambos.
+            async function prepararPreview(puenteNativo) {
                 try {
-                    previewVideo = puenteCamara
+                    previewVideo = puenteNativo
                         ? await abrirCamaraPuente(640, 480, 20000)
                         : await abrirMedio('camara', 'video', { width: { ideal: 1280 }, height: { ideal: 720 } }, 45000);
                     document.getElementById('local').srcObject = previewVideo;
-                    previewAudio = await abrirMedio('microfono', 'audio', true, 20000);
-                    logDispositivosAudio();
+                    previewAudio = puenteNativo
+                        ? await abrirMicrofonoPuente(20000)
+                        : await abrirMedio('microfono', 'audio', true, 20000);
+                    if (!puenteNativo) logDispositivosAudio();
                     emit('previewListo', {});
                 } catch (err) {
                     emit('previewError', describirError(err));
                 }
             }
 
-            async function obtenerVideoParaLlamada(puenteCamara) {
+            async function obtenerVideoParaLlamada(puenteNativo) {
                 if (streamVivo(previewVideo, 'video')) return previewVideo;
-                return puenteCamara
+                return puenteNativo
                     ? await abrirCamaraPuente(640, 480, 20000)
                     : await abrirMedio('camara', 'video', { width: { ideal: 1280 }, height: { ideal: 720 } }, 45000);
             }
 
-            async function obtenerAudioParaLlamada() {
+            async function obtenerAudioParaLlamada(puenteNativo) {
                 if (streamVivo(previewAudio, 'audio')) return previewAudio;
-                return await abrirMedio('microfono', 'audio', true, 20000);
+                return puenteNativo
+                    ? await abrirMicrofonoPuente(20000)
+                    : await abrirMedio('microfono', 'audio', true, 20000);
             }
 
             // Cada etapa avisa a Kotlin al terminar y falla con su nombre si se queda colgada, para
@@ -298,10 +378,11 @@
             }
 
             // auth = { id, token } solo si la app de apiRTC usa autenticación con token JSON
-            // puenteCamara = true cuando Kotlin detectó una cámara externa (ver camaraQueRequierePuente
-            // en TelemedicineActivity) y ya está empujando frames por pushFrame() en vez de que esta
-            // función le pida la cámara al WebView.
-            async function start(apiKey, codigo, auth, puenteCamara) {
+            // puenteNativo = true cuando Kotlin detectó un equipo/WebView limitado (ver
+            // camaraQueRequierePuente en TelemedicineActivity): la cámara y el micrófono ya se
+            // están capturando nativamente y empujando frames por pushFrame()/pushAudioFrame() en
+            // vez de que esta función se los pida al WebView.
+            async function start(apiKey, codigo, auth, puenteNativo) {
                 let session;
                 try {
                     userAgent = new apiRTC.UserAgent({ uri: apiKey });
@@ -344,14 +425,14 @@
                     // dispara apenas concede permisos, mucho antes de llegar aquí); si siguen vivos se
                     // reutilizan tal cual, sin volver a pedirlos. Si no (falló la vista previa, o esta
                     // llamada es un reintento tras colgar), se abren aquí igual que antes.
-                    const streamVideo = await obtenerVideoParaLlamada(puenteCamara);
-                    const streamAudio = await obtenerAudioParaLlamada();
+                    const streamVideo = await obtenerVideoParaLlamada(puenteNativo);
+                    const streamAudio = await obtenerAudioParaLlamada(puenteNativo);
 
                     // Con la cámara ya abierta, enumerateDevices sí devuelve las demás cámaras con sus
                     // ids. Solo sirve para el botón de cambiar cámara, así que si falla no detiene la
                     // llamada. Con puente de cámara externa no aplica: cambiar de cámara requeriría
                     // reabrir el puente nativo con otro id, no está soportado por ahora.
-                    if (puenteCamara) {
+                    if (puenteNativo) {
                         camaras = [];
                     } else {
                         try {
@@ -417,13 +498,20 @@
                     ctxPuente = null;
                     huboFramePuente = false;
                     resolverPrimerFramePuente = null;
+                    // Ídem para el puente de audio: se cierra el contexto (AudioRecord nativo sigue
+                    // corriendo del lado de Kotlin) y se descarta la cola pendiente.
+                    try { if (audioCtxPuente) audioCtxPuente.close().catch(() => { }); } catch (e) { }
+                    audioCtxPuente = null;
+                    audioQueuePuente = [];
+                    huboFrameAudioPuente = false;
+                    resolverPrimerFrameAudioPuente = null;
                     // Sin esto, al reconectar quedaría el video remoto de la sesión anterior
                     document.getElementById('remote').innerHTML = '';
                     emit('left', {});
                 }
             }
 
-            return { start, switchCamera, hangup, pushFrame, prepararPreview };
+            return { start, switchCamera, hangup, pushFrame, pushAudioFrame, prepararPreview };
         })();
 
         /*
