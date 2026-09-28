@@ -178,15 +178,26 @@
                             android:textSize="18sp"
                             android:textStyle="bold" />
 
+                        <!-- ✅ Versión INSTALADA (nunca cambia, viene de packageManager) -->
+                        <TextView
+                            android:id="@+id/tvInstalledVersion"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Versión instalada: v0.0.2"
+                            android:textColor="#2E7D32"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <!-- Versión del repositorio (cambia con el spinner) -->
                         <TextView
                             android:id="@+id/tvSoftwareVersion"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="Versión del software: v1.0.0"
+                            android:layout_marginTop="2dp"
+                            android:text="Versión en repositorio: —"
                             android:textColor="#555555"
-                            android:textSize="14sp"
-                            android:textStyle="bold" />
+                            android:textSize="13sp" />
                     </LinearLayout>
 
                     <!-- Botón Buscar Actualizaciones a la derecha -->
