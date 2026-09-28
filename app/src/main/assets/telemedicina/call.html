@@ -141,6 +141,7 @@
 <body>
     <div id="remote"></div>
     <video id="local" autoplay muted playsinline></video>
+    <canvas id="puenteCamara" style="display:none"></canvas>
     <div id="fallback">
         <video id="fb-remote" autoplay playsinline></video>
         <video id="fb-local" autoplay muted playsinline></video>
@@ -154,6 +155,38 @@
             let localStream = null;
             let camaras = [];
             let indiceCamara = 0;
+
+            // Puente de cámara externa: Kotlin captura con Camera2 (evita un bug conocido de
+            // getUserMedia del WebView con cámaras del HAL externo/USB) y empuja frames JPEG aquí,
+            // que se dibujan en este canvas para armar el video con canvas.captureStream().
+            let canvasPuente = null;
+            let ctxPuente = null;
+            let huboFramePuente = false;
+            let resolverPrimerFramePuente = null;
+
+            function pushFrame(base64Jpeg) {
+                if (!canvasPuente) return;
+                const img = new Image();
+                img.onload = () => {
+                    if (!canvasPuente) return;
+                    ctxPuente.drawImage(img, 0, 0, canvasPuente.width, canvasPuente.height);
+                    if (!huboFramePuente) {
+                        huboFramePuente = true;
+                        if (resolverPrimerFramePuente) resolverPrimerFramePuente();
+                    }
+                };
+                img.src = 'data:image/jpeg;base64,' + base64Jpeg;
+            }
+
+            function abrirCamaraPuente(ancho, alto, timeoutMs) {
+                canvasPuente = document.getElementById('puenteCamara');
+                canvasPuente.width = ancho;
+                canvasPuente.height = alto;
+                ctxPuente = canvasPuente.getContext('2d');
+                huboFramePuente = false;
+                const espera = new Promise((resolve) => { resolverPrimerFramePuente = resolve; });
+                return etapa('camara', espera, timeoutMs).then(() => canvasPuente.captureStream(12));
+            }
 
             // Cada etapa avisa a Kotlin al terminar y falla con su nombre si se queda colgada, para
             // saber dónde se atora la conexión (registro, cámara, micrófono, stream, join o publish).
@@ -212,7 +245,10 @@
             }
 
             // auth = { id, token } solo si la app de apiRTC usa autenticación con token JSON
-            async function start(apiKey, codigo, auth) {
+            // puenteCamara = true cuando Kotlin detectó una cámara externa (ver camaraQueRequierePuente
+            // en TelemedicineActivity) y ya está empujando frames por pushFrame() en vez de que esta
+            // función le pida la cámara al WebView.
+            async function start(apiKey, codigo, auth, puenteCamara) {
                 let session;
                 try {
                     userAgent = new apiRTC.UserAgent({ uri: apiKey });
@@ -254,18 +290,26 @@
                     // Cámara y micrófono se buscan/abren por separado (ver abrirMedio) en vez de un único
                     // getUserMedia combinado; en equipos con cámara "legacy" (HAL antigua) esa apertura
                     // combinada podía tardar mucho más de lo normal sin llegar a fallar ni a avisar.
-                    const streamVideo = await abrirMedio(
-                        'camara', 'video', { width: { ideal: 1280 }, height: { ideal: 720 } }, 45000
-                    );
+                    // Con cámara externa (puenteCamara) no se le pide nada de video al WebView: Kotlin
+                    // ya la está capturando con Camera2 y empujando frames a pushFrame().
+                    const streamVideo = puenteCamara
+                        ? await abrirCamaraPuente(640, 480, 20000)
+                        : await abrirMedio('camara', 'video', { width: { ideal: 1280 }, height: { ideal: 720 } }, 45000);
                     const streamAudio = await abrirMedio('microfono', 'audio', true, 20000);
 
                     // Con la cámara ya abierta, enumerateDevices sí devuelve las demás cámaras con sus
-                    // ids. Solo sirve para el botón de cambiar cámara, así que si falla no detiene la llamada.
-                    try {
-                        camaras = (await etapa('enumerar', navigator.mediaDevices.enumerateDevices(), 4000))
-                            .filter((d) => d.kind === 'videoinput');
-                    } catch (e) {
+                    // ids. Solo sirve para el botón de cambiar cámara, así que si falla no detiene la
+                    // llamada. Con puente de cámara externa no aplica: cambiar de cámara requeriría
+                    // reabrir el puente nativo con otro id, no está soportado por ahora.
+                    if (puenteCamara) {
                         camaras = [];
+                    } else {
+                        try {
+                            camaras = (await etapa('enumerar', navigator.mediaDevices.enumerateDevices(), 4000))
+                                .filter((d) => d.kind === 'videoinput');
+                        } catch (e) {
+                            camaras = [];
+                        }
                     }
 
                     // Se unen en un solo MediaStream y se entrega ya abierto a apiRTC (createStreamFromMediaStream),
@@ -318,13 +362,18 @@
                     localStream = null;
                     userAgent = null;
                     indiceCamara = 0;
+                    // Deja de dibujar frames del puente si Kotlin manda alguno tardío tras colgar
+                    canvasPuente = null;
+                    ctxPuente = null;
+                    huboFramePuente = false;
+                    resolverPrimerFramePuente = null;
                     // Sin esto, al reconectar quedaría el video remoto de la sesión anterior
                     document.getElementById('remote').innerHTML = '';
                     emit('left', {});
                 }
             }
 
-            return { start, switchCamera, hangup };
+            return { start, switchCamera, hangup, pushFrame };
         })();
 
         /*
