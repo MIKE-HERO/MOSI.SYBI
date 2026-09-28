@@ -52,6 +52,7 @@ class FaceRegistrationActivity : BaseActivity() {
     private var currentColor: String = "#0F3E82"
 
     private var idLocal: Long = 0
+    private var isFrontCamera = false
 
     companion object {
         private const val CAMERA_PERMISSION_CODE = 100
@@ -176,14 +177,18 @@ class FaceRegistrationActivity : BaseActivity() {
 
     private fun getAvailableCameraSelector(provider: ProcessCameraProvider): CameraSelector {
         return try {
-            if (provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
-                CameraSelector.DEFAULT_BACK_CAMERA
-            } else if (provider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
+            if (provider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
+                isFrontCamera = true
                 CameraSelector.DEFAULT_FRONT_CAMERA
+            } else if (provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
+                isFrontCamera = false
+                CameraSelector.DEFAULT_BACK_CAMERA
             } else {
+                isFrontCamera = false
                 CameraSelector.Builder().build()
             }
         } catch (_: Exception) {
+            isFrontCamera = false
             CameraSelector.Builder().build()
         }
     }
@@ -199,12 +204,13 @@ class FaceRegistrationActivity : BaseActivity() {
                     image.close()
 
                     val rotatedBitmap = rotateBitmap(bitmap, image.imageInfo.rotationDegrees)
-                    val fullResizedBitmap = resizeBitmap(rotatedBitmap, 480, 640)
+                    val mirroredBitmap = mirrorBitmap(rotatedBitmap)
+                    val fullResizedBitmap = resizeBitmap(mirroredBitmap, 480, 640)
 
                     // Validar que hay un rostro presente mediante ML Kit
-                    detectAndCropFace(rotatedBitmap) { croppedBitmap ->
+                    detectAndCropFace(mirroredBitmap) { croppedBitmap ->
                         if (croppedBitmap != null) {
-                            // Rostro validado; guardamos y mostramos la FOTO COMPLETA
+                            // Rostro validado; guardamos y mostramos la FOTO COMPLETA en modo espejo
                             capturedBitmap = fullResizedBitmap
                             showPhotoPreview(fullResizedBitmap)
                         } else {
@@ -228,6 +234,13 @@ class FaceRegistrationActivity : BaseActivity() {
                 }
             }
         )
+    }
+
+    private fun mirrorBitmap(bitmap: Bitmap): Bitmap {
+        val matrix = Matrix().apply {
+            preScale(-1.0f, 1.0f)
+        }
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
     private fun detectAndCropFace(bitmap: Bitmap, onResult: (Bitmap?) -> Unit) {
