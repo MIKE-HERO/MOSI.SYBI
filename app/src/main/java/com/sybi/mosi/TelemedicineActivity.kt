@@ -163,7 +163,7 @@ class TelemedicineActivity : BaseActivity() {
 
     // Puente de cámara externa (ver camaraQueRequierePuente / iniciarPuenteCamara)
     private var puenteCamara: CamaraPuenteNativo? = null
-    private var ultimoFramePuenteMs = 0L
+    private var puenteMicrofono: MicrofonoPuenteNativo? = null
     private var idCamaraExternaActual: String? = null
     private var previewPendiente = false
     private var previewIniciada = false
@@ -651,7 +651,12 @@ class TelemedicineActivity : BaseActivity() {
         previewIniciada = true
         activarAudioLlamada()
         idCamaraExternaActual = camaraQueRequierePuente()
-        idCamaraExternaActual?.let { iniciarPuenteCamara(it) }
+        idCamaraExternaActual?.let {
+            // El mismo equipo/WebView limitado que necesita el puente de cámara también se cuelga
+            // en getUserMedia(audio) (ver MicrofonoPuenteNativo), así que se activan juntos.
+            iniciarPuenteCamara(it)
+            iniciarPuenteMicrofono()
+        }
         ejecutarJs("MosiCall.prepararPreview(${idCamaraExternaActual != null})")
     }
 
@@ -743,23 +748,20 @@ class TelemedicineActivity : BaseActivity() {
     private fun iniciarPuenteCamara(cameraId: String) {
         Log.i(TAG, "🎥 Cámara externa detectada (id=$cameraId): usando puente nativo en vez de getUserMedia del WebView")
         puenteCamara?.detener()
-        ultimoFramePuenteMs = 0L
         puenteCamara = CamaraPuenteNativo(this).apply {
             iniciar(
                 cameraId = cameraId,
                 anchoDeseado = PUENTE_CAMARA_ANCHO,
                 altoDeseado = PUENTE_CAMARA_ALTO,
+                intervaloMinimoMs = PUENTE_CAMARA_INTERVALO_MS,
                 onFrame = { jpeg -> enviarFramePuente(jpeg) },
                 onError = { msg -> Log.e(TAG, "❌ Puente de cámara: $msg") }
             )
         }
     }
 
-    /** Llega en el hilo de fondo de la cámara; se limita la tasa antes de cruzar al WebView. */
+    /** Llega en el hilo de fondo de la cámara, ya al ritmo correcto (ver intervaloMinimoMs arriba). */
     private fun enviarFramePuente(jpeg: ByteArray) {
-        val ahora = SystemClock.elapsedRealtime()
-        if (ahora - ultimoFramePuenteMs < PUENTE_CAMARA_INTERVALO_MS) return
-        ultimoFramePuenteMs = ahora
         val b64 = Base64.encodeToString(jpeg, Base64.NO_WRAP)
         handler.post { if (!isDestroyed) ejecutarJs("MosiCall.pushFrame(${JSONObject.quote(b64)})") }
     }
@@ -767,6 +769,37 @@ class TelemedicineActivity : BaseActivity() {
     private fun detenerPuenteCamara() {
         puenteCamara?.detener()
         puenteCamara = null
+    }
+
+    // ==========================================
+    // PUENTE DE MICRÓFONO (AudioRecord -> Web Audio del WebView)
+    // ==========================================
+    /**
+     * En este equipo getUserMedia({audio:true}) se cuelga sin resolver ni rechazar: logcat nunca
+     * muestra el log de onPermissionRequest para la solicitud de audio, o sea que el propio
+     * WebView nunca llega a invocar ese callback (WebView del sistema, versión vieja; cambiar de
+     * proveedor de WebView no es viable en este equipo, ver notas del proyecto). Se evita pedirle
+     * el micrófono al WebView: se captura nativamente con AudioRecord y se entrega como PCM.
+     */
+    private fun iniciarPuenteMicrofono() {
+        Log.i(TAG, "🎙️ Usando puente nativo de audio (AudioRecord) en vez de getUserMedia del WebView")
+        puenteMicrofono?.detener()
+        puenteMicrofono = MicrofonoPuenteNativo(this).apply {
+            iniciar(
+                onFrame = { pcm -> enviarFrameMicrofono(pcm) },
+                onError = { msg -> Log.e(TAG, "❌ Puente de micrófono: $msg") }
+            )
+        }
+    }
+
+    private fun enviarFrameMicrofono(pcm: ByteArray) {
+        val b64 = Base64.encodeToString(pcm, Base64.NO_WRAP)
+        handler.post { if (!isDestroyed) ejecutarJs("MosiCall.pushAudioFrame(${JSONObject.quote(b64)})") }
+    }
+
+    private fun detenerPuenteMicrofono() {
+        puenteMicrofono?.detener()
+        puenteMicrofono = null
     }
 
     // ==========================================
@@ -1010,6 +1043,7 @@ class TelemedicineActivity : BaseActivity() {
         handler.removeCallbacks(ausenciaMedico)
         vigilanciaRespaldo?.cancel()
         detenerPuenteCamara()
+        detenerPuenteMicrofono()
         restaurarAudioLlamada()
         if (respaldoIniciado) ejecutarJs("MosiFallback.stop()")
 
@@ -1210,6 +1244,7 @@ class TelemedicineActivity : BaseActivity() {
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         detenerPuenteCamara()
+        detenerPuenteMicrofono()
         restaurarAudioLlamada()
         colorReceiver?.let { LocalBroadcastManager.getInstance(this).unregisterReceiver(it) }
         if (::api.isInitialized) liberarRecursosEnSegundoPlano()
