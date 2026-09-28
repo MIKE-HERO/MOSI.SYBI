@@ -4,12 +4,18 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 
 /**
  * Informe para revisar, desde el propio equipo, si la cámara USB llega a la app:
@@ -17,6 +23,12 @@ import androidx.core.content.ContextCompat
  * expone para las videollamadas.
  */
 object DiagnosticoCamara {
+
+    /** Ids de cámara que expone Android, para poder probar abrir cada una desde fuera. */
+    fun idsCamaras(context: Context): List<String> {
+        val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
+        return runCatching { cameraManager?.cameraIdList?.toList().orEmpty() }.getOrDefault(emptyList())
+    }
 
     fun generar(context: Context): String {
         val lineas = mutableListOf<String>()
@@ -85,6 +97,57 @@ object DiagnosticoCamara {
             else -> "Se detectan dispositivos USB pero ninguno es una cámara (clase video): revisar que sea la cámara correcta."
         }
         return lineas.joinToString("\n")
+    }
+
+    /**
+     * Intenta abrir de verdad la cámara [id] con la API nativa de Android (Camera2), directamente,
+     * sin pasar por el WebView ni por apiRTC. Sirve para distinguir si un atasco al conectar la
+     * videollamada (getUserMedia colgado) es del controlador/hardware de la cámara —también se
+     * colgaría o fallaría aquí— o algo propio de Chromium/apiRTC —aquí abriría bien.
+     *
+     * Se ejecuta solo cuando el usuario pulsa el diagnóstico, nunca durante una consulta real, así
+     * que no compite por la cámara con una llamada en curso.
+     */
+    suspend fun probarApertura(context: Context, id: String, timeoutMs: Long = 6000): String {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED
+        ) return "sin permiso de cámara"
+
+        val manager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
+            ?: return "sin acceso al servicio de cámara"
+        val hilo = HandlerThread("DiagCamara-$id").apply { start() }
+        val handler = Handler(hilo.looper)
+        try {
+            val inicio = System.currentTimeMillis()
+            val resultado = withTimeoutOrNull(timeoutMs) {
+                suspendCancellableCoroutine<String> { cont ->
+                    val callback = object : CameraDevice.StateCallback() {
+                        override fun onOpened(device: CameraDevice) {
+                            val ms = System.currentTimeMillis() - inicio
+                            device.close()
+                            if (cont.isActive) cont.resume("abrió en ${ms} ms")
+                        }
+                        override fun onDisconnected(device: CameraDevice) {
+                            device.close()
+                            if (cont.isActive) cont.resume("se desconectó al abrir")
+                        }
+                        override fun onError(device: CameraDevice, error: Int) {
+                            device.close()
+                            if (cont.isActive) cont.resume("error $error al abrir (ver CameraDevice.StateCallback)")
+                        }
+                    }
+                    try {
+                        manager.openCamera(id, callback, handler)
+                    } catch (e: Exception) {
+                        if (cont.isActive) cont.resume("excepción al pedir apertura: ${e.message}")
+                    }
+                }
+            }
+            return resultado ?: "TIEMPO AGOTADO tras ${timeoutMs} ms (igual que el atasco de la videollamada: " +
+                    "el controlador/hardware de la cámara no responde, no es un problema de la app)"
+        } finally {
+            hilo.quitSafely()
+        }
     }
 
     private fun marca(ok: Boolean, texto: String) = (if (ok) "[OK] " else "[NO] ") + texto
