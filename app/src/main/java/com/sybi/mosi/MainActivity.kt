@@ -227,6 +227,8 @@ class MainActivity : BaseActivity() {
     // SOLICITAR PERMISOS (incluye almacenamiento)
     // ==========================================
     private fun solicitarPermisos() {
+        // Si la app es propietaria del dispositivo, los permisos se conceden solos (sin diálogos)
+        com.sybi.mosi.admin.PermisosAdmin.aplicar(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val permisosNecesarios = mutableListOf<String>()
 
