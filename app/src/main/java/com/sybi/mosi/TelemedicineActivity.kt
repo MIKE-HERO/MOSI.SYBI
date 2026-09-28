@@ -83,8 +83,11 @@ class TelemedicineActivity : BaseActivity() {
         private const val ESPERA_SALIDA_JS_MS = 5000L
         private const val REGRESO_AUTOMATICO_MS = 10_000L
 
-        // Si no se logra entrar a la conversación en este tiempo se ofrece reconectar
-        private const val TIMEOUT_CONEXION_MS = 30_000L
+        // Si no se logra entrar a la conversación en este tiempo se ofrece reconectar. Debe superar la
+        // suma de los márgenes que call.html da a cámara (45 s) + micrófono (20 s) + entregar el
+        // stream a apiRTC (10 s), para no ofrecer "Reconectar" mientras esos pasos todavía podrían
+        // terminar bien.
+        private const val TIMEOUT_CONEXION_MS = 90_000L
 
         // Espera máxima a que cargue la página de video (SDK) antes de iniciar la consulta
         private const val ESPERA_MOTOR_VIDEO_MS = 10_000L
@@ -343,9 +346,10 @@ class TelemedicineActivity : BaseActivity() {
             // Avance del video en pantalla: así se ve en qué paso se detiene sin revisar el log
             "etapa" -> if (estado == Estado.CONECTANDO) {
                 tvStatusMessage.text = when (datos.optString("nombre")) {
-                    "registro" -> "Conectado al servicio de video. Abriendo la cámara y el micrófono…"
-                    "stream-local" -> "Cámara abierta. Entrando a la sala con $nombreMedico…"
-                    "enumerar" -> "Cámara abierta. Entrando a la sala con $nombreMedico…"
+                    "registro" -> "Conectado al servicio de video. Abriendo la cámara…"
+                    "camara" -> "Cámara abierta. Abriendo el micrófono…"
+                    "microfono", "enumerar" -> "Cámara y micrófono listos. Entrando a la sala con $nombreMedico…"
+                    "stream-local" -> "Entrando a la sala con $nombreMedico…"
                     "join" -> "En la sala. Enviando tu video…"
                     else -> tvStatusMessage.text.toString()
                 }
@@ -395,9 +399,12 @@ class TelemedicineActivity : BaseActivity() {
         "NotFoundError" -> "No se encontró la cámara o el micrófono del equipo."
         "NotReadableError" -> "La cámara está siendo usada por otra aplicación o no responde. Desconéctala, vuelve a conectarla y presiona Reconectar."
         // El detalle técnico queda en el log ("Error de video"); al paciente solo un texto claro
-        else -> if (datos.optString("mensaje").contains("stream-local")) {
-            // La captura de la cámara no respondió a tiempo: casi siempre es la cámara (USB) desconectada
+        else -> if (datos.optString("mensaje").contains("\"camara\"")) {
+            // Se agotó el tiempo abriendo la cámara (por separado del micrófono): casi siempre es la
+            // cámara (USB) desconectada, o este equipo tarda de verdad más de lo normal en abrirla
             "No se pudo abrir la cámara. Revisa que la cámara USB esté conectada y presiona Reconectar."
+        } else if (datos.optString("mensaje").contains("\"microfono\"")) {
+            "No se pudo abrir el micrófono. Revisa la conexión y presiona Reconectar."
         } else when (datos.optString("etapa")) {
             "sdk" -> "No se pudo cargar el servicio de video. Revisa la conexión a internet."
             "registro" -> "No se pudo conectar con el servicio de video. Intenta de nuevo en unos minutos."
