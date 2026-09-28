@@ -210,8 +210,16 @@
 
                     // Igual que el módulo Ionic de la app de pacientes: createStream directo, sin abrir y
                     // cerrar la cámara antes (en el quiosco esa doble apertura podía dejar la captura colgada).
+                    //
+                    // "video: true" (sin resolución) deja que Chromium negocie una resolución con la
+                    // cámara. En equipos con cámara "legacy" (HAL antigua, común en tablets viejas) esa
+                    // negociación se puede quedar colgada sin éxito ni error. Se pide la resolución
+                    // nativa de la cámara (720p, 16:9) para evitar esa negociación abierta.
                     localStream = await etapa('stream-local', userAgent.createStream({
-                        constraints: { audio: true, video: true }
+                        constraints: {
+                            audio: true,
+                            video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+                        }
                     }));
                     localStream.attachToElement(document.getElementById('local'));
 
