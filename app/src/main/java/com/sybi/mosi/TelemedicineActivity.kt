@@ -524,6 +524,7 @@ class TelemedicineActivity : BaseActivity() {
 
     private fun iniciarConsulta() {
         lifecycleScope.launch {
+            logCaracteristicasCamaras()
             if (!camaraDisponible()) return@launch
             if (!motorDeVideoListo()) return@launch
             try {
@@ -614,21 +615,53 @@ class TelemedicineActivity : BaseActivity() {
     // PUENTE DE CÁMARA EXTERNA (Camera2 -> <canvas> del WebView)
     // ==========================================
     /**
-     * Chromium/WebView tiene un bug conocido con cámaras expuestas por el HAL de cámaras externas
-     * (USB/UVC, LENS_FACING_EXTERNAL): su getUserMedia() asume ids de cámara 0-based y el HAL
-     * externo usa ids con offset, así que la apertura desde el WebView truena o se cuelga aunque
-     * Camera2 la abra bien de forma nativa (ver DiagnosticoCamara). Para esas cámaras se evita
-     * pedirle la cámara al WebView: se captura nativamente y se entrega como canvas.captureStream().
+     * En este kiosco (RK3288 + webcam USB) el HAL reporta la cámara USB como LENS_FACING_BACK
+     * con HW_LEVEL_LEGACY, así que no se puede distinguir por CameraCharacteristics. Como el
+     * equipo solo tiene esa cámara, y el getUserMedia del WebView 109 se cuelga con ella,
+     * se usa siempre el puente nativo.
      */
     private fun camaraQueRequierePuente(): String? {
         val manager = getSystemService(Context.CAMERA_SERVICE) as? CameraManager ?: return null
         val ids = runCatching { manager.cameraIdList.toList() }.getOrDefault(emptyList())
-        return ids.firstOrNull { id ->
-            runCatching {
-                manager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) ==
-                        CameraCharacteristics.LENS_FACING_EXTERNAL
-            }.getOrDefault(false)
+        if (ids.isEmpty()) return null
+
+        for (id in ids) {
+            val c = runCatching { manager.getCameraCharacteristics(id) }.getOrNull() ?: continue
+
+            // 1) Marcada explícitamente como externa
+            if (c.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_EXTERNAL) {
+                Log.i(TAG, "🎥 Cámara $id → puente (LENS_FACING_EXTERNAL)")
+                return id
+            }
+
+            // 2) HW level EXTERNAL
+            if (c.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL) ==
+                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL) {
+                Log.i(TAG, "🎥 Cámara $id → puente (HW_LEVEL_EXTERNAL)")
+                return id
+            }
+
+            // 3) HAL LEGACY con un solo sensor → típico de webcam USB en SoCs chinos
+            val hwLevel = c.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)
+            val flash = c.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) ?: false
+            val afModes = c.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES) ?: intArrayOf()
+            val tieneAutoFoco = afModes.any { it != android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_OFF }
+
+            if (ids.size == 1 && hwLevel == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY
+                && !flash && !tieneAutoFoco) {
+                Log.i(TAG, "🎥 Cámara $id → puente (única cámara LEGACY sin AF ni flash, típica USB)")
+                return id
+            }
+
+            // 4) Cámara con id != 0, sin flash, sin AF → sospechosa
+            if (id != "0" && !flash && !tieneAutoFoco) {
+                Log.i(TAG, "🎥 Cámara $id → puente (heurística USB)")
+                return id
+            }
         }
+
+        Log.d(TAG, "🎥 Ninguna cámara requiere puente; se usará getUserMedia del WebView")
+        return null
     }
 
     private fun iniciarPuenteCamara(cameraId: String) {
@@ -1029,6 +1062,32 @@ class TelemedicineActivity : BaseActivity() {
 
             Estado.EN_LLAMADA, Estado.MEDICO_DESCONECTADO -> Unit
         }
+    }
+
+    private fun logCaracteristicasCamaras() {
+        val manager = getSystemService(Context.CAMERA_SERVICE) as? CameraManager ?: return
+        Log.i(TAG, "📷 ===== Características de cámaras =====")
+        manager.cameraIdList.forEach { id ->
+            val c = runCatching { manager.getCameraCharacteristics(id) }.getOrNull()
+            if (c == null) {
+                Log.i(TAG, "📷 Cámara $id: (no se pudo leer)")
+                return@forEach
+            }
+            val facing = c.get(CameraCharacteristics.LENS_FACING)
+            val hwLevel = c.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)
+            val flash = c.get(CameraCharacteristics.FLASH_INFO_AVAILABLE)
+            val afModes = c.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES)?.joinToString()
+            val caps = c.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)?.joinToString()
+            val sensorSize = c.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
+            Log.i(TAG, "📷 Cámara $id:\n" +
+                    "   LENS_FACING=$facing (0=FRONT, 1=BACK, 2=EXTERNAL)\n" +
+                    "   HW_LEVEL=$hwLevel (0=LIMITED, 1=FULL, 2=LEGACY, 3=LEVEL_3, 4=EXTERNAL)\n" +
+                    "   FLASH=$flash\n" +
+                    "   AF_MODES=[$afModes]\n" +
+                    "   CAPABILITIES=[$caps]\n" +
+                    "   SENSOR_SIZE=$sensorSize")
+        }
+        Log.i(TAG, "📷 =====================================")
     }
 
     private fun panel(
