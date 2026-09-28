@@ -272,6 +272,8 @@ class TelemedicineActivity : BaseActivity() {
         }
         val dominioVideo = hostTelemedicina ?: WebViewAssetLoader.DEFAULT_DOMAIN
         Log.d(TAG, "🌐 Página de video servida como $dominioVideo")
+        // Queda en el mismo log de cada intento de consulta, sin tener que ir a Ajustes a pedirlo aparte
+        Log.i(TAG, "🔎 Diagnóstico de WebView:\n${DiagnosticoWebView.generar(this)}")
 
         val assetLoader = WebViewAssetLoader.Builder()
             .setDomain(dominioVideo)
