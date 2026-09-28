@@ -168,45 +168,44 @@
                 });
             }
 
+            // Limpiar al cargar la página ids de dispositivos guardados de sesiones previas
+            try {
+                localStorage.removeItem('mosi_camara_id');
+                localStorage.removeItem('mosi_microfono_id');
+            } catch (e) { }
+
             /*
-             * Cámara y micrófono se buscan y se abren por separado, cada uno con su propio margen de
-             * tiempo, en vez de pedirle a apiRTC un único getUserMedia combinado de audio+video. En
-             * equipos con cámara "legacy" (HAL antigua) esto da dos ventajas:
-             *   - Diagnóstico más fino: se sabe si lo que se atora es la cámara, el micrófono o ninguno.
-             *   - Una vez que un dispositivo abre bien, se guarda su deviceId (localStorage) y la próxima
-             *     vez se le pide a Chromium ESE dispositivo concreto en vez de dejar que vuelva a
-             *     negociar "el mejor disponible" desde cero, que es la parte que parece colgarse.
-             * Si el dispositivo guardado ya no existe o fallara, se descarta la marca y se vuelve al modo
-             * automático (sin deviceId) para no quedar pegado a un id viejo/desconectado.
+             * Cámara y micrófono se buscan y se abren por separado con resguardo para HAL Legacy.
+             * Primero se intenta con la configuración ideal (ej. 1280x720) con un tiempo límite corto (7 s).
+             * Si la cámara/controlador del equipo (HAL Legacy / RK3288) no la acepta o se atora, se pasa
+             * inmediatamente al modo directo con restricciones simples ({ video: true }), el cual abre la
+             * cámara con la resolución por defecto del hardware sin quedarse colgado.
              */
             async function abrirMedio(tipo, kind, constraintsBase, timeoutMs) {
-                const clave = 'mosi_' + tipo + '_id';
-                const guardado = localStorage.getItem(clave);
                 const avisoTrack = setInterval(() => {
                     console.log('🎥 Esperando a que abra ' + tipo + '…');
                 }, 3000);
-                async function intentar(deviceId) {
-                    const constraints = { audio: false, video: false };
-                    constraints[kind] = deviceId
-                        ? Object.assign({}, constraintsBase, { deviceId: { exact: deviceId } })
-                        : constraintsBase;
-                    return etapa(tipo, navigator.mediaDevices.getUserMedia(constraints), timeoutMs);
+
+                async function pedirStream(constraints, ms) {
+                    return etapa(tipo, navigator.mediaDevices.getUserMedia(constraints), ms);
                 }
+
                 try {
-                    if (guardado) {
+                    // Intento 1: con restricciones ideales (ej. 1280x720) con tiempo de espera corto
+                    if (constraintsBase && typeof constraintsBase === 'object') {
+                        const c1 = { audio: false, video: false };
+                        c1[kind] = constraintsBase;
                         try {
-                            return await intentar(guardado);
-                        } catch (err) {
-                            console.warn('🎥 ' + tipo + ' guardado (' + guardado + ') ya no sirvió, se descarta: ' + String((err && err.message) || err));
-                            localStorage.removeItem(clave);
+                            return await pedirStream(c1, 7000);
+                        } catch (err1) {
+                            console.warn('🎥 Intento ideal para ' + tipo + ' no respondió o falló (' + String((err1 && err1.message) || err1) + '). Probando modo directo...');
                         }
                     }
-                    const stream = await intentar(null);
-                    // Se guarda el dispositivo que de verdad abrió, para la próxima vez
-                    const track = kind === 'video' ? stream.getVideoTracks()[0] : stream.getAudioTracks()[0];
-                    const idAbierto = track && track.getSettings && track.getSettings().deviceId;
-                    if (idAbierto) localStorage.setItem(clave, idAbierto);
-                    return stream;
+
+                    // Intento 2: restricciones simples ({ video: true } o { audio: true }) para compatibilidad con HAL Legacy
+                    const c2 = { audio: false, video: false };
+                    c2[kind] = true;
+                    return await pedirStream(c2, Math.max(10000, timeoutMs - 7000));
                 } finally {
                     clearInterval(avisoTrack);
                 }

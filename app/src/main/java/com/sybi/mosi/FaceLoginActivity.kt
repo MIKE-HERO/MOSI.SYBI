@@ -496,6 +496,11 @@ class FaceLoginActivity : BaseActivity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        cameraProvider?.unbindAll()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         cameraProvider?.unbindAll()
