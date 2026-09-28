@@ -301,12 +301,14 @@ class TelemedicineActivity : BaseActivity() {
         webView.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) {
                 runOnUiThread {
-                    if (request.origin.host == dominioVideo) {
-                        val permitidos = request.resources.filter {
-                            it == PermissionRequest.RESOURCE_VIDEO_CAPTURE ||
-                                    it == PermissionRequest.RESOURCE_AUDIO_CAPTURE
-                        }
+                    Log.d(TAG, "🔑 Permiso solicitado por WebView: origin=${request.origin}, recursos=${request.resources.joinToString()}")
+                    val permitidos = request.resources.filter {
+                        it == PermissionRequest.RESOURCE_VIDEO_CAPTURE ||
+                                it == PermissionRequest.RESOURCE_AUDIO_CAPTURE
+                    }
+                    if (permitidos.isNotEmpty()) {
                         request.grant(permitidos.toTypedArray())
+                        Log.d(TAG, "✅ Permisos concedidos a WebView: ${permitidos.joinToString()}")
                     } else {
                         request.deny()
                     }
