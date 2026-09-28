@@ -68,6 +68,7 @@ class DeviceInfoActivity : BaseActivity() {
     private lateinit var sideBar: View
 
     // ── Actualizador ──
+    private lateinit var tvInstalledVersion: TextView
     private lateinit var tvSoftwareVersion: TextView
     private lateinit var btnCheckUpdates: Button
     private lateinit var spnVersions: Spinner
@@ -77,6 +78,9 @@ class DeviceInfoActivity : BaseActivity() {
 
     private lateinit var updateManager: UpdateManager
     private var fetchedReleases: List<GitHubRelease> = emptyList()
+
+    // ✅ Versión realmente instalada (leída de packageManager)
+    private var installedVersionName: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,6 +95,7 @@ class DeviceInfoActivity : BaseActivity() {
         etSerie = findViewById(R.id.etDeviceSerial)
 
         // ── Vistas de actualización ──
+        tvInstalledVersion = findViewById(R.id.tvInstalledVersion)
         tvSoftwareVersion = findViewById(R.id.tvSoftwareVersion)
         btnCheckUpdates = findViewById(R.id.btnCheckUpdates)
         spnVersions = findViewById(R.id.spnVersions)
@@ -126,13 +131,11 @@ class DeviceInfoActivity : BaseActivity() {
         // ── Cargar valores guardados de hardware ──
         loadSavedValues()
 
-        // ── Mostrar versión del software ──
+        // ── Mostrar versión del software INSTALADA ──
         showCurrentSoftwareVersion()
 
         // ── Cargar releases del repositorio ──
         loadRepositoryReleases()
-
-
 
         // ── Botón Buscar Actualizaciones (Manual/Última) ──
         btnCheckUpdates.setOnClickListener {
@@ -145,16 +148,9 @@ class DeviceInfoActivity : BaseActivity() {
 
                 if (releases.isNotEmpty()) {
                     val latestRelease = releases[0]
-                    val pInfo = try {
-                        packageManager.getPackageInfo(packageName, 0)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error obteniendo versión de app: ${e.message}")
-                        null
-                    }
-                    val installedVersion = pInfo?.versionName?.trim()?.removePrefix("v")?.removePrefix("V") ?: ""
                     val latestVersion = latestRelease.tagName.trim().removePrefix("v").removePrefix("V")
 
-                    if (installedVersion.isNotEmpty() && latestVersion.isNotEmpty() && installedVersion == latestVersion) {
+                    if (installedVersionName.isNotEmpty() && installedVersionName == latestVersion) {
                         Toast.makeText(
                             this@DeviceInfoActivity,
                             "Ya tienes instalada la versión más reciente (${latestRelease.tagName})",
@@ -182,17 +178,9 @@ class DeviceInfoActivity : BaseActivity() {
             val position = spnVersions.selectedItemPosition
             if (position in fetchedReleases.indices) {
                 val selected = fetchedReleases[position]
-
-                val pInfo = try {
-                    packageManager.getPackageInfo(packageName, 0)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error obteniendo versión de app: ${e.message}")
-                    null
-                }
-                val installedVersion = pInfo?.versionName?.trim()?.removePrefix("v")?.removePrefix("V") ?: ""
                 val selectedVersion = selected.tagName.trim().removePrefix("v").removePrefix("V")
 
-                if (installedVersion.isNotEmpty() && selectedVersion.isNotEmpty() && installedVersion == selectedVersion) {
+                if (installedVersionName.isNotEmpty() && installedVersionName == selectedVersion) {
                     Toast.makeText(
                         this@DeviceInfoActivity,
                         "Ya tienes instalada la versión ${selected.tagName}",
@@ -210,6 +198,10 @@ class DeviceInfoActivity : BaseActivity() {
         }
     }
 
+    /**
+     * Muestra la versión del software REALMENTE INSTALADA en el dispositivo.
+     * Este texto NO se debe sobrescribir con datos del repositorio.
+     */
     private fun showCurrentSoftwareVersion() {
         val pInfo = try {
             packageManager.getPackageInfo(packageName, 0)
@@ -226,34 +218,51 @@ class DeviceInfoActivity : BaseActivity() {
             pInfo?.versionCode ?: 1
         }
 
-        tvSoftwareVersion.text = "Versión del software: v$versionName (Build $versionCode)"
+        installedVersionName = versionName
+
+        tvInstalledVersion.text = "Versión instalada: v$versionName (Build $versionCode)"
+        Log.d(TAG, "📱 Versión instalada detectada: v$versionName (Build $versionCode)")
     }
 
+    /**
+     * Carga las releases del repositorio de GitHub y las muestra en el Spinner.
+     * NO modifica tvInstalledVersion.
+     */
     private fun loadRepositoryReleases() {
         lifecycleScope.launch {
             fetchedReleases = updateManager.fetchReleases()
             if (fetchedReleases.isNotEmpty()) {
                 val tagList = fetchedReleases.map { "${it.tagName} (${it.name})" }
-                val adapter = ArrayAdapter(this@DeviceInfoActivity, android.R.layout.simple_spinner_item, tagList)
+                val adapter = ArrayAdapter(
+                    this@DeviceInfoActivity,
+                    android.R.layout.simple_spinner_item,
+                    tagList
+                )
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 spnVersions.adapter = adapter
 
                 spnVersions.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                     override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                        val selected = fetchedReleases[position]
-                        tvSoftwareVersion.text = "Versión del software: ${selected.tagName}"
+                        if (position in fetchedReleases.indices) {
+                            val selected = fetchedReleases[position]
+                            tvSoftwareVersion.text = "Versión en repositorio: ${selected.tagName}"
+                        }
                     }
 
                     override fun onNothingSelected(parent: AdapterView<*>?) {}
                 }
 
-                tvSoftwareVersion.text = "Versión del software: ${fetchedReleases[0].tagName}"
+                tvSoftwareVersion.text = "Versión en repositorio: ${fetchedReleases[0].tagName}"
             } else {
-                val defaultList = listOf("v1.0.0 (Sin conexión / Por defecto)")
-                val adapter = ArrayAdapter(this@DeviceInfoActivity, android.R.layout.simple_spinner_item, defaultList)
+                val defaultList = listOf("Sin conexión / No disponible")
+                val adapter = ArrayAdapter(
+                    this@DeviceInfoActivity,
+                    android.R.layout.simple_spinner_item,
+                    defaultList
+                )
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 spnVersions.adapter = adapter
-                tvSoftwareVersion.text = "Versión del software: v1.0.0"
+                tvSoftwareVersion.text = "Versión en repositorio: —"
             }
         }
     }
