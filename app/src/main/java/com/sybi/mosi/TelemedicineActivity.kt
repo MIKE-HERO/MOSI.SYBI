@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbManager
@@ -16,6 +17,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Base64
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
@@ -97,6 +99,12 @@ class TelemedicineActivity : BaseActivity() {
         // de más durante minutos de consulta en los que apiRTC funciona bien.
         private const val INTERVALO_RESPALDO_MS = 3_000L
         private const val INTERVALO_RESPALDO_ESTABLE_MS = 12_000L
+
+        // Puente Camera2 -> <canvas> del WebView, solo para cámaras externas (ver camaraQueRequierePuente).
+        // Resolución y fps moderados: el cuello de botella es el bridge JS, no la cámara.
+        private const val PUENTE_CAMARA_ANCHO = 640
+        private const val PUENTE_CAMARA_ALTO = 480
+        private const val PUENTE_CAMARA_INTERVALO_MS = 80L // ~12 fps
     }
 
     private lateinit var topBar: View
@@ -151,6 +159,10 @@ class TelemedicineActivity : BaseActivity() {
     private var respaldoIniciado = false
     private var respaldoConectado = false
     private var apiRtcLiberado = false
+
+    // Puente de cámara externa (ver camaraQueRequierePuente / iniciarPuenteCamara)
+    private var puenteCamara: CamaraPuenteNativo? = null
+    private var ultimoFramePuenteMs = 0L
 
     private val tiempoConexion = Runnable {
         if (estado == Estado.CONECTANDO && !saliendo) {
@@ -588,12 +600,64 @@ class TelemedicineActivity : BaseActivity() {
             mostrarEstado(Estado.ERROR, mensajeSdkNoDisponible())
             return
         }
+        val idCamaraExterna = camaraQueRequierePuente()
+        if (idCamaraExterna != null) iniciarPuenteCamara(idCamaraExterna) else detenerPuenteCamara()
         ejecutarJs(
             "MosiCall.start(${JSONObject.quote(apikeyLlamada)}, ${JSONObject.quote(codigoConversacion)}, " +
-                    "${authApiRtc ?: "null"})"
+                    "${authApiRtc ?: "null"}, ${idCamaraExterna != null})"
         )
         handler.removeCallbacks(tiempoConexion)
         handler.postDelayed(tiempoConexion, TIMEOUT_CONEXION_MS)
+    }
+
+    // ==========================================
+    // PUENTE DE CÁMARA EXTERNA (Camera2 -> <canvas> del WebView)
+    // ==========================================
+    /**
+     * Chromium/WebView tiene un bug conocido con cámaras expuestas por el HAL de cámaras externas
+     * (USB/UVC, LENS_FACING_EXTERNAL): su getUserMedia() asume ids de cámara 0-based y el HAL
+     * externo usa ids con offset, así que la apertura desde el WebView truena o se cuelga aunque
+     * Camera2 la abra bien de forma nativa (ver DiagnosticoCamara). Para esas cámaras se evita
+     * pedirle la cámara al WebView: se captura nativamente y se entrega como canvas.captureStream().
+     */
+    private fun camaraQueRequierePuente(): String? {
+        val manager = getSystemService(Context.CAMERA_SERVICE) as? CameraManager ?: return null
+        val ids = runCatching { manager.cameraIdList.toList() }.getOrDefault(emptyList())
+        return ids.firstOrNull { id ->
+            runCatching {
+                manager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) ==
+                        CameraCharacteristics.LENS_FACING_EXTERNAL
+            }.getOrDefault(false)
+        }
+    }
+
+    private fun iniciarPuenteCamara(cameraId: String) {
+        Log.i(TAG, "🎥 Cámara externa detectada (id=$cameraId): usando puente nativo en vez de getUserMedia del WebView")
+        puenteCamara?.detener()
+        ultimoFramePuenteMs = 0L
+        puenteCamara = CamaraPuenteNativo(this).apply {
+            iniciar(
+                cameraId = cameraId,
+                anchoDeseado = PUENTE_CAMARA_ANCHO,
+                altoDeseado = PUENTE_CAMARA_ALTO,
+                onFrame = { jpeg -> enviarFramePuente(jpeg) },
+                onError = { msg -> Log.e(TAG, "❌ Puente de cámara: $msg") }
+            )
+        }
+    }
+
+    /** Llega en el hilo de fondo de la cámara; se limita la tasa antes de cruzar al WebView. */
+    private fun enviarFramePuente(jpeg: ByteArray) {
+        val ahora = SystemClock.elapsedRealtime()
+        if (ahora - ultimoFramePuenteMs < PUENTE_CAMARA_INTERVALO_MS) return
+        ultimoFramePuenteMs = ahora
+        val b64 = Base64.encodeToString(jpeg, Base64.NO_WRAP)
+        handler.post { if (!isDestroyed) ejecutarJs("MosiCall.pushFrame(${JSONObject.quote(b64)})") }
+    }
+
+    private fun detenerPuenteCamara() {
+        puenteCamara?.detener()
+        puenteCamara = null
     }
 
     // ==========================================
@@ -834,6 +898,7 @@ class TelemedicineActivity : BaseActivity() {
         handler.removeCallbacks(cronometro)
         handler.removeCallbacks(ausenciaMedico)
         vigilanciaRespaldo?.cancel()
+        detenerPuenteCamara()
         if (respaldoIniciado) ejecutarJs("MosiFallback.stop()")
 
         val notificacion = idNotificacion
@@ -1006,6 +1071,7 @@ class TelemedicineActivity : BaseActivity() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        detenerPuenteCamara()
         colorReceiver?.let { LocalBroadcastManager.getInstance(this).unregisterReceiver(it) }
         if (::api.isInitialized) liberarRecursosEnSegundoPlano()
         if (::webView.isInitialized) {
