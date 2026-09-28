@@ -604,7 +604,8 @@ class PatientTableActivity : BaseActivity() {
                     image.close()
 
                     val rotated = rotateBitmap(bitmap, rotation)
-                    val resized = resizeBitmap(rotated, 480, 640)
+                    val mirrored = mirrorBitmap(rotated)
+                    val resized = resizeBitmap(mirrored, 480, 640)
                     capturedBitmap = resized
 
                     // Mostrar preview
@@ -664,6 +665,13 @@ class PatientTableActivity : BaseActivity() {
         if (rotationDegrees == 0) return bitmap
         val matrix = Matrix()
         matrix.postRotate(rotationDegrees.toFloat())
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
+    private fun mirrorBitmap(bitmap: Bitmap): Bitmap {
+        val matrix = Matrix().apply {
+            preScale(-1.0f, 1.0f)
+        }
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 

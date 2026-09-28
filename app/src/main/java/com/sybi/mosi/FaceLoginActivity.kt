@@ -152,10 +152,10 @@ class FaceLoginActivity : BaseActivity() {
 
     private fun getAvailableCameraSelector(provider: ProcessCameraProvider): CameraSelector {
         return try {
-            if (provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
-                CameraSelector.DEFAULT_BACK_CAMERA
-            } else if (provider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
+            if (provider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
                 CameraSelector.DEFAULT_FRONT_CAMERA
+            } else if (provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
+                CameraSelector.DEFAULT_BACK_CAMERA
             } else {
                 CameraSelector.Builder().build()
             }
@@ -269,7 +269,7 @@ class FaceLoginActivity : BaseActivity() {
                     runOnUiThread {
                         Toast.makeText(
                             this@FaceLoginActivity,
-                            "¡Reconocimiento exitoso! Bienvenido ${paciente.nombre} (${(mayorSimilitud * 100).toInt()}%)",
+                            "¡Reconocimiento exitoso! Bienvenido ${paciente.nombre}",
                             Toast.LENGTH_LONG
                         ).show()
 
@@ -303,7 +303,7 @@ class FaceLoginActivity : BaseActivity() {
                     runOnUiThread {
                         Toast.makeText(
                             this@FaceLoginActivity,
-                            "No se encontró ningún paciente con este rostro (${(mayorSimilitud * 100).toInt()}%)",
+                            "No se encontró ningún paciente con este rostro",
                             Toast.LENGTH_LONG
                         ).show()
                         // Permitir reintentar
