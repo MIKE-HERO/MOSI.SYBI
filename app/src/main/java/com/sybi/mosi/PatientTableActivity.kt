@@ -13,7 +13,6 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.*
-import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -22,6 +21,8 @@ import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.database.AppDatabase
 import com.sybi.mosi.database.Paciente
+import com.sybi.mosi.helpers.FaceBiometricsHelper
+import com.sybi.mosi.helpers.MediaPipeFaceHelper
 import com.sybi.mosi.repository.PacienteRemoteRepository
 import com.sybi.mosi.repository.PacienteSyncHelper
 import kotlinx.coroutines.runBlocking
@@ -76,6 +77,9 @@ class PatientTableActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
+        // 🔴 Inicializar modelos biométricos (MediaPipe + FaceNet)
+        FaceBiometricsHelper.init(this)
+
         patientsContainer = findViewById(R.id.patientsContainer)
         btnAddPatient = findViewById(R.id.btnAddPatient)
         btnEditPatient = findViewById(R.id.btnEditPatient)
@@ -99,8 +103,8 @@ class PatientTableActivity : BaseActivity() {
         btnDeleteSelected.setOnClickListener { confirmarEliminarSeleccionados() }
 
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-        val savedColor = prefs.getString("BackgroundColor", "#0F3E82")
-        currentColor = savedColor!!
+        val savedColor = prefs.getString("BackgroundColor", "#0F3E82") ?: "#0F3E82"
+        currentColor = savedColor
         applyColorTheme(savedColor)
 
         val colorReceiver = object : BroadcastReceiver() {
@@ -479,7 +483,7 @@ class PatientTableActivity : BaseActivity() {
                         telefono = etTel.text.toString().trim(),
                         correo = etCor.text.toString().trim().lowercase(),
                         curp = etCurp.text.toString().trim().uppercase(),
-                        tarjetaIc = etEditTarjetaIc?.text.toString().trim() ?: p.tarjetaIc,
+                        tarjetaIc = etEditTarjetaIc?.text.toString().trim().ifBlank { p.tarjetaIc },
                         direccion = etDir.text.toString().trim().uppercase(),
                         foto = nuevaFotoBase64
                     )
@@ -503,6 +507,7 @@ class PatientTableActivity : BaseActivity() {
                     cameraProvider?.unbindAll()
                     cameraProvider = null
                     imageCapture = null
+                    capturedBitmap?.recycle()
                     capturedBitmap = null
                     isCameraActive = false
                     currentDialog = null
@@ -522,6 +527,7 @@ class PatientTableActivity : BaseActivity() {
         containerEditData?.visibility = View.GONE
         containerCamera?.visibility = View.VISIBLE
 
+        capturedBitmap?.recycle()
         capturedBitmap = null
         dialogImgPreview?.visibility = View.GONE
         dialogPreviewView?.visibility = View.VISIBLE
@@ -605,21 +611,69 @@ class PatientTableActivity : BaseActivity() {
 
                     val rotated = rotateBitmap(bitmap, rotation)
                     val mirrored = mirrorBitmap(rotated)
-                    val resized = resizeBitmap(mirrored, 480, 640)
-                    capturedBitmap = resized
 
-                    // Mostrar preview
-                    dialogPreviewView?.visibility = View.GONE
-                    dialogImgPreview?.visibility = View.VISIBLE
-                    dialogImgPreview?.setImageBitmap(resized)
+                    // 🔴 NUEVO PIPELINE: MediaPipe + FaceNet
+                    Thread {
+                        try {
+                            val mpResult = MediaPipeFaceHelper.detect(mirrored)
+                            val hasFace = mpResult != null && mpResult.faceLandmarks().isNotEmpty()
 
-                    dialogBtnCaptureOrRetake?.text = "🔄 Reintentar"
-                    dialogBtnConfirmPhoto?.visibility = View.VISIBLE
-                    dialogTvStatus?.text = "¿Usar esta foto o reintentar?"
-                    dialogTvStatus?.setTextColor(Color.parseColor("#4CAF50"))
+                            if (!hasFace || mpResult == null) {
+                                runOnUiThread {
+                                    // Guardamos la foto completa de todas formas.
+                                    capturedBitmap = mirrored
+                                    dialogPreviewView?.visibility = View.GONE
+                                    dialogImgPreview?.visibility = View.VISIBLE
+                                    dialogImgPreview?.setImageBitmap(mirrored)
+                                    dialogBtnCaptureOrRetake?.text = "🔄 Reintentar"
+                                    dialogBtnConfirmPhoto?.visibility = View.VISIBLE
+                                    dialogTvStatus?.text = "Advertencia: No se detectó rostro. Puede guardar igual."
+                                    dialogTvStatus?.setTextColor(Color.parseColor("#FF9800"))
+                                    cameraProvider?.unbindAll()
+                                }
+                                return@Thread
+                            }
 
-                    // Detener cámara mientras se muestra la foto
-                    cameraProvider?.unbindAll()
+                            val biometrics = FaceBiometricsHelper.processFace(mirrored, mpResult)
+                            val rostroOk = biometrics != null
+
+                            runOnUiThread {
+                                // 🔴 Guardamos la FOTO COMPLETA, no el crop alineado
+                                capturedBitmap = mirrored
+
+                                dialogPreviewView?.visibility = View.GONE
+                                dialogImgPreview?.visibility = View.VISIBLE
+                                dialogImgPreview?.setImageBitmap(mirrored)
+
+                                dialogBtnCaptureOrRetake?.text = "🔄 Reintentar"
+                                dialogBtnConfirmPhoto?.visibility = View.VISIBLE
+
+                                if (rostroOk) {
+                                    dialogTvStatus?.text = "Rostro verificado. ¿Usar esta foto?"
+                                    dialogTvStatus?.setTextColor(Color.parseColor("#4CAF50"))
+                                } else {
+                                    dialogTvStatus?.text = "Advertencia: rostro no óptimo. Puede guardar igual."
+                                    dialogTvStatus?.setTextColor(Color.parseColor("#FF9800"))
+                                }
+
+                                // Detener cámara mientras se muestra la foto
+                                cameraProvider?.unbindAll()
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error procesando rostro en diálogo: ${e.message}", e)
+                            runOnUiThread {
+                                capturedBitmap = mirrored
+                                dialogPreviewView?.visibility = View.GONE
+                                dialogImgPreview?.visibility = View.VISIBLE
+                                dialogImgPreview?.setImageBitmap(mirrored)
+                                dialogBtnCaptureOrRetake?.text = "🔄 Reintentar"
+                                dialogBtnConfirmPhoto?.visibility = View.VISIBLE
+                                dialogTvStatus?.text = "Error al procesar. Puede guardar la foto igual."
+                                dialogTvStatus?.setTextColor(Color.parseColor("#F44336"))
+                                cameraProvider?.unbindAll()
+                            }
+                        }
+                    }.start()
                 }
 
                 override fun onError(exception: ImageCaptureException) {
@@ -634,6 +688,7 @@ class PatientTableActivity : BaseActivity() {
     }
 
     private fun retakePhotoInDialog() {
+        capturedBitmap?.recycle()
         capturedBitmap = null
         dialogImgPreview?.visibility = View.GONE
         dialogPreviewView?.visibility = View.VISIBLE
@@ -649,7 +704,6 @@ class PatientTableActivity : BaseActivity() {
         cameraProvider?.unbindAll()
         cameraProvider = null
         imageCapture = null
-        capturedBitmap = null
         isCameraActive = false
 
         containerCamera?.visibility = View.GONE
@@ -717,5 +771,7 @@ class PatientTableActivity : BaseActivity() {
         cameraProvider?.unbindAll()
         cameraProvider = null
         imageCapture = null
+        capturedBitmap?.recycle()
+        capturedBitmap = null
     }
 }

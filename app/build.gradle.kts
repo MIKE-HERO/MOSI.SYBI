@@ -31,6 +31,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
 
     packagingOptions {
@@ -94,6 +95,11 @@ dependencies {
     // Coil para cargar imágenes PNG, JPG, WEBP y SVG
     implementation("io.coil-kt:coil:2.6.0")
     implementation("io.coil-kt:coil-svg:2.6.0")
+
+    implementation("com.google.mediapipe:tasks-vision:0.10.18")
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
 
 ksp {

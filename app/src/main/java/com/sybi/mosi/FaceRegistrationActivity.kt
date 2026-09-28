@@ -17,19 +17,16 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.face.FaceDetection
-import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.sybi.mosi.database.AppDatabase
+import com.sybi.mosi.helpers.FaceBiometricsHelper
+import com.sybi.mosi.helpers.MediaPipeFaceHelper
 import com.sybi.mosi.repository.PacienteRemoteRepository
-import com.sybi.mosi.repository.PacienteSyncHelper
 import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
@@ -65,6 +62,9 @@ class FaceRegistrationActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
+        // 🔴 Inicializar modelos (MediaPipe + FaceNet)
+        FaceBiometricsHelper.init(this)
+
         // Inicializar vistas
         topFaceBar = findViewById(R.id.topFaceBar)
         previewView = findViewById(R.id.previewView)
@@ -90,8 +90,8 @@ class FaceRegistrationActivity : BaseActivity() {
 
         // Aplicar color guardado
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-        val savedColor = prefs.getString("BackgroundColor", "#0F3E82")
-        currentColor = savedColor!!
+        val savedColor = prefs.getString("BackgroundColor", "#0F3E82") ?: "#0F3E82"
+        currentColor = savedColor
         applyColorTheme(savedColor)
 
         // Solo recibimos id_local
@@ -109,9 +109,6 @@ class FaceRegistrationActivity : BaseActivity() {
         btnRetakePhoto.setOnClickListener { retakePhoto() }
         btnSavePhoto.setOnClickListener { savePatientWithPhoto() }
 
-        // Inicializar cámara
-        startCamera()
-
         // Verificar permisos
         if (!hasCameraPermission()) {
             ActivityCompat.requestPermissions(
@@ -119,7 +116,13 @@ class FaceRegistrationActivity : BaseActivity() {
                 arrayOf(Manifest.permission.CAMERA),
                 CAMERA_PERMISSION_CODE
             )
+        } else {
+            startCamera()
         }
+
+        // Estado inicial
+        tvStatus.text = "Coloque su rostro frente a la cámara"
+        tvStatus.setTextColor(Color.parseColor("#FF9800"))
     }
 
     private fun applyColorTheme(colorHex: String) {
@@ -201,28 +204,69 @@ class FaceRegistrationActivity : BaseActivity() {
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
                     val bitmap = image.toBitmap()
+                    val rotation = image.imageInfo.rotationDegrees
                     image.close()
 
-                    val rotatedBitmap = rotateBitmap(bitmap, image.imageInfo.rotationDegrees)
-                    val mirroredBitmap = mirrorBitmap(rotatedBitmap)
-                    val fullResizedBitmap = resizeBitmap(mirroredBitmap, 480, 640)
+                    val rotatedBitmap = rotateBitmap(bitmap, rotation)
+                    val mirroredBitmap = mirrorBitmap(rotatedBitmap)   // 🔴 SIEMPRE espejar
 
-                    // Validar que hay un rostro presente mediante ML Kit
-                    detectAndCropFace(mirroredBitmap) { croppedBitmap ->
-                        if (croppedBitmap != null) {
-                            // Rostro validado; guardamos y mostramos la FOTO COMPLETA en modo espejo
-                            capturedBitmap = fullResizedBitmap
-                            showPhotoPreview(fullResizedBitmap)
-                        } else {
-                            Toast.makeText(
-                                this@FaceRegistrationActivity,
-                                "No se detectó ningún rostro claramente. Intente de nuevo.",
-                                Toast.LENGTH_LONG
-                            ).show()
-                            tvStatus.text = "No se detectó rostro, intente de nuevo"
-                            tvStatus.setTextColor(Color.parseColor("#F44336"))
+                    tvStatus.text = "Procesando rostro..."
+                    tvStatus.setTextColor(Color.parseColor("#FF9800"))
+
+                    // 🔴 Validación con MediaPipe + FaceNet
+                    Thread {
+                        try {
+                            val mpResult = MediaPipeFaceHelper.detect(mirroredBitmap)
+                            val hasFace = mpResult != null && mpResult.faceLandmarks().isNotEmpty()
+
+                            if (!hasFace || mpResult == null) {
+                                runOnUiThread {
+                                    Toast.makeText(
+                                        this@FaceRegistrationActivity,
+                                        "No se detectó un rostro claro. Intente de nuevo.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    tvStatus.text = "No se detectó rostro, intente de nuevo"
+                                    tvStatus.setTextColor(Color.parseColor("#F44336"))
+                                }
+                                return@Thread
+                            }
+
+                            // Solo validamos que el rostro sea procesable (embedding válido).
+                            // NO guardamos el bitmap alineado, solo el original completo.
+                            val biometrics = FaceBiometricsHelper.processFace(mirroredBitmap, mpResult)
+                            if (biometrics == null) {
+                                runOnUiThread {
+                                    Toast.makeText(
+                                        this@FaceRegistrationActivity,
+                                        "No se pudo procesar el rostro. Intente de nuevo.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    tvStatus.text = "Rostro no válido, intente de nuevo"
+                                    tvStatus.setTextColor(Color.parseColor("#F44336"))
+                                }
+                                return@Thread
+                            }
+
+                            // ✅ Guardamos la FOTO COMPLETA original (espejada si es frontal)
+                            capturedBitmap = mirroredBitmap
+
+                            runOnUiThread {
+                                showPhotoPreview(mirroredBitmap)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error procesando rostro: ${e.message}", e)
+                            runOnUiThread {
+                                Toast.makeText(
+                                    this@FaceRegistrationActivity,
+                                    "Error: ${e.message}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                tvStatus.text = "Error al procesar la foto"
+                                tvStatus.setTextColor(Color.parseColor("#F44336"))
+                            }
                         }
-                    }
+                    }.start()
                 }
 
                 override fun onError(exception: ImageCaptureException) {
@@ -243,46 +287,6 @@ class FaceRegistrationActivity : BaseActivity() {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
-    private fun detectAndCropFace(bitmap: Bitmap, onResult: (Bitmap?) -> Unit) {
-        val image = InputImage.fromBitmap(bitmap, 0)
-        val options = FaceDetectorOptions.Builder()
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
-            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
-            .build()
-
-        val detector = FaceDetection.getClient(options)
-        detector.process(image)
-            .addOnSuccessListener { faces ->
-                if (faces.isNotEmpty()) {
-                    val face = faces[0]
-                    val bounds = face.boundingBox
-
-                    val left = maxOf(0, bounds.left)
-                    val top = maxOf(0, bounds.top)
-                    val right = minOf(bitmap.width, bounds.right)
-                    val bottom = minOf(bitmap.height, bounds.bottom)
-
-                    if (right > left && bottom > top) {
-                        try {
-                            val cropped = Bitmap.createBitmap(bitmap, left, top, right - left, bottom - top)
-                            detector.close()
-                            onResult(cropped)
-                            return@addOnSuccessListener
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error recortando rostro: ${e.message}")
-                        }
-                    }
-                }
-                detector.close()
-                onResult(null)
-            }
-            .addOnFailureListener {
-                detector.close()
-                onResult(null)
-            }
-    }
-
     private fun showPhotoPreview(bitmap: Bitmap) {
         previewView.visibility = View.GONE
         imgPhotoPreview.visibility = View.VISIBLE
@@ -299,6 +303,7 @@ class FaceRegistrationActivity : BaseActivity() {
     }
 
     private fun retakePhoto() {
+        capturedBitmap?.recycle()
         capturedBitmap = null
         imgPhotoPreview.visibility = View.GONE
         previewView.visibility = View.VISIBLE
@@ -348,7 +353,7 @@ class FaceRegistrationActivity : BaseActivity() {
                         return@runBlocking
                     }
 
-                    // 2. Actualizar con la foto
+                    // 2. Actualizar con la foto completa (sin recortes)
                     val pacienteConFoto = pacienteLocal.copy(foto = base64Image)
                     pacienteDao.actualizarPaciente(pacienteConFoto)
 
@@ -375,11 +380,8 @@ class FaceRegistrationActivity : BaseActivity() {
                             fecha_registro_global = parsearFechaRegistroAPI(u.fechaRegistro),
                             sincronizado = true
                         )
-                        Log.d(TAG, "🔄 Paciente actualizado con datos de la API:")
-                        Log.d(TAG, "   pacienteLocal antes: nombre='${pacienteLocal.nombre}', apPat='${pacienteLocal.apellido_paterno}', curp='${pacienteLocal.curp}', tel='${pacienteLocal.telefono}'")
-                        Log.d(TAG, "   pacienteActualizado: nombre='${pacienteActualizado.nombre}', apPat='${pacienteActualizado.apellido_paterno}', curp='${pacienteActualizado.curp}', tel='${pacienteActualizado.telefono}'")
+                        Log.d(TAG, "🔄 Paciente actualizado con datos de la API")
                         pacienteDao.actualizarPaciente(pacienteActualizado)
-                        Log.d(TAG, "✅ actualizarPaciente ejecutado")
 
                         runOnUiThread {
                             Toast.makeText(
@@ -422,9 +424,6 @@ class FaceRegistrationActivity : BaseActivity() {
         finish()
     }
 
-    /**
-     * Convierte la fecha de la API ("Oct 1 1958 12:00AM") a formato dd/MM/yyyy.
-     */
     private fun parsearFechaNacimiento(fechaAPI: String?): String? {
         if (fechaAPI.isNullOrBlank()) return null
         return try {
@@ -473,7 +472,6 @@ class FaceRegistrationActivity : BaseActivity() {
 
     private fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
         if (rotationDegrees == 0) return bitmap
-
         val matrix = Matrix()
         matrix.postRotate(rotationDegrees.toFloat())
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
@@ -482,15 +480,12 @@ class FaceRegistrationActivity : BaseActivity() {
     private fun resizeBitmap(bitmap: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
         val originalWidth = bitmap.width
         val originalHeight = bitmap.height
-
         val scale = minOf(
             targetWidth.toFloat() / originalWidth,
             targetHeight.toFloat() / originalHeight
         )
-
         val newWidth = (originalWidth * scale).toInt()
         val newHeight = (originalHeight * scale).toInt()
-
         return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
     }
 
@@ -509,5 +504,7 @@ class FaceRegistrationActivity : BaseActivity() {
     override fun onDestroy() {
         super.onDestroy()
         cameraProvider?.unbindAll()
+        capturedBitmap?.recycle()
+        capturedBitmap = null
     }
 }
