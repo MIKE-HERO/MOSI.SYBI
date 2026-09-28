@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dispositivos USB de video (clase 14: cámaras UVC/webcam). Al conectarlos, Android ofrece esta
+     app y permite marcar "usar siempre", con lo que el permiso USB queda guardado. -->
+<resources>
+    <usb-device class="14" />
+    <!-- Cámaras que se anuncian como dispositivo compuesto (clase misceláneo / IAD) -->
+    <usb-device class="239" subclass="2" protocol="1" />
+</resources>

@@ -16,6 +16,7 @@ import android.widget.EditText
 import android.widget.Switch
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
+import com.sybi.mosi.admin.PermisosAdmin
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.network.Cliente
 import com.sybi.mosi.network.RetrofitClient
@@ -145,6 +146,65 @@ class TelemedicineSettingsActivity : BaseActivity() {
         btnGuardar.setOnClickListener {
             saveTelemedicineSettings()
         }
+
+        findViewById<Button>(R.id.btnDiagCamara).setOnClickListener { mostrarDiagnosticoCamara() }
+
+        findViewById<Button>(R.id.btnConcederPermisos).setOnClickListener {
+            val estado = PermisosAdmin.aplicar(this)
+            if (!estado.esPropietario && estado.pendientes.isNotEmpty()) {
+                // Sin ser administrador Android exige la confirmación del usuario
+                androidx.core.app.ActivityCompat.requestPermissions(this, estado.pendientes.toTypedArray(), 200)
+            }
+            actualizarEstadoAdmin()
+        }
+        findViewById<Button>(R.id.btnRenunciarAdmin).setOnClickListener {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Renunciar a administrador")
+                .setMessage("La app dejará de ser propietaria del dispositivo y volverá a pedir los permisos. ¿Continuar?")
+                .setPositiveButton("Renunciar") { _, _ ->
+                    val ok = PermisosAdmin.renunciar(this)
+                    Toast.makeText(this, if (ok) "Administrador desactivado" else "La app no es administradora", Toast.LENGTH_SHORT).show()
+                    actualizarEstadoAdmin()
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+        }
+        actualizarEstadoAdmin()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        actualizarEstadoAdmin()
+    }
+
+    private fun actualizarEstadoAdmin() {
+        val estado = PermisosAdmin.estado(this)
+        findViewById<android.widget.TextView>(R.id.tvEstadoAdmin).text =
+            (if (estado.esPropietario) "Administrador del dispositivo: SÍ (los permisos se conceden solos)"
+            else "Administrador del dispositivo: NO (Android pedirá confirmar cada permiso)") +
+                    "\nPermisos concedidos: ${estado.concedidos} de ${estado.total}" +
+                    (if (estado.pendientes.isNotEmpty()) "\nPendientes: " +
+                            estado.pendientes.joinToString { it.substringAfterLast('.') } else "")
+        findViewById<Button>(R.id.btnRenunciarAdmin).isEnabled = estado.esPropietario
+    }
+
+    private fun mostrarDiagnosticoCamara() {
+        val informe = DiagnosticoCamara.generar(this)
+        Log.i(TAG, "🔎 Diagnóstico de cámara:\n$informe")
+        val texto = android.widget.TextView(this).apply {
+            text = informe
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 13f
+            setPadding(48, 24, 48, 24)
+            setTextIsSelectable(true)
+        }
+        val scroll = android.widget.ScrollView(this).apply { addView(texto) }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Diagnóstico de cámara y USB")
+            .setView(scroll)
+            .setPositiveButton("Actualizar") { _, _ -> mostrarDiagnosticoCamara() }
+            .setNegativeButton("Cerrar", null)
+            .show()
     }
 
     private fun loadSavedValues() {

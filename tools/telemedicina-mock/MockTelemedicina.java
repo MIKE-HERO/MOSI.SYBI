@@ -87,6 +87,23 @@ public class MockTelemedicina {
                     responderTexto(ex, String.join("\n", log) + "\n");
                 }
             }
+            // ---------- VideoLoop simulado (silencio) ----------
+            // Para probar que la app respeta el silencio que puso el usuario:
+            //   GET /__videoloop?muted=true|false  -> cambia el silencio como si lo hiciera la persona
+            case "/__videoloop" -> {
+                String valor = parametro(query, "muted");
+                if (valor != null) videoMuted = Boolean.parseBoolean(valor);
+                registrar("🎬 VideoLoop (usuario): muted=" + videoMuted);
+                responder(ex, 200, estadoVideoLoop());
+            }
+            case "/status" -> responder(ex, 200, estadoVideoLoop());
+            case "/audio" -> {
+                Matcher m = Pattern.compile("\"muted\"\\s*:\\s*(true|false)").matcher(cuerpo);
+                if (m.find()) videoMuted = Boolean.parseBoolean(m.group(1));
+                registrar("🎬 VideoLoop (app): muted=" + videoMuted);
+                responder(ex, 200, estadoVideoLoop());
+            }
+            case "/volume" -> responder(ex, 200, estadoVideoLoop());
             case "/__ultima-llamada" ->
                     responder(ex, 200, "{\"codigo\":\"" + ultimoCodigo + "\",\"apikey\":\"" + APIKEY_DEMO
                             + "\",\"id\":\"medico-mock\",\"token\":\"" + tokenApiRtc("medico-mock") + "\"}");
@@ -153,6 +170,12 @@ public class MockTelemedicina {
             registrar("💥 No se pudo firmar el token de apiRTC: " + e.getClass().getSimpleName());
             return "";
         }
+    }
+
+    private static volatile boolean videoMuted = false;
+
+    private static String estadoVideoLoop() {
+        return "{\"muted\":" + videoMuted + ",\"volume\":9,\"videos\":[{\"name\":\"demo.mp4\",\"size\":1}]}";
     }
 
     private static Path localizarMedicoHtml(Path base) {

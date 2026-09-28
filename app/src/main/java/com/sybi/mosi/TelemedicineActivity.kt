@@ -8,6 +8,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.hardware.camera2.CameraManager
+import android.hardware.usb.UsbConstants
+import android.hardware.usb.UsbManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -86,8 +89,11 @@ class TelemedicineActivity : BaseActivity() {
         // Espera máxima a que cargue la página de video (SDK) antes de iniciar la consulta
         private const val ESPERA_MOTOR_VIDEO_MS = 10_000L
 
-        // Cada cuánto se revisa en Firestore si el médico pidió el respaldo WebRTC
+        // Cada cuánto se revisa en Firestore si el médico pidió el respaldo WebRTC. Con la llamada
+        // ya establecida hay menos urgencia, así que se espacía para no gastar lecturas/batería
+        // de más durante minutos de consulta en los que apiRTC funciona bien.
         private const val INTERVALO_RESPALDO_MS = 3_000L
+        private const val INTERVALO_RESPALDO_ESTABLE_MS = 12_000L
     }
 
     private lateinit var topBar: View
@@ -334,6 +340,16 @@ class TelemedicineActivity : BaseActivity() {
                 errorSdk = datos.optString("errorSdk")
                 if (inicioPendiente) iniciarVideo()
             }
+            // Avance del video en pantalla: así se ve en qué paso se detiene sin revisar el log
+            "etapa" -> if (estado == Estado.CONECTANDO) {
+                tvStatusMessage.text = when (datos.optString("nombre")) {
+                    "registro" -> "Conectado al servicio de video. Abriendo la cámara y el micrófono…"
+                    "stream-local" -> "Cámara abierta. Entrando a la sala con $nombreMedico…"
+                    "enumerar" -> "Cámara abierta. Entrando a la sala con $nombreMedico…"
+                    "join" -> "En la sala. Enviando tu video…"
+                    else -> tvStatusMessage.text.toString()
+                }
+            }
             "joined" -> {
                 handler.removeCallbacks(tiempoConexion)
                 btnSwitchCamera.visibility = if (datos.optInt("camaras") > 1) View.VISIBLE else View.GONE
@@ -377,8 +393,12 @@ class TelemedicineActivity : BaseActivity() {
     private fun mensajeErrorVideo(datos: JSONObject): String = when (datos.optString("nombre")) {
         "NotAllowedError" -> "Permiso denegado. Asegúrate de que la cámara y el micrófono estén habilitados."
         "NotFoundError" -> "No se encontró la cámara o el micrófono del equipo."
+        "NotReadableError" -> "La cámara está siendo usada por otra aplicación o no responde. Desconéctala, vuelve a conectarla y presiona Reconectar."
         // El detalle técnico queda en el log ("Error de video"); al paciente solo un texto claro
-        else -> when (datos.optString("etapa")) {
+        else -> if (datos.optString("mensaje").contains("stream-local")) {
+            // La captura de la cámara no respondió a tiempo: casi siempre es la cámara (USB) desconectada
+            "No se pudo abrir la cámara. Revisa que la cámara USB esté conectada y presiona Reconectar."
+        } else when (datos.optString("etapa")) {
             "sdk" -> "No se pudo cargar el servicio de video. Revisa la conexión a internet."
             "registro" -> "No se pudo conectar con el servicio de video. Intenta de nuevo en unos minutos."
             else -> "Ocurrió un error en la videollamada. Intenta de nuevo en unos minutos."
@@ -448,8 +468,40 @@ class TelemedicineActivity : BaseActivity() {
             "No se pudo cargar el servicio de video. Revisa la conexión a internet."
         }
 
+    /**
+     * Sin cámara no hay videollamada: antes de reservar clave y avisar al médico se comprueba que
+     * Android ve una cámara (incluida una USB/externa). Si la cámara USB está conectada pero el
+     * equipo no la expone como cámara, se avisa aparte porque no es un problema de conexión.
+     */
+    private fun camaraDisponible(): Boolean {
+        val hay = runCatching {
+            (getSystemService(Context.CAMERA_SERVICE) as CameraManager).cameraIdList.isNotEmpty()
+        }.getOrDefault(true)
+        if (hay) return true
+
+        val usbVideo = runCatching {
+            (getSystemService(Context.USB_SERVICE) as UsbManager).deviceList.values.any { dispositivo ->
+                dispositivo.deviceClass == UsbConstants.USB_CLASS_VIDEO ||
+                        (0 until dispositivo.interfaceCount).any {
+                            dispositivo.getInterface(it).interfaceClass == UsbConstants.USB_CLASS_VIDEO
+                        }
+            }
+        }.getOrDefault(false)
+        Log.w(TAG, "🚫 Sin cámara para la videollamada (usbVideoConectado=$usbVideo)")
+        mostrarEstado(
+            Estado.ERROR,
+            if (usbVideo) {
+                "Hay una cámara USB conectada, pero este equipo no la reconoce como cámara para videollamadas."
+            } else {
+                "No se detectó ninguna cámara. Conecta la cámara USB y presiona Reintentar."
+            }
+        )
+        return false
+    }
+
     private fun iniciarConsulta() {
         lifecycleScope.launch {
+            if (!camaraDisponible()) return@launch
             if (!motorDeVideoListo()) return@launch
             try {
                 val clave = api.obtenerApikey(idUsuarioWeb, idCabina)
@@ -503,6 +555,14 @@ class TelemedicineActivity : BaseActivity() {
             } catch (e: TelemedicinaException) {
                 Log.e(TAG, "❌ Error iniciando la consulta: ${e.message}", e)
                 mostrarEstado(Estado.ERROR, "${e.message}. Intenta de nuevo en unos minutos.")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e // la pantalla se está cerrando; no es un error que mostrar
+            } catch (e: Exception) {
+                // Cualquier fallo no previsto (JSON inesperado del servidor, etc.) no debe tumbar la
+                // app: sin este resguardo, una excepción distinta a TelemedicinaException se habría
+                // propagado sin capturar dentro de la corrutina.
+                Log.e(TAG, "❌ Error inesperado iniciando la consulta: ${e.message}", e)
+                mostrarEstado(Estado.ERROR, "Ocurrió un error inesperado. Intenta de nuevo en unos minutos.")
             }
         }
     }
@@ -537,7 +597,8 @@ class TelemedicineActivity : BaseActivity() {
         vigilanciaRespaldo?.cancel()
         vigilanciaRespaldo = lifecycleScope.launch {
             while (isActive && !saliendo) {
-                delay(INTERVALO_RESPALDO_MS)
+                val intervalo = if (estado == Estado.EN_LLAMADA) INTERVALO_RESPALDO_ESTABLE_MS else INTERVALO_RESPALDO_MS
+                delay(intervalo)
                 val fb = api.leerEstadoFallback() ?: continue
                 when {
                     fb.eliminado || fb.status == "cancelado" -> {
@@ -639,14 +700,23 @@ class TelemedicineActivity : BaseActivity() {
     private fun reconectar() {
         if (reconectando || !puedeReconectar()) return
         reconectando = true
-        handler.removeCallbacks(tiempoConexion)
-        handler.removeCallbacks(ausenciaMedico)
-        tvDoctorName.visibility = View.GONE
-        mostrarEstado(Estado.CONECTANDO)
         lifecycleScope.launch {
-            // Reconectar a apiRTC reemplaza al respaldo, si estaba abierto
+            // Misma comprobación que al iniciar la consulta: si la cámara ya no está (p. ej. se
+            // desconectó el USB entre intentos) se avisa aquí, en vez de fallar dentro del JS.
+            if (!camaraDisponible()) {
+                reconectando = false
+                return@launch
+            }
+            handler.removeCallbacks(tiempoConexion)
+            handler.removeCallbacks(ausenciaMedico)
+            tvDoctorName.visibility = View.GONE
+            mostrarEstado(Estado.CONECTANDO)
+
+            // Reconectar a apiRTC reemplaza al respaldo, si estaba abierto; se reinicia por completo
+            // para que si el médico vuelve a pedirlo más adelante en la misma consulta, se atienda
             ejecutarJs("MosiFallback.stop()")
             respaldoConectado = false
+            respaldoIniciado = false
             btnReconnect.visibility = View.VISIBLE
             salidaJs = CompletableDeferred()
             ejecutarJs("MosiCall.hangup()")
@@ -836,7 +906,7 @@ class TelemedicineActivity : BaseActivity() {
             Estado.CONECTANDO -> panel(
                 cargando = true,
                 titulo = "Conectando con $nombreMedico",
-                texto = "Preparando la cámara y el micrófono…",
+                texto = "Conectando con el servicio de video…",
                 accion = "Cancelar consulta"
             ) { colgar() }
 
@@ -911,12 +981,10 @@ class TelemedicineActivity : BaseActivity() {
     // ==========================================
     override fun onResume() {
         super.onResume()
-        lifecycleScope.launch {
-            val ok = VideoLoopRemote.setMuted(this@TelemedicineActivity, true)
-            if (!ok) {
-                Log.w(TAG, "No se pudo silenciar el video en " +
-                        VideoLoopRemote.getSavedHostPort(this@TelemedicineActivity))
-            }
+        // Se silencia VideoLoop solo si el usuario lo tenía con sonido (ver VideoLoopRemote.silenciarMientras)
+        val appContext = applicationContext
+        CoroutineScope(Dispatchers.IO).launch {
+            VideoLoopRemote.silenciarMientras(appContext, TAG)
         }
     }
 
@@ -937,8 +1005,9 @@ class TelemedicineActivity : BaseActivity() {
         super.onDestroy()
 
         val appContext = applicationContext
+        // Devuelve el audio solo si lo silenció la app; si el usuario lo había silenciado, sigue así
         CoroutineScope(Dispatchers.IO).launch {
-            VideoLoopRemote.setMuted(appContext, false)
+            VideoLoopRemote.restaurarSilencio(appContext, TAG)
         }
     }
 }

@@ -19,6 +19,8 @@ import java.net.URLEncoder
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
@@ -173,6 +175,68 @@ object VideoLoopRemote {
         send("POST", host, port, "/audio", "{\"muted\":$muted}", getSavedKey(context))
     }
 
+    // ==========================================
+    // SILENCIO TEMPORAL (consulta / medición) RESPETANDO AL USUARIO
+    // ==========================================
+
+    private const val PREF_SILENCIADO_POR_APP = "videoloop_silenciado_por_app"
+    private val silencioMutex = Mutex()
+    private val pantallasQueSilencian = mutableSetOf<String>()
+    private var silenciadoPorApp = false
+
+    /**
+     * Silencia VideoLoop mientras [pantalla] (consulta o medición) está abierta, pero solo si el
+     * usuario lo tenía con sonido. Si ya estaba en silencio (lo silenció la persona) no se toca, y
+     * al terminar tampoco se reactiva: permanece en silencio hasta que el usuario active el audio;
+     * a partir de ahí vuelve a silenciarse durante las consultas.
+     *
+     * Se puede llamar varias veces por pantalla (p. ej. en cada onResume); cada pantalla cuenta una vez.
+     */
+    suspend fun silenciarMientras(context: Context, pantalla: String): Boolean = silencioMutex.withLock {
+        val yaSilencian = pantallasQueSilencian.isNotEmpty()
+        pantallasQueSilencian.add(pantalla)
+        if (yaSilencian) return@withLock true   // otra pantalla ya resolvió el estado del usuario
+
+        val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val estado = getStatus(context).status
+        if (estado == null) {
+            // Sin poder leer el estado no se adivina: si la red falla, tampoco llegaría la orden
+            Log.w(TAG, "No se pudo leer el estado de VideoLoop; no se cambia el silencio")
+            pantallasQueSilencian.remove(pantalla)
+            return@withLock false
+        }
+        if (estado.muted) {
+            // Silenciado por el usuario, salvo que sea una marca nuestra de una sesión que no alcanzó a restaurar
+            silenciadoPorApp = prefs.getBoolean(PREF_SILENCIADO_POR_APP, false)
+            return@withLock true
+        }
+        val ok = sendMuted(context, true).ok
+        silenciadoPorApp = ok
+        prefs.edit().putBoolean(PREF_SILENCIADO_POR_APP, ok).apply()
+        if (!ok) pantallasQueSilencian.remove(pantalla)
+        ok
+    }
+
+    /**
+     * Devuelve el audio solo si lo silenciamos nosotros y la última pantalla que silenciaba se cerró.
+     * Si el usuario cambió el silencio mientras tanto, se respeta lo que dejó.
+     */
+    suspend fun restaurarSilencio(context: Context, pantalla: String) = silencioMutex.withLock {
+        if (!pantallasQueSilencian.remove(pantalla) || pantallasQueSilencian.isNotEmpty()) return@withLock
+        if (!silenciadoPorApp) return@withLock
+
+        val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val estado = getStatus(context).status
+        // Si ya está con sonido, el usuario lo activó durante la consulta: no hay nada que devolver
+        val ok = if (estado != null && !estado.muted) true else sendMuted(context, false).ok
+        if (ok) {
+            silenciadoPorApp = false
+            prefs.edit().putBoolean(PREF_SILENCIADO_POR_APP, false).apply()
+        } else {
+            Log.w(TAG, "No se pudo reactivar el audio en ${getSavedHostPort(context)}")
+        }
+    }
+
     /** Volumen del reproductor de VideoLoop, 0–100 (independiente del silencio). */
     suspend fun setVolume(context: Context, volume: Int): Result = withAutoDiscovery(context) { host, port ->
         send("POST", host, port, "/volume", "{\"volume\":${volume.coerceIn(0, 100)}}", getSavedKey(context))
@@ -281,9 +345,20 @@ object VideoLoopRemote {
 
         val found = discover(context)
         if (found != null && found != "$savedHost:$savedPort") {
-            Log.i(TAG, "🔁 VideoLoop cambió de dirección: $savedHost:$savedPort -> $found (guardada)")
-            saveHostPort(context, found)
-            action(getSavedHost(context), getSavedPort(context))
+            val nuevoHost = found.substringBefore(':')
+            val nuevoPuerto = found.substringAfter(':', "").toIntOrNull() ?: DEFAULT_PORT
+            val resultado = action(nuevoHost, nuevoPuerto)
+            if (resultado.ok) {
+                // Solo se guarda la nueva dirección si de verdad es NUESTRO VideoLoop (aceptó la
+                // clave). En una red con varios quioscos, el sondeo de descubrimiento puede recibir
+                // respuesta del VideoLoop de OTRO quiosco; sin esta comprobación, la app se habría
+                // quedado emparejada de forma permanente con el equipo equivocado.
+                Log.i(TAG, "🔁 VideoLoop cambió de dirección: $savedHost:$savedPort -> $found (guardada)")
+                saveHostPort(context, found)
+            } else {
+                Log.w(TAG, "🔎 $found respondió al sondeo pero no aceptó la clave; no se guarda (¿otro quiosco?)")
+            }
+            resultado
         } else {
             delay(RETRY_DELAY_MS)
             action(savedHost, savedPort)

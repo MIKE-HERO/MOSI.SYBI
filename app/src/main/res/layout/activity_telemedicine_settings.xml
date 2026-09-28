@@ -161,6 +161,52 @@
                         android:textSize="11sp"
                         android:textColor="#9E9E9E"
                         android:layout_marginTop="4dp"/>
+
+                    <Button
+                        android:id="@+id/btnDiagCamara"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="Diagnosticar cámara y puerto USB (OTG)"
+                        android:textColor="#FFFFFF"
+                        android:textAllCaps="false"
+                        android:backgroundTint="#0F3E82"/>
+
+                    <TextView
+                        android:id="@+id/tvEstadoAdmin"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:textSize="12sp"
+                        android:textColor="#555555"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnConcederPermisos"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="8dp"
+                            android:text="Conceder permisos"
+                            android:textColor="#FFFFFF"
+                            android:textAllCaps="false"
+                            android:backgroundTint="#0F3E82"/>
+
+                        <Button
+                            android:id="@+id/btnRenunciarAdmin"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Renunciar a administrador"
+                            android:textColor="#FFFFFF"
+                            android:textAllCaps="false"
+                            android:backgroundTint="#B71C1C"/>
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- TARJETA 2: DATOS DE CABINA, CLIENTE Y SUCURSAL -->
