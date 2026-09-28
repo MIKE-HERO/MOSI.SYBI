@@ -77,6 +77,12 @@
         }
     </style>
     <script>
+        // Si el SDK de apiRTC ni siquiera se puede interpretar (WebView viejo) queda aquí el motivo
+        window.__errorSdk = '';
+        window.addEventListener('error', (e) => {
+            if (e.filename && e.filename.indexOf('apiRTC') >= 0) window.__errorSdk = String(e.message || '');
+        });
+
         function emit(tipo, datos) {
             try {
                 window.MosiBridge.onEvent(tipo, JSON.stringify(datos || {}));
@@ -105,8 +111,32 @@
             };
         }
     </script>
-    <script src="https://cdn.apirtc.com/apiRTC/apiRTC-latest.min.js"
-            onerror="emit('error', { etapa: 'sdk', mensaje: 'No se pudo cargar apiRTC' })"></script>
+    <script>
+        /*
+         * SDK de apiRTC. La versión actual usa sintaxis moderna de JavaScript (p. ej. "?.") que un
+         * WebView anterior a Chrome 80 no puede interpretar. En esos equipos se carga una copia del
+         * mismo SDK convertida para navegadores viejos (compat/) junto con polyfills, así la app no
+         * depende de que cada equipo tenga el WebView actualizado. En WebViews modernos se usa el
+         * SDK oficial de la CDN, igual que la web.
+         */
+        window.__chromeVersion = parseInt((navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1], 10) || 0;
+        window.__modoCompat = window.__chromeVersion > 0 && window.__chromeVersion < 80;
+
+        function cargarScript(src) {
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = src;
+                s.onload = resolve;
+                s.onerror = () => reject(new Error('No se pudo cargar ' + src));
+                document.head.appendChild(s);
+            });
+        }
+
+        window.__sdkListo = (window.__modoCompat
+            ? cargarScript('compat/corejs.min.js').then(() => cargarScript('compat/apiRTC-compat.min.js'))
+            : cargarScript('https://cdn.apirtc.com/apiRTC/apiRTC-latest.min.js'))
+            .catch((err) => emit('error', { etapa: 'sdk', mensaje: String(err.message || err) }));
+    </script>
 </head>
 <body>
     <div id="remote"></div>
@@ -363,7 +393,15 @@
         })();
 
         window.addEventListener('load', () => {
-            emit('ready', { sdk: typeof apiRTC !== 'undefined' });
+            // "ready" se avisa cuando terminó de cargar el SDK (con éxito o no)
+            Promise.resolve(window.__sdkListo).then(() => {
+                emit('ready', {
+                    sdk: typeof apiRTC !== 'undefined',
+                    chrome: window.__chromeVersion,
+                    compat: window.__modoCompat,
+                    errorSdk: window.__errorSdk
+                });
+            });
         });
     </script>
 </body>

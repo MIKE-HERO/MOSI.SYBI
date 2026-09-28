@@ -2,28 +2,18 @@ package com.sybi.mosi
 
 import android.content.Context
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
-import java.util.WeakHashMap
 
 open class BaseActivity : AppCompatActivity() {
 
-    private val keyboardHandler = Handler(Looper.getMainLooper())
-    private val watchedViews = WeakHashMap<EditText, Boolean>()
-
-    private val hideKeyboardRunnable = Runnable {
-        hideKeyboardAndClearFocus()
-    }
+    // El teclado ya no se oculta por inactividad: se queda fijo hasta que se toca fuera de los
+    // campos de texto o el botón "Ocultar teclado" que aparece junto a él.
+    private val keyboardHelper by lazy { KeyboardDismissHelper(window) { hideKeyboardAndClearFocus() } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,24 +24,21 @@ open class BaseActivity : AppCompatActivity() {
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
         preventInitialFocus()
-        setupTextWatchersInHierarchy()
     }
 
     override fun onResume() {
         super.onResume()
         preventInitialFocus()
-        setupTextWatchersInHierarchy()
+        keyboardHelper.attach()
     }
 
     override fun onPause() {
         super.onPause()
-        stopKeyboardInactivityTimer()
+        keyboardHelper.detach()
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
-        if (ev?.action == MotionEvent.ACTION_DOWN) {
-            resetKeyboardInactivityTimer()
-        }
+        if (ev != null) keyboardHelper.handleTouch(ev)
         return super.dispatchTouchEvent(ev)
     }
 
@@ -65,21 +52,6 @@ open class BaseActivity : AppCompatActivity() {
         rootView?.requestFocus()
         currentFocus?.clearFocus()
         hideKeyboard()
-    }
-
-    /**
-     * Reinicia el temporizador de inactividad del teclado (3 segundos).
-     */
-    fun resetKeyboardInactivityTimer() {
-        keyboardHandler.removeCallbacks(hideKeyboardRunnable)
-        keyboardHandler.postDelayed(hideKeyboardRunnable, 2000)
-    }
-
-    /**
-     * Detiene el temporizador de inactividad del teclado.
-     */
-    fun stopKeyboardInactivityTimer() {
-        keyboardHandler.removeCallbacks(hideKeyboardRunnable)
     }
 
     /**
@@ -109,95 +81,37 @@ open class BaseActivity : AppCompatActivity() {
     }
 
     /**
-     * Busca recursivamente todos los EditText en la jerarquía de vistas
-     * y les añade un TextWatcher para reiniciar el temporizador al escribir.
-     */
-    fun setupTextWatchersInHierarchy(root: View? = null) {
-        val target = root ?: findViewById<View>(android.R.id.content) ?: return
-        registerEditTexts(target)
-    }
-
-    private fun registerEditTexts(view: View) {
-        if (view is EditText) {
-            if (watchedViews[view] != true) {
-                watchedViews[view] = true
-                view.addTextChangedListener(object : TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                        resetKeyboardInactivityTimer()
-                    }
-                    override fun afterTextChanged(s: Editable?) {}
-                })
-            }
-        } else if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                registerEditTexts(view.getChildAt(i))
-            }
-        }
-    }
-
-    /**
-     * Configura el comportamiento de teclado para un Diálogo (auto-ocultar tras 5s e inactividad).
+     * Comportamiento de teclado para un Diálogo: no se abre solo, se queda fijo y se oculta con el
+     * botón "Ocultar teclado" o al tocar fuera de los campos de texto.
      */
     fun setupDialogKeyboardBehavior(dialog: android.app.Dialog) {
-        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
-
-        val dialogHandler = Handler(Looper.getMainLooper())
-        var dialogRunnable: Runnable? = null
+        val dialogWindow = dialog.window ?: return
+        dialogWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
 
         fun hideDialogKeyboard() {
-            val focusView = dialog.currentFocus ?: dialog.window?.decorView
-            focusView?.let { v ->
-                val imm = dialog.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                imm?.hideSoftInputFromWindow(v.windowToken, 0)
-                v.clearFocus()
-            }
+            val focusView = dialog.currentFocus ?: dialogWindow.decorView
+            val imm = dialog.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(focusView.windowToken, 0)
+            focusView.clearFocus()
         }
 
-        fun resetDialogTimer() {
-            dialogRunnable?.let { dialogHandler.removeCallbacks(it) }
-            dialogRunnable = Runnable { hideDialogKeyboard() }
-            dialogHandler.postDelayed(dialogRunnable!!, 5000)
-        }
+        val helper = KeyboardDismissHelper(dialogWindow) { hideDialogKeyboard() }
 
         dialog.setOnShowListener {
-            val decorView = dialog.window?.decorView
-            if (decorView is ViewGroup) {
-                registerEditTextsInDialog(decorView) { resetDialogTimer() }
-            }
+            helper.attach()
             hideDialogKeyboard()
         }
 
-        val originalCallback = dialog.window?.callback
+        val originalCallback = dialogWindow.callback
         if (originalCallback != null) {
-            dialog.window?.callback = object : Window.Callback by originalCallback {
+            dialogWindow.callback = object : Window.Callback by originalCallback {
                 override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
-                    if (event?.action == MotionEvent.ACTION_DOWN) {
-                        resetDialogTimer()
-                    }
+                    if (event != null) helper.handleTouch(event)
                     return originalCallback.dispatchTouchEvent(event)
                 }
             }
         }
 
-        dialog.setOnDismissListener {
-            dialogRunnable?.let { dialogHandler.removeCallbacks(it) }
-        }
-    }
-
-    private fun registerEditTextsInDialog(view: View, onActivity: () -> Unit) {
-        if (view is EditText) {
-            view.addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    onActivity()
-                }
-                override fun afterTextChanged(s: Editable?) {}
-            })
-        } else if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                registerEditTextsInDialog(view.getChildAt(i), onActivity)
-            }
-        }
+        dialog.setOnDismissListener { helper.detach() }
     }
 }
