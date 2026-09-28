@@ -24,6 +24,9 @@ import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.FaceDetection
+import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.sybi.mosi.database.AppDatabase
 import com.sybi.mosi.repository.PacienteRemoteRepository
 import com.sybi.mosi.repository.PacienteSyncHelper
@@ -196,10 +199,24 @@ class FaceRegistrationActivity : BaseActivity() {
                     image.close()
 
                     val rotatedBitmap = rotateBitmap(bitmap, image.imageInfo.rotationDegrees)
-                    val resizedBitmap = resizeBitmap(rotatedBitmap, 480, 640)
+                    val fullResizedBitmap = resizeBitmap(rotatedBitmap, 480, 640)
 
-                    capturedBitmap = resizedBitmap
-                    showPhotoPreview(resizedBitmap)
+                    // Validar que hay un rostro presente mediante ML Kit
+                    detectAndCropFace(rotatedBitmap) { croppedBitmap ->
+                        if (croppedBitmap != null) {
+                            // Rostro validado; guardamos y mostramos la FOTO COMPLETA
+                            capturedBitmap = fullResizedBitmap
+                            showPhotoPreview(fullResizedBitmap)
+                        } else {
+                            Toast.makeText(
+                                this@FaceRegistrationActivity,
+                                "No se detectó ningún rostro claramente. Intente de nuevo.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            tvStatus.text = "No se detectó rostro, intente de nuevo"
+                            tvStatus.setTextColor(Color.parseColor("#F44336"))
+                        }
+                    }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
@@ -211,6 +228,46 @@ class FaceRegistrationActivity : BaseActivity() {
                 }
             }
         )
+    }
+
+    private fun detectAndCropFace(bitmap: Bitmap, onResult: (Bitmap?) -> Unit) {
+        val image = InputImage.fromBitmap(bitmap, 0)
+        val options = FaceDetectorOptions.Builder()
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
+            .build()
+
+        val detector = FaceDetection.getClient(options)
+        detector.process(image)
+            .addOnSuccessListener { faces ->
+                if (faces.isNotEmpty()) {
+                    val face = faces[0]
+                    val bounds = face.boundingBox
+
+                    val left = maxOf(0, bounds.left)
+                    val top = maxOf(0, bounds.top)
+                    val right = minOf(bitmap.width, bounds.right)
+                    val bottom = minOf(bitmap.height, bounds.bottom)
+
+                    if (right > left && bottom > top) {
+                        try {
+                            val cropped = Bitmap.createBitmap(bitmap, left, top, right - left, bottom - top)
+                            detector.close()
+                            onResult(cropped)
+                            return@addOnSuccessListener
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error recortando rostro: ${e.message}")
+                        }
+                    }
+                }
+                detector.close()
+                onResult(null)
+            }
+            .addOnFailureListener {
+                detector.close()
+                onResult(null)
+            }
     }
 
     private fun showPhotoPreview(bitmap: Bitmap) {
