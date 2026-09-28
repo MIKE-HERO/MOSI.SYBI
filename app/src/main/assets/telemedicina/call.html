@@ -156,7 +156,7 @@
             let indiceCamara = 0;
 
             // Cada etapa avisa a Kotlin al terminar y falla con su nombre si se queda colgada, para
-            // saber dónde se atora la conexión (registro, cámara, stream, join o publish).
+            // saber dónde se atora la conexión (registro, cámara, micrófono, stream, join o publish).
             function etapa(nombre, promesa, ms) {
                 return new Promise((resolve, reject) => {
                     const t = setTimeout(
@@ -166,6 +166,50 @@
                         (err) => { clearTimeout(t); reject(err); }
                     );
                 });
+            }
+
+            /*
+             * Cámara y micrófono se buscan y se abren por separado, cada uno con su propio margen de
+             * tiempo, en vez de pedirle a apiRTC un único getUserMedia combinado de audio+video. En
+             * equipos con cámara "legacy" (HAL antigua) esto da dos ventajas:
+             *   - Diagnóstico más fino: se sabe si lo que se atora es la cámara, el micrófono o ninguno.
+             *   - Una vez que un dispositivo abre bien, se guarda su deviceId (localStorage) y la próxima
+             *     vez se le pide a Chromium ESE dispositivo concreto en vez de dejar que vuelva a
+             *     negociar "el mejor disponible" desde cero, que es la parte que parece colgarse.
+             * Si el dispositivo guardado ya no existe o fallara, se descarta la marca y se vuelve al modo
+             * automático (sin deviceId) para no quedar pegado a un id viejo/desconectado.
+             */
+            async function abrirMedio(tipo, kind, constraintsBase, timeoutMs) {
+                const clave = 'mosi_' + tipo + '_id';
+                const guardado = localStorage.getItem(clave);
+                const avisoTrack = setInterval(() => {
+                    console.log('🎥 Esperando a que abra ' + tipo + '…');
+                }, 3000);
+                async function intentar(deviceId) {
+                    const constraints = { audio: false, video: false };
+                    constraints[kind] = deviceId
+                        ? Object.assign({}, constraintsBase, { deviceId: { exact: deviceId } })
+                        : constraintsBase;
+                    return etapa(tipo, navigator.mediaDevices.getUserMedia(constraints), timeoutMs);
+                }
+                try {
+                    if (guardado) {
+                        try {
+                            return await intentar(guardado);
+                        } catch (err) {
+                            console.warn('🎥 ' + tipo + ' guardado (' + guardado + ') ya no sirvió, se descarta: ' + String((err && err.message) || err));
+                            localStorage.removeItem(clave);
+                        }
+                    }
+                    const stream = await intentar(null);
+                    // Se guarda el dispositivo que de verdad abrió, para la próxima vez
+                    const track = kind === 'video' ? stream.getVideoTracks()[0] : stream.getAudioTracks()[0];
+                    const idAbierto = track && track.getSettings && track.getSettings().deviceId;
+                    if (idAbierto) localStorage.setItem(clave, idAbierto);
+                    return stream;
+                } finally {
+                    clearInterval(avisoTrack);
+                }
             }
 
             // auth = { id, token } solo si la app de apiRTC usa autenticación con token JSON
@@ -208,29 +252,28 @@
                         });
                     });
 
-                    // Igual que el módulo Ionic de la app de pacientes: createStream directo, sin abrir y
-                    // cerrar la cámara antes (en el quiosco esa doble apertura podía dejar la captura colgada).
-                    //
-                    // "video: true" (sin resolución) deja que Chromium negocie una resolución con la
-                    // cámara. En equipos con cámara "legacy" (HAL antigua, común en tablets viejas) esa
-                    // negociación se puede quedar colgada sin éxito ni error. Se pide la resolución
-                    // nativa de la cámara (720p, 16:9) para evitar esa negociación abierta.
-                    localStream = await etapa('stream-local', userAgent.createStream({
-                        constraints: {
-                            audio: true,
-                            video: { width: { ideal: 1280 }, height: { ideal: 720 } }
-                        }
-                    }));
-                    localStream.attachToElement(document.getElementById('local'));
+                    // Cámara y micrófono se buscan/abren por separado (ver abrirMedio) en vez de un único
+                    // getUserMedia combinado; en equipos con cámara "legacy" (HAL antigua) esa apertura
+                    // combinada podía tardar mucho más de lo normal sin llegar a fallar ni a avisar.
+                    const streamVideo = await abrirMedio(
+                        'camara', 'video', { width: { ideal: 1280 }, height: { ideal: 720 } }, 45000
+                    );
+                    const streamAudio = await abrirMedio('microfono', 'audio', true, 20000);
 
-                    // Con el permiso ya concedido, enumerateDevices devuelve las cámaras con sus ids.
-                    // Solo sirve para el botón de cambiar cámara, así que si falla no detiene la llamada.
+                    // Con la cámara ya abierta, enumerateDevices sí devuelve las demás cámaras con sus
+                    // ids. Solo sirve para el botón de cambiar cámara, así que si falla no detiene la llamada.
                     try {
                         camaras = (await etapa('enumerar', navigator.mediaDevices.enumerateDevices(), 4000))
                             .filter((d) => d.kind === 'videoinput');
                     } catch (e) {
                         camaras = [];
                     }
+
+                    // Se unen en un solo MediaStream y se entrega ya abierto a apiRTC (createStreamFromMediaStream),
+                    // en vez de que sea apiRTC quien pida la cámara/el micrófono por su cuenta.
+                    const combinado = new MediaStream([...streamVideo.getVideoTracks(), ...streamAudio.getAudioTracks()]);
+                    localStream = await etapa('stream-local', userAgent.createStreamFromMediaStream(combinado), 10000);
+                    localStream.attachToElement(document.getElementById('local'));
 
                     await etapa('join', conversation.join());
                     await etapa('publish', conversation.publish(localStream));
