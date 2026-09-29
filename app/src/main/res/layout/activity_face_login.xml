@@ -82,12 +82,10 @@
             android:layout_gravity="center"
             android:background="#000000">
 
-            <androidx.camera.view.PreviewView
-                android:id="@+id/previewView"
+            <TextureView
+                android:id="@+id/textureView"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="#000000"
-                app:scaleType="fitCenter" />
+                android:layout_height="match_parent" />
 
         </FrameLayout>
     </LinearLayout>

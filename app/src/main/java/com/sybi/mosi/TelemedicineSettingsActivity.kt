@@ -13,6 +13,7 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Spinner
 import android.widget.Switch
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
@@ -34,6 +35,8 @@ class TelemedicineSettingsActivity : BaseActivity() {
         const val PREF_TELEMEDICINE_BASE_URL = "telemedicine_base_url"
         const val DEFAULT_BASE_URL = "https://www.sybiml.com/telemedicina/"
 
+        const val PREF_CUSTOM_TAB_BROWSER = "custom_tab_browser"
+
         const val PREF_CABINA_NUMBER = "cabina_number"
         const val PREF_CLIENTE = "cliente_id"
         const val PREF_CLIENTE_NOMBRE = "cliente_nombre"
@@ -45,6 +48,12 @@ class TelemedicineSettingsActivity : BaseActivity() {
             val enabled = devicePrefs.getBoolean(PREF_TELEMEDICINE_ENABLED, false)
             Log.d(TAG, "🔍 Telemedicina habilitada: $enabled")
             return enabled
+        }
+
+        fun getPreferredBrowser(context: Context): String {
+            val devicePrefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+            return devicePrefs.getString(PREF_CUSTOM_TAB_BROWSER, CustomTabsHelper.BROWSER_FIREFOX)
+                ?: CustomTabsHelper.BROWSER_FIREFOX
         }
 
         const val PREF_FALLBACK_ENABLED = "telemedicine_fallback_enabled"
@@ -80,6 +89,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
     private lateinit var switchTelemedicine: Switch
     private lateinit var switchFallback: Switch
     private lateinit var etBaseUrl: EditText
+    private lateinit var spinnerBrowser: Spinner
     private lateinit var etCabina: EditText
     private lateinit var etCliente: AutoCompleteTextView
     private lateinit var etSucursal: AutoCompleteTextView
@@ -93,12 +103,16 @@ class TelemedicineSettingsActivity : BaseActivity() {
     private var idSucursalSeleccionada: String = ""
     private var nombreSucursalSeleccionada: String = ""
 
+    // Lista dinámica de navegadores instalados (llena en runtime)
+    private var navegadoresInstalados: List<CustomTabsHelper.InstalledBrowser> = emptyList()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_telemedicine_settings)
 
         initViews()
+        setupSpinnerBrowser()
         setupListeners()
 
         val colorReceiver = object : BroadcastReceiver() {
@@ -131,10 +145,56 @@ class TelemedicineSettingsActivity : BaseActivity() {
         switchTelemedicine = findViewById(R.id.switchTelemedicine)
         switchFallback = findViewById(R.id.switchFallback)
         etBaseUrl = findViewById(R.id.etBaseUrl)
+        spinnerBrowser = findViewById(R.id.spinnerBrowser)
         etCabina = findViewById(R.id.etCabinaNumber)
         etCliente = findViewById(R.id.etCliente)
         etSucursal = findViewById(R.id.etSucursal)
         btnGuardar = findViewById(R.id.btnGuardarTelemedicine)
+    }
+
+    private fun setupSpinnerBrowser() {
+        // Escanear navegadores instalados
+        navegadoresInstalados = CustomTabsHelper.listInstalledBrowsers(this)
+
+        if (navegadoresInstalados.isEmpty()) {
+            Log.e(TAG, "❌ No hay navegadores instalados en el dispositivo")
+            // Fallback: mostrar solo Firefox con etiqueta de error
+            val adapter = ArrayAdapter(
+                this,
+                android.R.layout.simple_spinner_item,
+                listOf("⚠️ No se detectaron navegadores instalados")
+            )
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinnerBrowser.adapter = adapter
+            spinnerBrowser.isEnabled = false
+            return
+        }
+
+        val items = navegadoresInstalados.map { it.displayName }
+        val adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            items
+        )
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerBrowser.adapter = adapter
+        spinnerBrowser.isEnabled = true
+    }
+
+    private fun browserKeyToPosition(key: String): Int {
+        val idx = navegadoresInstalados.indexOfFirst { it.key == key }
+        if (idx >= 0) return idx
+
+        // Si la preferencia no está instalada, buscar Firefox
+        val firefoxIdx = navegadoresInstalados.indexOfFirst { it.key == CustomTabsHelper.BROWSER_FIREFOX }
+        if (firefoxIdx >= 0) return firefoxIdx
+
+        // Si Firefox tampoco está, primero disponible
+        return 0
+    }
+
+    private fun positionToBrowserKey(position: Int): String {
+        return navegadoresInstalados.getOrNull(position)?.key ?: CustomTabsHelper.BROWSER_FIREFOX
     }
 
     private fun setupListeners() {
@@ -153,7 +213,6 @@ class TelemedicineSettingsActivity : BaseActivity() {
         findViewById<Button>(R.id.btnConcederPermisos).setOnClickListener {
             val estado = PermisosAdmin.aplicar(this)
             if (!estado.esPropietario && estado.pendientes.isNotEmpty()) {
-                // Sin ser administrador Android exige la confirmación del usuario
                 androidx.core.app.ActivityCompat.requestPermissions(this, estado.pendientes.toTypedArray(), 200)
             }
             actualizarEstadoAdmin()
@@ -207,8 +266,6 @@ class TelemedicineSettingsActivity : BaseActivity() {
             .setNegativeButton("Cerrar", null)
             .show()
 
-        // Abrir la cámara de verdad puede tardar (o colgarse, que es justo lo que diagnostica):
-        // se hace aparte para no congelar el diálogo mientras se prueba.
         lifecycleScope.launch {
             val aperturas = StringBuilder("\n\nAPERTURA REAL DE CADA CÁMARA (Camera2, sin WebView)\n")
             for (id in DiagnosticoCamara.idsCamaras(this@TelemedicineSettingsActivity)) {
@@ -252,6 +309,9 @@ class TelemedicineSettingsActivity : BaseActivity() {
 
         val urlGuardada = devicePrefs.getString(PREF_TELEMEDICINE_BASE_URL, DEFAULT_BASE_URL)
         etBaseUrl.setText(if (!urlGuardada.isNullOrBlank()) urlGuardada else DEFAULT_BASE_URL)
+
+        val savedBrowser = getPreferredBrowser(this)
+        spinnerBrowser.setSelection(browserKeyToPosition(savedBrowser))
 
         etCabina.setText(devicePrefs.getString(PREF_CABINA_NUMBER, ""))
 
@@ -401,6 +461,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
     private fun saveTelemedicineSettings() {
         val enabled = switchTelemedicine.isChecked
         val rawBaseUrl = etBaseUrl.text.toString().trim().ifEmpty { DEFAULT_BASE_URL }
+        val selectedBrowserKey = positionToBrowserKey(spinnerBrowser.selectedItemPosition)
         val cabina = etCabina.text.toString().trim()
 
         val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
@@ -409,6 +470,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
             .putBoolean(PREF_TELEMEDICINE_ENABLED, enabled)
             .putBoolean(PREF_FALLBACK_ENABLED, switchFallback.isChecked)
             .putString(PREF_TELEMEDICINE_BASE_URL, rawBaseUrl)
+            .putString(PREF_CUSTOM_TAB_BROWSER, selectedBrowserKey)
             .putString(PREF_CABINA_NUMBER, cabina)
             .putString(PREF_CLIENTE, idClienteSeleccionado)
             .putString(PREF_CLIENTE_NOMBRE, nombreClienteSeleccionado)
@@ -418,16 +480,11 @@ class TelemedicineSettingsActivity : BaseActivity() {
 
         Log.d(
             TAG,
-            "💾 Guardado: enabled=$enabled, baseUrl=$rawBaseUrl, cabina=$cabina, " +
+            "💾 Guardado: enabled=$enabled, baseUrl=$rawBaseUrl, browser=$selectedBrowserKey, cabina=$cabina, " +
                     "cliente=$idClienteSeleccionado ($nombreClienteSeleccionado), " +
-                    "sucursal=$idSucursalSeleccionada ($nombreSucursalSeleccionada), " +
-                    "videoIp=${VideoLoopRemote.getSavedHostPort(this)}"
+                    "sucursal=$idSucursalSeleccionada ($nombreSucursalSeleccionada)"
         )
         Toast.makeText(this, "✅ Configuración guardada", Toast.LENGTH_SHORT).show()
-    }
-
-    override fun onResume() {
-        super.onResume()
     }
 
     override fun onPause() {

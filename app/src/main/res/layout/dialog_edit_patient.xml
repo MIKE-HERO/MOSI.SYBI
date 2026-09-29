@@ -31,7 +31,6 @@
             android:orientation="vertical"
             android:gravity="center_horizontal">
 
-            <!-- Imagen de perfil circular -->
             <RelativeLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content">
@@ -62,7 +61,6 @@
                     android:focusable="true" />
             </RelativeLayout>
 
-            <!-- Campos editables -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -134,7 +132,6 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <!-- Botones -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -183,19 +180,18 @@
                 android:gravity="center"
                 android:layout_marginBottom="12dp" />
 
-            <!-- Contenedor de la cámara con MISMO tamaño que FaceRegistration -->
+            <!-- ✅ TextureView para Camera2 -->
             <FrameLayout
                 android:layout_width="400dp"
                 android:layout_height="300dp"
                 android:layout_gravity="center"
                 android:background="#000000">
 
-                <androidx.camera.view.PreviewView
+                <TextureView
                     android:id="@+id/dialogPreviewView"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:background="#000000"
-                    app:scaleType="fitCenter" />
+                    android:background="#000000" />
 
                 <ImageView
                     android:id="@+id/dialogImgPhotoPreview"
@@ -206,7 +202,6 @@
                     android:visibility="gone" />
             </FrameLayout>
 
-            <!-- Botones de cámara -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -225,7 +220,6 @@
                     android:textColor="#FFFFFF"
                     android:layout_marginEnd="8dp" />
 
-                <!-- Este botón cambia entre "Tomar Foto" y "Reintentar" -->
                 <Button
                     android:id="@+id/btnCaptureOrRetake"
                     android:layout_width="0dp"
