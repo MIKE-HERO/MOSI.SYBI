@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.content.pm.PermissionInfo
 import android.os.Build
 import android.util.Log
+import android.Manifest
 
 /**
  * Concesión automática de permisos cuando la app es propietaria del dispositivo.
@@ -84,4 +85,30 @@ object PermisosAdmin {
         if (!esPropietario(context)) return false
         return runCatching { dpm(context).clearDeviceOwnerApp(context.packageName) }.isSuccess
     }
+
+    fun concederOverlay(context: Context): Boolean {
+        return try {
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            val admin = ComponentName(context, MosiAdminReceiver::class.java)
+
+            if (dpm.isDeviceOwnerApp(context.packageName)) {
+                dpm.setPermissionGrantState(
+                    admin,
+                    context.packageName,
+                    Manifest.permission.SYSTEM_ALERT_WINDOW,
+                    DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED
+                )
+                Log.d("PermisosAdmin", "✅ SYSTEM_ALERT_WINDOW concedido")
+                true
+            } else {
+                Log.w("PermisosAdmin", "⚠️ No es device owner")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("PermisosAdmin", "Error: ${e.message}", e)
+            false
+        }
+    }
+
+
 }

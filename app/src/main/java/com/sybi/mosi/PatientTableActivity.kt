@@ -1,6 +1,7 @@
 package com.sybi.mosi
 
 import android.Manifest
+import android.app.DatePickerDialog
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -25,6 +26,10 @@ import com.sybi.mosi.repository.PacienteRemoteRepository
 import com.sybi.mosi.repository.PacienteSyncHelper
 import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import android.view.TextureView
 
 class PatientTableActivity : BaseActivity() {
@@ -32,6 +37,7 @@ class PatientTableActivity : BaseActivity() {
     companion object {
         private const val TAG = "PatientTableActivity"
         private const val CAMERA_PERMISSION_CODE_DIALOG = 300
+        private const val EDAD_MINIMA = 10
     }
 
     private lateinit var patientsContainer: LinearLayout
@@ -51,6 +57,11 @@ class PatientTableActivity : BaseActivity() {
     private var idPacienteEditando: Long = 0L
     private var imgEditPreview: com.google.android.material.imageview.ShapeableImageView? = null
     private var nuevaFotoBase64: String? = null
+
+    // ✅ NUEVO: Fecha de nacimiento
+    private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    private var fechaNacimientoSeleccionada: Calendar? = null
+    private var etEditFechaNacimiento: EditText? = null
 
     // ✅ Cámara Camera2
     private var camera2Helper: Camera2Helper? = null
@@ -393,6 +404,11 @@ class PatientTableActivity : BaseActivity() {
                 val etCurp = dialog.findViewById<EditText>(R.id.etEditCurp)
                 etEditTarjetaIc = dialog.findViewById(R.id.etEditTarjetaIc)
                 val etDir = dialog.findViewById<EditText>(R.id.etEditDireccion)
+
+                // ✅ NUEVO: campo de fecha de nacimiento
+                etEditFechaNacimiento = dialog.findViewById(R.id.etEditFechaNacimiento)
+                etEditFechaNacimiento?.setOnClickListener { mostrarDatePicker() }
+
                 val btnSave = dialog.findViewById<Button>(R.id.btnSaveEdit)
                 val btnCancel = dialog.findViewById<Button>(R.id.btnCancelEdit)
 
@@ -412,6 +428,22 @@ class PatientTableActivity : BaseActivity() {
                 etCurp.setText(p.curp)
                 etEditTarjetaIc?.setText(p.tarjetaIc)
                 etDir.setText(p.direccion)
+
+                // ✅ NUEVO: precargar fecha de nacimiento
+                p.fecha_nacimiento?.let { fecha ->
+                    try {
+                        val cal = Calendar.getInstance()
+                        cal.time = dateFormat.parse(fecha)!!
+                        fechaNacimientoSeleccionada = cal
+                        etEditFechaNacimiento?.setText(fecha)
+                        Log.d(
+                            TAG,
+                            "Fecha nacimiento precargada: $fecha (edad: ${calcularEdad(cal.time)})"
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error parseando fecha '$fecha': ${e.message}")
+                    }
+                }
 
                 val editTexts = listOf(
                     etNombre, etApPaterno, etApMaterno, etTel,
@@ -464,7 +496,49 @@ class PatientTableActivity : BaseActivity() {
                     ocultarCamaraEnDialogo()
                 }
 
+                // ✅ VALIDACIÓN + GUARDADO CON FECHA DE NACIMIENTO
                 btnSave.setOnClickListener {
+                    val fechaTexto = etEditFechaNacimiento?.text.toString().trim()
+
+                    if (fechaTexto.isEmpty()) {
+                        etEditFechaNacimiento?.error = "Selecciona la fecha de nacimiento"
+                        Toast.makeText(
+                            this@PatientTableActivity,
+                            "⚠️ Debes seleccionar la fecha de nacimiento",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@setOnClickListener
+                    }
+
+                    val fechaParseada = try {
+                        dateFormat.parse(fechaTexto)
+                    } catch (e: Exception) {
+                        null
+                    }
+
+                    if (fechaParseada == null) {
+                        etEditFechaNacimiento?.error = "Formato inválido. Usa DD/MM/AAAA"
+                        return@setOnClickListener
+                    }
+
+                    // ✅ Validar edad mínima (10 años)
+                    val edad = calcularEdad(fechaParseada)
+                    if (edad < EDAD_MINIMA) {
+                        etEditFechaNacimiento?.error =
+                            "La edad mínima permitida es $EDAD_MINIMA años"
+                        Toast.makeText(
+                            this@PatientTableActivity,
+                            "⚠️ El paciente debe tener al menos $EDAD_MINIMA años para usar la composición corporal",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@setOnClickListener
+                    }
+
+                    if (edad > 120) {
+                        etEditFechaNacimiento?.error = "Fecha de nacimiento inválida"
+                        return@setOnClickListener
+                    }
+
                     val updated = p.copy(
                         nombre = etNombre.text.toString().trim().uppercase(),
                         apellido_paterno = etApPaterno.text.toString().trim().uppercase(),
@@ -475,15 +549,18 @@ class PatientTableActivity : BaseActivity() {
                         tarjetaIc = etEditTarjetaIc?.text.toString().trim()
                             .ifBlank { p.tarjetaIc },
                         direccion = etDir.text.toString().trim().uppercase(),
+                        fecha_nacimiento = fechaTexto,
                         foto = nuevaFotoBase64
                     )
+
+                    Log.d(TAG, "💾 Guardando paciente: fecha_nacimiento=$fechaTexto, edad=$edad")
 
                     Thread {
                         runBlocking { db.pacienteDao().actualizarPaciente(updated) }
                         runOnUiThread {
                             Toast.makeText(
                                 this@PatientTableActivity,
-                                "✅ Paciente actualizado",
+                                "✅ Paciente actualizado (edad: $edad años)",
                                 Toast.LENGTH_SHORT
                             ).show()
                             dialog.dismiss()
@@ -500,11 +577,69 @@ class PatientTableActivity : BaseActivity() {
                     isCameraActive = false
                     currentDialog = null
                     etEditTarjetaIc = null
+                    etEditFechaNacimiento = null
+                    fechaNacimientoSeleccionada = null
                 }
 
                 dialog.show()
             }
         }.start()
+    }
+
+    // ==========================================
+    // FECHA DE NACIMIENTO
+    // ==========================================
+    private fun mostrarDatePicker() {
+        val calendario = fechaNacimientoSeleccionada ?: Calendar.getInstance()
+
+        // Si no hay fecha previa, partir de hace 30 años
+        if (fechaNacimientoSeleccionada == null) {
+            calendario.add(Calendar.YEAR, -30)
+        }
+
+        val datePicker = DatePickerDialog(
+            this,
+            { _, year, month, dayOfMonth ->
+                val seleccionada = Calendar.getInstance().apply {
+                    set(Calendar.YEAR, year)
+                    set(Calendar.MONTH, month)
+                    set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                }
+                fechaNacimientoSeleccionada = seleccionada
+                etEditFechaNacimiento?.setText(dateFormat.format(seleccionada.time))
+                etEditFechaNacimiento?.error = null
+
+                val edad = calcularEdad(seleccionada.time)
+                Log.d(
+                    TAG,
+                    "📅 Fecha seleccionada: ${dateFormat.format(seleccionada.time)} (edad: $edad)"
+                )
+            },
+            calendario.get(Calendar.YEAR),
+            calendario.get(Calendar.MONTH),
+            calendario.get(Calendar.DAY_OF_MONTH)
+        )
+
+        // Restringir rango de fechas
+        val hoy = Calendar.getInstance()
+        datePicker.datePicker.maxDate = hoy.timeInMillis
+
+        val hace120 = Calendar.getInstance().apply { add(Calendar.YEAR, -120) }
+        datePicker.datePicker.minDate = hace120.timeInMillis
+
+        datePicker.show()
+    }
+
+    private fun calcularEdad(fechaNacimiento: Date): Int {
+        val hoy = Calendar.getInstance()
+        val nacimiento = Calendar.getInstance().apply { time = fechaNacimiento }
+
+        var edad = hoy.get(Calendar.YEAR) - nacimiento.get(Calendar.YEAR)
+
+        if (hoy.get(Calendar.DAY_OF_YEAR) < nacimiento.get(Calendar.DAY_OF_YEAR)) {
+            edad--
+        }
+        return edad
     }
 
     // ==========================================

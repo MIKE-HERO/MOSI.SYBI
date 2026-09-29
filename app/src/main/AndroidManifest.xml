@@ -50,6 +50,8 @@
     <!-- Para Android 10+ (se ignora en 7.1.2 pero no molesta) -->
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <!-- Consultas para detectar navegadores (Firefox / Chrome) en CustomTabs -->
     <queries>
         <intent>
