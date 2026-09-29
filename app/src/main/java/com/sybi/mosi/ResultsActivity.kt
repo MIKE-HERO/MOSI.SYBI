@@ -11,13 +11,9 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.print.PrintAttributes
-import android.print.PrintManager
 import android.util.Base64
 import android.util.Log
 import android.view.View
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -56,6 +52,7 @@ class ResultsActivity : BaseActivity() {
     private lateinit var tvPlaceholder: TextView
 
     private var enviandoMediciones = false
+    private var medicionesEnviadas = false
     private var contadorMensajesEnvio = 0
     private val envioHandler = Handler(Looper.getMainLooper())
     private val envioRunnable = object : Runnable {
@@ -75,6 +72,13 @@ class ResultsActivity : BaseActivity() {
 
     // ✅ HTML del reporte generado UNA SOLA VEZ y reutilizado por imprimir y correo
     private var htmlReporte: String? = null
+
+    // ✅ Flag para bloquear la navegación mientras el diálogo de impresión está abierto
+    @Volatile private var impresionEnCurso = false
+
+    // ✅ Overlay flotante para regresar desde PrintShare
+    private var overlayView: View? = null
+    private var monitorVisorActivo = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -182,12 +186,15 @@ class ResultsActivity : BaseActivity() {
         }
 
         btnExitResults.setOnClickListener {
+            if (impresionEnCurso) {
+                Toast.makeText(this, "Espera a que termine la impresión", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             clearResults()
             val intent = Intent(this, MainActivity::class.java)
             intent.addFlags(
                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        Intent.FLAG_ACTIVITY_NEW_TASK
             )
             startActivity(intent)
             finish()
@@ -221,7 +228,13 @@ class ResultsActivity : BaseActivity() {
 
                 if (p != null && p.id_usuario_web != null) {
                     idUsuarioWebCargado = p.id_usuario_web!!
-                    enviarMedicionesAlDoctor(p)
+                    // ✅ Evitar reenvíos si la activity se recrea
+                    if (!medicionesEnviadas) {
+                        medicionesEnviadas = true
+                        enviarMedicionesAlDoctor(p)
+                    } else {
+                        Log.d(TAG, "⏭️ Mediciones ya enviadas, no se repite")
+                    }
                 } else {
                     Log.d(TAG, "⏭️ Sin id_usuario_web, no se envía")
                 }
@@ -316,21 +329,40 @@ class ResultsActivity : BaseActivity() {
     }
 
     override fun onBackPressed() {
+        if (impresionEnCurso) {
+            Toast.makeText(this, "Espera a que termine la impresión", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         clearResults()
         val intent = Intent(this, MainActivity::class.java)
         intent.addFlags(
             Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    Intent.FLAG_ACTIVITY_NEW_TASK
         )
         startActivity(intent)
         finish()
     }
 
+    override fun onResume() {
+        super.onResume()
+        quitarBotonFlotanteRegreso()
+        impresionEnCurso = false
+        monitorVisorActivo = false
+        Log.d(TAG, "▶️ ResultsActivity en primer plano, overlay limpiado")
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        quitarBotonFlotanteRegreso()
         detenerMensajesEnvio()
         clearResults()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        Log.d(TAG, "🔄 onNewIntent — ResultsActivity ya estaba viva")
     }
 
     // ── Render en pantalla ────────────────────────────────
@@ -524,39 +556,73 @@ class ResultsActivity : BaseActivity() {
     }
 
     // ==========================================
-    // IMPRESIÓN DE RESULTADOS (diálogo nativo)
+    // IMPRESIÓN DE RESULTADOS (abre PrintShare)
     // ==========================================
     private fun imprimirResultados() {
-        val html = htmlReporte ?: return
+        if (impresionEnCurso) {
+            Toast.makeText(this, "Ya hay una impresión en curso", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        // WebView temporal para generar el PrintDocumentAdapter
-        val webView = WebView(this).apply {
-            settings.javaScriptEnabled = false
-            webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    super.onPageFinished(view, url)
+        // ✅ NO tocamos isEnabled ni el texto del botón. Solo el flag interno.
+        impresionEnCurso = true
 
-                    // ✅ Verificar que el WebView no sea null antes de usarlo
-                    if (view == null) {
-                        Log.e(TAG, "❌ WebView null en onPageFinished, no se puede imprimir")
-                        return
+        Thread {
+            try {
+                val pdfBytes = generarPdfBytes()
+                if (pdfBytes == null) {
+                    uiHandler.post {
+                        impresionEnCurso = false
+                        Toast.makeText(this, "No se pudo generar el PDF", Toast.LENGTH_LONG).show()
                     }
+                    return@Thread
+                }
 
-                    val printManager = getSystemService(Context.PRINT_SERVICE) as PrintManager
-                    val jobName = "Resultados_SYBI_${System.currentTimeMillis()}"
+                val nombreArchivo = "Resultados_${paciente?.nombre?.replace(" ", "_") ?: "Paciente"}_${System.currentTimeMillis()}.pdf"
+                val carpetaDescargas = File(
+                    android.os.Environment.getExternalStoragePublicDirectory(
+                        android.os.Environment.DIRECTORY_DOWNLOADS
+                    ),
+                    ""
+                )
+                if (!carpetaDescargas.exists()) carpetaDescargas.mkdirs()
 
-                    printManager.print(
-                        jobName,
-                        view.createPrintDocumentAdapter(jobName),   // ← sin "?" porque ya validamos
-                        PrintAttributes.Builder()
-                            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                            .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
-                            .build()
-                    )
+                val archivo = File(carpetaDescargas, nombreArchivo)
+                FileOutputStream(archivo).use { it.write(pdfBytes) }
+
+                Log.d(TAG, "📄 PDF guardado: ${archivo.absolutePath}")
+
+                uiHandler.post {
+                    try {
+                        val uri = FileProvider.getUriForFile(
+                            this@ResultsActivity,
+                            "$packageName.fileprovider",
+                            archivo
+                        )
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, "application/pdf")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                        mostrarBotonFlotanteRegreso()
+                    } catch (e: ActivityNotFoundException) {
+                        impresionEnCurso = false
+                        Toast.makeText(
+                            this,
+                            "No hay visor de PDF instalado. El archivo está en: ${archivo.absolutePath}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error generando PDF: ${e.message}", e)
+                uiHandler.post {
+                    impresionEnCurso = false
+                    Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
-            loadDataWithBaseURL(null, html, "text/HTML", "UTF-8", null)
-        }
+        }.start()
     }
 
     // ==========================================
@@ -926,4 +992,117 @@ class ResultsActivity : BaseActivity() {
         sb.append("</body></html>")
         return sb.toString()
     }
+
+    // ==========================================
+    // OVERLAY FLOTANTE PARA REGRESAR DESDE PRINTSHARE
+    // ==========================================
+    private fun mostrarBotonFlotanteRegreso() {
+        // Si ya hay uno, no crear otro
+        if (overlayView != null) return
+
+        // Verificar permiso
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                Log.w(TAG, "⚠️ Sin permiso SYSTEM_ALERT_WINDOW, usando timer de respaldo")
+                iniciarTimerRegresoFallback()
+                return
+            }
+        }
+
+        try {
+            val windowManager = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+
+            // Contenedor con el botón
+            val container = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(Color.parseColor("#0F3E82"))
+                    cornerRadius = dp(28).toFloat()
+                    setStroke(dp(2), Color.WHITE)
+                }
+                elevation = dp(8).toFloat()
+            }
+
+            val btn = Button(this).apply {
+                text = "← Regresar a Resultados"
+                setTextColor(Color.WHITE)
+                textSize = 16f
+                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0F3E82"))
+                setOnClickListener {
+                    quitarBotonFlotanteRegreso()
+                    traerResultsActivityAlFrente()
+                }
+            }
+
+            container.addView(btn)
+
+            val type = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                android.view.WindowManager.LayoutParams.TYPE_PHONE
+            }
+
+            val params = android.view.WindowManager.LayoutParams(
+                android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+                android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+                type,
+                android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        or android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                android.graphics.PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = android.view.Gravity.TOP or android.view.Gravity.END
+                x = dp(20)
+                y = dp(20)
+            }
+
+            windowManager.addView(container, params)
+            overlayView = container
+            Log.d(TAG, "✅ Botón flotante de regreso mostrado")
+
+            // Timer de respaldo por si el usuario no toca el botón
+            iniciarTimerRegresoFallback()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error mostrando overlay: ${e.message}", e)
+            iniciarTimerRegresoFallback()
+        }
+    }
+
+    private fun quitarBotonFlotanteRegreso() {
+        try {
+            overlayView?.let {
+                val windowManager = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+                windowManager.removeView(it)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error quitando overlay: ${e.message}")
+        }
+        overlayView = null
+    }
+
+    private fun iniciarTimerRegresoFallback() {
+        uiHandler.postDelayed({
+            Log.d(TAG, "⏰ Timer de respaldo: regresando a ResultsActivity")
+            quitarBotonFlotanteRegreso()
+            traerResultsActivityAlFrente()
+        }, 120_000L)  // 2 minutos
+    }
+
+    private fun traerResultsActivityAlFrente() {
+        monitorVisorActivo = false
+
+        val intent = Intent(this, ResultsActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            // ✅ SIN FLAG_ACTIVITY_NEW_TASK
+            // ✅ SIN putExtra: no queremos recrear la activity, solo traerla al frente
+        }
+        startActivity(intent)
+        Log.d(TAG, "🔙 ResultsActivity traída al frente")
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
 }

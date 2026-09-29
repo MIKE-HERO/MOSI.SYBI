@@ -112,6 +112,11 @@ class TelemedicineSettingsActivity : BaseActivity() {
         setContentView(R.layout.activity_telemedicine_settings)
 
         initViews()
+
+        // ✅ Conceder permisos automáticamente al abrir la pantalla (si es device owner)
+        PermisosAdmin.aplicar(this)
+        PermisosAdmin.concederOverlay(this)
+
         setupSpinnerBrowser()
         setupListeners()
 
@@ -212,6 +217,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
 
         findViewById<Button>(R.id.btnConcederPermisos).setOnClickListener {
             val estado = PermisosAdmin.aplicar(this)
+            PermisosAdmin.concederOverlay(this)
             if (!estado.esPropietario && estado.pendientes.isNotEmpty()) {
                 androidx.core.app.ActivityCompat.requestPermissions(this, estado.pendientes.toTypedArray(), 200)
             }

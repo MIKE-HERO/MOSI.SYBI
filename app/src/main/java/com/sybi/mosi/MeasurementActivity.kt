@@ -485,10 +485,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 saveAllResults()
 
                 runOnUiThread {
-                    btnConfirmMeasurements.isEnabled = true
-                    btnConfirmMeasurements.text = "Confirmar"
                     startActivity(Intent(this, ResultsActivity::class.java)
                         .putExtra("id_local", pacienteIdLocal))
+                    finish()
                 }
             }.start()
         }
