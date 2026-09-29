@@ -133,6 +133,12 @@ class SettingsActivity : BaseActivity() {
         btnAdvertisingScreen?.setOnClickListener {
             startActivity(Intent(this, VideoLoopControlActivity::class.java))
         }
+
+        // 12. Configuración de informes
+        val btnReportSettings = findViewById<LinearLayout>(R.id.btnReportSettings) // ver nota abajo
+        btnReportSettings?.setOnClickListener {
+            startActivity(Intent(this, ReportSettingsActivity::class.java))
+        }
     }
 
     private fun reiniciarDispositivo() {

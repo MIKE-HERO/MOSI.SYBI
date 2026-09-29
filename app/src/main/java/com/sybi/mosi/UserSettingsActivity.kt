@@ -19,8 +19,6 @@ class UserSettingsActivity : BaseActivity() {
         const val PREF_FACE = "login_face"
         const val PREF_PHONE = "login_phone"
         const val PREF_IC = "login_ic"
-        const val PREF_COMM_PHONE = "comm_phone"
-        const val PREF_COMM_EMAIL = "comm_email"
         const val PREF_GUEST_ENABLE = "guest_enable"
     }
 
@@ -61,8 +59,6 @@ class UserSettingsActivity : BaseActivity() {
         setupLoginSwitch(R.id.switchLoginFace, PREF_FACE, prefs)
         setupLoginSwitch(R.id.switchLoginPhone, PREF_PHONE, prefs)
         setupLoginSwitch(R.id.switchLoginIc, PREF_IC, prefs)
-        setupSwitch(R.id.switchCommPhone, PREF_COMM_PHONE, prefs)
-        setupSwitch(R.id.switchCommEmail, PREF_COMM_EMAIL, prefs)
         setupSwitch(R.id.switchGuestEnable, PREF_GUEST_ENABLE, prefs)
 
         // Aplicar el color inicial a los switches

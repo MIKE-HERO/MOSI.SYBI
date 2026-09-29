@@ -76,6 +76,19 @@
         android:paddingHorizontal="20dp"
         android:paddingVertical="15dp">
 
+        <Button
+            android:id="@+id/btnStartConsultation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Iniciar Consulta"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#4D000000"
+            android:textSize="20sp"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_marginEnd="5dp" />
+
         <!-- Botón Imprimir resultados -->
         <Button
             android:id="@+id/btnPrintResults"
@@ -90,11 +103,13 @@
             android:focusable="true"
             android:layout_marginEnd="5dp" />
 
+
+
         <Button
-            android:id="@+id/btnStartConsultation"
+            android:id="@+id/btnEmailResults"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Iniciar Consulta"
+            android:text="Enviar por correo"
             android:textColor="#FFFFFF"
             android:backgroundTint="#4D000000"
             android:textSize="20sp"
