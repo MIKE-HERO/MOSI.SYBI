@@ -1,216 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<!--
+    La consulta ya no corre en un WebView embebido: ese WebView tenía bugs de este equipo con
+    getUserMedia (cámara externa y micrófono se colgaban sin resolver nunca; ver notas del
+    proyecto). Ahora esta pantalla solo abre la consulta en Firefox Focus (un navegador completo
+    no tiene esos bugs) y muestra un botón para reintentar si el paciente vuelve.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="#0F3E82"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp">
 
-    <!-- MOTOR DE VIDEO (apiRTC en assets/telemedicina/call.html) -->
-    <WebView
-        android:id="@+id/callWebView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+    <ImageView
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:layout_marginBottom="24dp"
+        android:contentDescription="Telemedicina"
+        android:src="@drawable/ic_telemedicina" />
 
-    <!-- BARRA SUPERIOR -->
-    <LinearLayout
-        android:id="@+id/topBar"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_gravity="top"
-        android:background="#0F3E82"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="16dp">
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/tvCallTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Consulta Médica de Telemedicina"
-                android:textColor="#FFFFFF"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvDoctorName"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="#DDFFFFFF"
-                android:textSize="14sp"
-                android:visibility="gone" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/tvCallTimer"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="16dp"
-            android:fontFamily="monospace"
-            android:text="00:00"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:visibility="gone" />
-
-        <ImageView
-            android:id="@+id/btnEndCall"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:clickable="true"
-            android:contentDescription="Salir de la consulta"
-            android:focusable="true"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
-            app:tint="#FFFFFF" />
-    </LinearLayout>
-
-    <!-- AVISO DURANTE LA LLAMADA (p. ej. médico desconectado) -->
     <TextView
-        android:id="@+id/tvCallBanner"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="80dp"
-        android:background="@drawable/bg_call_banner"
-        android:paddingHorizontal="24dp"
-        android:paddingVertical="12dp"
+        android:layout_marginBottom="4dp"
+        android:text="Consulta de telemedicina"
         android:textColor="#FFFFFF"
-        android:textSize="16sp"
-        android:visibility="gone" />
+        android:textSize="22sp"
+        android:textStyle="bold" />
 
-    <!-- CONTROLES DE LLAMADA -->
-    <LinearLayout
-        android:id="@+id/callControls"
+    <TextView
+        android:id="@+id/tvTelemedicineEstado"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="32dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
+        android:gravity="center"
+        android:text="Se abre en un navegador aparte. Si no continúa, usa el botón de abajo."
+        android:textColor="#DDFFFFFF"
+        android:textSize="15sp" />
 
-        <ImageButton
-            android:id="@+id/btnSwitchCamera"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:layout_marginEnd="32dp"
-            android:background="@drawable/bg_call_button_secondary"
-            android:contentDescription="Cambiar cámara"
-            android:padding="20dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_switch_camera"
-            android:visibility="gone" />
+    <Button
+        android:id="@+id/btnReintentarConsulta"
+        android:layout_width="280dp"
+        android:layout_height="56dp"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="#FFFFFF"
+        android:text="Reintentar consulta"
+        android:textColor="#0F3E82"
+        android:textStyle="bold" />
 
-        <ImageButton
-            android:id="@+id/btnReconnect"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:layout_marginEnd="32dp"
-            android:background="@drawable/bg_call_button_secondary"
-            android:contentDescription="Reconectar"
-            android:padding="20dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_reconnect" />
+    <Button
+        android:id="@+id/btnSalirConsulta"
+        style="?android:attr/borderlessButtonStyle"
+        android:layout_width="280dp"
+        android:layout_height="48dp"
+        android:text="Salir"
+        android:textColor="#FFFFFF" />
 
-        <ImageButton
-            android:id="@+id/btnHangUp"
-            android:layout_width="88dp"
-            android:layout_height="88dp"
-            android:background="@drawable/bg_call_button_hangup"
-            android:contentDescription="Colgar"
-            android:padding="22dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_call_end" />
-    </LinearLayout>
-
-    <!-- ESTADO DE LA CONSULTA (buscando médico, lista de espera, errores...)
-         Sin fondo propio: así se ve el recuadro de la cámara (#local en call.html) mientras se
-         espera, y solo la tarjeta centrada (con su propio fondo blanco) tapa el video. -->
-    <FrameLayout
-        android:id="@+id/statusOverlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginTop="64dp"
-        android:clickable="true"
-        android:focusable="true">
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="560dp"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_margin="24dp"
-            app:cardBackgroundColor="#FFFFFF"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="6dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_horizontal"
-                android:orientation="vertical"
-                android:padding="32dp">
-
-                <ProgressBar
-                    android:id="@+id/progressStatus"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:layout_marginBottom="20dp" />
-
-                <ImageView
-                    android:id="@+id/ivStatusIcon"
-                    android:layout_width="72dp"
-                    android:layout_height="72dp"
-                    android:layout_marginBottom="16dp"
-                    android:contentDescription="Icono de estado"
-                    android:src="@drawable/ic_telemedicina"
-                    android:visibility="gone"
-                    app:tint="#0F3E82" />
-
-                <TextView
-                    android:id="@+id/tvStatusTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
-                    android:gravity="center"
-                    android:textColor="#0F3E82"
-                    android:textSize="22sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvStatusMessage"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="24dp"
-                    android:gravity="center"
-                    android:lineSpacingExtra="3dp"
-                    android:textColor="#555555"
-                    android:textSize="15sp" />
-
-                <Button
-                    android:id="@+id/btnStatusAction"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:backgroundTint="#0F3E82"
-                    android:textColor="#FFFFFF"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/btnStatusSecondary"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="8dp"
-                    android:textColor="#0F3E82"
-                    android:textSize="15sp"
-                    android:visibility="gone" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-    </FrameLayout>
-
-</FrameLayout>
+</LinearLayout>
