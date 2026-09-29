@@ -13,20 +13,19 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.*
-import androidx.camera.core.*
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.database.AppDatabase
 import com.sybi.mosi.database.Paciente
+import com.sybi.mosi.helpers.Camera2Helper
 import com.sybi.mosi.helpers.FaceBiometricsHelper
 import com.sybi.mosi.helpers.MediaPipeFaceHelper
 import com.sybi.mosi.repository.PacienteRemoteRepository
 import com.sybi.mosi.repository.PacienteSyncHelper
 import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
+import android.view.TextureView
 
 class PatientTableActivity : BaseActivity() {
 
@@ -49,16 +48,14 @@ class PatientTableActivity : BaseActivity() {
     private var icCardReceiver: BroadcastReceiver? = null
     private var etEditTarjetaIc: EditText? = null
 
-    // ✅ Para manejar la edición de foto
     private var idPacienteEditando: Long = 0L
     private var imgEditPreview: com.google.android.material.imageview.ShapeableImageView? = null
     private var nuevaFotoBase64: String? = null
 
-    // ✅ Variables de cámara dentro del diálogo
-    private var cameraProvider: ProcessCameraProvider? = null
-    private var imageCapture: ImageCapture? = null
+    // ✅ Cámara Camera2
+    private var camera2Helper: Camera2Helper? = null
     private var capturedBitmap: Bitmap? = null
-    private var dialogPreviewView: PreviewView? = null
+    private var dialogPreviewView: TextureView? = null
     private var dialogImgPreview: ImageView? = null
     private var dialogTvStatus: TextView? = null
     private var dialogBtnCaptureOrRetake: Button? = null
@@ -68,7 +65,6 @@ class PatientTableActivity : BaseActivity() {
     private var currentDialog: android.app.Dialog? = null
     private var isCameraActive = false
 
-    // Ancho estándar de cada columna (en dp)
     private val CELL_WIDTH_DP = 120
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,7 +73,6 @@ class PatientTableActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
-        // 🔴 Inicializar modelos biométricos (MediaPipe + FaceNet)
         FaceBiometricsHelper.init(this)
 
         patientsContainer = findViewById(R.id.patientsContainer)
@@ -121,10 +116,16 @@ class PatientTableActivity : BaseActivity() {
 
         icCardReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                if (intent.action == "DEVICE_DATA_RECEIVED" && intent.getStringExtra("type") == "IC_CARD") {
+                if (intent.action == "DEVICE_DATA_RECEIVED" &&
+                    intent.getStringExtra("type") == "IC_CARD"
+                ) {
                     val cardNumber = intent.getStringExtra("card_number") ?: return
                     etEditTarjetaIc?.setText(cardNumber)
-                    Toast.makeText(this@PatientTableActivity, "Tarjeta IC leída: $cardNumber", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@PatientTableActivity,
+                        "Tarjeta IC leída: $cardNumber",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         }
@@ -159,7 +160,6 @@ class PatientTableActivity : BaseActivity() {
                 Log.d(TAG, "📋 Pacientes cargados: ${patientsList.size}")
 
                 runOnUiThread {
-                    // Limpiar selección de ids que ya no existen
                     val idsExistentes = patientsList.map { it.id_local }.toSet()
                     seleccionados.retainAll(idsExistentes)
                     renderTable()
@@ -202,17 +202,18 @@ class PatientTableActivity : BaseActivity() {
             )
         }
 
-        // ✅ CheckBox de selección
         val check = CheckBox(this).apply {
             isClickable = false
             isFocusable = false
-            buttonTintList = android.content.res.ColorStateList.valueOf(Color.parseColor(currentColor))
-            layoutParams = LinearLayout.LayoutParams(dpToPx(40), LinearLayout.LayoutParams.WRAP_CONTENT)
+            buttonTintList =
+                android.content.res.ColorStateList.valueOf(Color.parseColor(currentColor))
+            layoutParams = LinearLayout.LayoutParams(
+                dpToPx(40), LinearLayout.LayoutParams.WRAP_CONTENT
+            )
             isChecked = seleccionados.contains(paciente.id_local)
         }
         row.addView(check)
 
-        // 👇 MISMO ORDEN QUE LOS ENCABEZADOS DEL XML SIMPLIFICADO
         row.addView(cell(paciente.id_local.toString()))
         row.addView(cell(paciente.id_usuario_web?.toString() ?: "—"))
         row.addView(cell(paciente.folio.ifEmpty { "—" }))
@@ -238,11 +239,8 @@ class PatientTableActivity : BaseActivity() {
     }
 
     private fun toggleSeleccion(idLocal: Long) {
-        if (seleccionados.contains(idLocal)) {
-            seleccionados.remove(idLocal)
-        } else {
-            seleccionados.add(idLocal)
-        }
+        if (seleccionados.contains(idLocal)) seleccionados.remove(idLocal)
+        else seleccionados.add(idLocal)
         actualizarBotones()
     }
 
@@ -286,7 +284,6 @@ class PatientTableActivity : BaseActivity() {
 
     private fun sincronizarSeleccionados() {
         if (seleccionados.isEmpty()) return
-
         Toast.makeText(this, "🔄 Sincronizando pacientes...", Toast.LENGTH_SHORT).show()
 
         Thread {
@@ -322,7 +319,6 @@ class PatientTableActivity : BaseActivity() {
 
     private fun confirmarEliminarSeleccionados() {
         if (seleccionados.isEmpty()) return
-
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Confirmar eliminación")
             .setMessage("¿Eliminar los ${seleccionados.size} pacientes seleccionados?")
@@ -351,7 +347,11 @@ class PatientTableActivity : BaseActivity() {
                     }
                 } catch (e: Exception) {
                     runOnUiThread {
-                        Toast.makeText(this@PatientTableActivity, "❌ Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            this@PatientTableActivity,
+                            "❌ Error: ${e.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
             }
@@ -377,15 +377,12 @@ class PatientTableActivity : BaseActivity() {
                 idPacienteEditando = idLocal
                 nuevaFotoBase64 = p.foto
 
-                // Contenedores
                 containerEditData = dialog.findViewById(R.id.containerEditData)
                 containerCamera = dialog.findViewById(R.id.containerCamera)
 
-                // Prevenir autofoco inicial en el primer EditText
                 containerEditData?.isFocusableInTouchMode = true
                 containerEditData?.requestFocus()
 
-                // Referencias de campos
                 imgEditPreview = dialog.findViewById(R.id.imgEditProfile)
                 val btnChange = dialog.findViewById<ImageView>(R.id.btnChangePhoto)
                 val etNombre = dialog.findViewById<EditText>(R.id.etEditNombre)
@@ -399,7 +396,7 @@ class PatientTableActivity : BaseActivity() {
                 val btnSave = dialog.findViewById<Button>(R.id.btnSaveEdit)
                 val btnCancel = dialog.findViewById<Button>(R.id.btnCancelEdit)
 
-                // Referencias de cámara del diálogo
+                // Cámara (TextureView)
                 dialogPreviewView = dialog.findViewById(R.id.dialogPreviewView)
                 dialogImgPreview = dialog.findViewById(R.id.dialogImgPhotoPreview)
                 dialogTvStatus = dialog.findViewById(R.id.tvCameraStatus)
@@ -407,7 +404,6 @@ class PatientTableActivity : BaseActivity() {
                 dialogBtnConfirmPhoto = dialog.findViewById(R.id.btnConfirmPhoto)
                 val btnCancelCamera = dialog.findViewById<Button>(R.id.btnCancelCamera)
 
-                // Cargar datos
                 etNombre.setText(p.nombre)
                 etApPaterno.setText(p.apellido_paterno)
                 etApMaterno.setText(p.apellido_materno)
@@ -417,16 +413,20 @@ class PatientTableActivity : BaseActivity() {
                 etEditTarjetaIc?.setText(p.tarjetaIc)
                 etDir.setText(p.direccion)
 
-                val editTexts = listOf(etNombre, etApPaterno, etApMaterno, etTel, etCor, etCurp, etEditTarjetaIc!!, etDir)
-                editTexts.forEach {
-                    it.clearFocus()
-                }
+                val editTexts = listOf(
+                    etNombre, etApPaterno, etApMaterno, etTel,
+                    etCor, etCurp, etEditTarjetaIc!!, etDir
+                )
+                editTexts.forEach { it.clearFocus() }
 
-                // Foto
                 if (p.foto != null) {
                     try {
-                        val bytes = android.util.Base64.decode(p.foto, android.util.Base64.DEFAULT)
-                        val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        val bytes = android.util.Base64.decode(
+                            p.foto, android.util.Base64.DEFAULT
+                        )
+                        val bmp = android.graphics.BitmapFactory.decodeByteArray(
+                            bytes, 0, bytes.size
+                        )
                         imgEditPreview?.setImageBitmap(bmp)
                     } catch (e: Exception) {
                         imgEditPreview?.setImageResource(R.drawable.ic_launcher_background)
@@ -439,20 +439,10 @@ class PatientTableActivity : BaseActivity() {
                 btnSave.backgroundTintList =
                     android.content.res.ColorStateList.valueOf(Color.parseColor(currentColor))
 
-                // Acciones
                 btnCancel.setOnClickListener { dialog.dismiss() }
+                btnChange.setOnClickListener { mostrarCamaraEnDialogo() }
+                btnCancelCamera.setOnClickListener { ocultarCamaraEnDialogo() }
 
-                // ✅ Al tocar "cambiar foto" → mostrar cámara inline
-                btnChange.setOnClickListener {
-                    mostrarCamaraEnDialogo()
-                }
-
-                // ✅ Cancelar cámara → volver a los datos
-                btnCancelCamera.setOnClickListener {
-                    ocultarCamaraEnDialogo()
-                }
-
-                // ✅ Botón que alterna entre "Tomar Foto" y "Reintentar"
                 dialogBtnCaptureOrRetake?.setOnClickListener {
                     if (capturedBitmap == null) {
                         takePhotoInDialog()
@@ -461,7 +451,6 @@ class PatientTableActivity : BaseActivity() {
                     }
                 }
 
-                // ✅ Confirmar foto → guardar en preview y volver a datos
                 dialogBtnConfirmPhoto?.setOnClickListener {
                     capturedBitmap?.let { bmp ->
                         imgEditPreview?.setImageBitmap(bmp)
@@ -483,7 +472,8 @@ class PatientTableActivity : BaseActivity() {
                         telefono = etTel.text.toString().trim(),
                         correo = etCor.text.toString().trim().lowercase(),
                         curp = etCurp.text.toString().trim().uppercase(),
-                        tarjetaIc = etEditTarjetaIc?.text.toString().trim().ifBlank { p.tarjetaIc },
+                        tarjetaIc = etEditTarjetaIc?.text.toString().trim()
+                            .ifBlank { p.tarjetaIc },
                         direccion = etDir.text.toString().trim().uppercase(),
                         foto = nuevaFotoBase64
                     )
@@ -502,11 +492,9 @@ class PatientTableActivity : BaseActivity() {
                     }.start()
                 }
 
-                // Al cerrar el diálogo, liberar cámara
                 dialog.setOnDismissListener {
-                    cameraProvider?.unbindAll()
-                    cameraProvider = null
-                    imageCapture = null
+                    camera2Helper?.stopCamera()
+                    camera2Helper = null
                     capturedBitmap?.recycle()
                     capturedBitmap = null
                     isCameraActive = false
@@ -520,7 +508,7 @@ class PatientTableActivity : BaseActivity() {
     }
 
     // ==========================================
-    // MÉTODOS DE CÁMARA EN EL DIÁLOGO
+    // MÉTODOS DE CÁMARA EN EL DIÁLOGO (Camera2)
     // ==========================================
     private fun mostrarCamaraEnDialogo() {
         hideKeyboardAndClearFocus()
@@ -536,7 +524,6 @@ class PatientTableActivity : BaseActivity() {
         dialogTvStatus?.text = "Coloque su rostro frente a la cámara"
         dialogTvStatus?.setTextColor(Color.parseColor("#FF9800"))
 
-        // Verificar permisos
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -552,139 +539,72 @@ class PatientTableActivity : BaseActivity() {
     }
 
     private fun startCameraInDialog() {
-        val previewView = dialogPreviewView ?: return
-        val future = ProcessCameraProvider.getInstance(this)
-
-        future.addListener({
-            try {
-                val provider = future.get()
-                cameraProvider = provider
-                val preview = Preview.Builder()
-                    .build()
-                    .also { it.setSurfaceProvider(previewView.surfaceProvider) }
-
-                imageCapture = ImageCapture.Builder()
-                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                    .setTargetRotation(previewView.display.rotation)
-                    .build()
-
-                val selector = getAvailableCameraSelector(provider)
-
-                provider.unbindAll()
-                provider.bindToLifecycle(
-                    this,
-                    selector,
-                    preview,
-                    imageCapture
-                )
-                isCameraActive = true
-            } catch (e: Exception) {
-                Toast.makeText(this, "Error al iniciar cámara: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }, ContextCompat.getMainExecutor(this))
-    }
-
-    private fun getAvailableCameraSelector(provider: ProcessCameraProvider): CameraSelector {
-        return try {
-            if (provider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
-                CameraSelector.DEFAULT_FRONT_CAMERA
-            } else if (provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
-                CameraSelector.DEFAULT_BACK_CAMERA
-            } else {
-                CameraSelector.Builder().build()
-            }
-        } catch (e: Exception) {
-            CameraSelector.Builder().build()
+        val textureView = dialogPreviewView ?: run {
+            Log.e(TAG, "dialogPreviewView es null")
+            return
         }
+
+        camera2Helper?.stopCamera()
+        camera2Helper = Camera2Helper(this, textureView).also { it.startCamera() }
+        isCameraActive = true
     }
 
     private fun takePhotoInDialog() {
-        val capture = imageCapture ?: return
+        val bitmap = camera2Helper?.takePhoto() ?: run {
+            Toast.makeText(this, "No se pudo capturar la foto", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        capture.takePicture(
-            ContextCompat.getMainExecutor(this),
-            object : ImageCapture.OnImageCapturedCallback() {
-                override fun onCaptureSuccess(image: ImageProxy) {
-                    val bitmap = image.toBitmap()
-                    val rotation = image.imageInfo.rotationDegrees
-                    image.close()
+        val mirrored = mirrorBitmap(bitmap)
 
-                    val rotated = rotateBitmap(bitmap, rotation)
-                    val mirrored = mirrorBitmap(rotated)
+        Thread {
+            try {
+                val mpResult = MediaPipeFaceHelper.detect(mirrored)
+                val hasFace = mpResult != null && mpResult.faceLandmarks().isNotEmpty()
 
-                    // 🔴 NUEVO PIPELINE: MediaPipe + FaceNet
-                    Thread {
-                        try {
-                            val mpResult = MediaPipeFaceHelper.detect(mirrored)
-                            val hasFace = mpResult != null && mpResult.faceLandmarks().isNotEmpty()
+                runOnUiThread {
+                    capturedBitmap = mirrored
+                    dialogPreviewView?.visibility = View.GONE
+                    dialogImgPreview?.visibility = View.VISIBLE
+                    dialogImgPreview?.setImageBitmap(mirrored)
+                    dialogBtnCaptureOrRetake?.text = "🔄 Reintentar"
+                    dialogBtnConfirmPhoto?.visibility = View.VISIBLE
 
-                            if (!hasFace || mpResult == null) {
-                                runOnUiThread {
-                                    // Guardamos la foto completa de todas formas.
-                                    capturedBitmap = mirrored
-                                    dialogPreviewView?.visibility = View.GONE
-                                    dialogImgPreview?.visibility = View.VISIBLE
-                                    dialogImgPreview?.setImageBitmap(mirrored)
-                                    dialogBtnCaptureOrRetake?.text = "🔄 Reintentar"
-                                    dialogBtnConfirmPhoto?.visibility = View.VISIBLE
-                                    dialogTvStatus?.text = "Advertencia: No se detectó rostro. Puede guardar igual."
-                                    dialogTvStatus?.setTextColor(Color.parseColor("#FF9800"))
-                                    cameraProvider?.unbindAll()
-                                }
-                                return@Thread
-                            }
-
-                            val biometrics = FaceBiometricsHelper.processFace(mirrored, mpResult)
-                            val rostroOk = biometrics != null
-
-                            runOnUiThread {
-                                // 🔴 Guardamos la FOTO COMPLETA, no el crop alineado
-                                capturedBitmap = mirrored
-
-                                dialogPreviewView?.visibility = View.GONE
-                                dialogImgPreview?.visibility = View.VISIBLE
-                                dialogImgPreview?.setImageBitmap(mirrored)
-
-                                dialogBtnCaptureOrRetake?.text = "🔄 Reintentar"
-                                dialogBtnConfirmPhoto?.visibility = View.VISIBLE
-
-                                if (rostroOk) {
-                                    dialogTvStatus?.text = "Rostro verificado. ¿Usar esta foto?"
-                                    dialogTvStatus?.setTextColor(Color.parseColor("#4CAF50"))
-                                } else {
-                                    dialogTvStatus?.text = "Advertencia: rostro no óptimo. Puede guardar igual."
-                                    dialogTvStatus?.setTextColor(Color.parseColor("#FF9800"))
-                                }
-
-                                // Detener cámara mientras se muestra la foto
-                                cameraProvider?.unbindAll()
-                            }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error procesando rostro en diálogo: ${e.message}", e)
-                            runOnUiThread {
-                                capturedBitmap = mirrored
-                                dialogPreviewView?.visibility = View.GONE
-                                dialogImgPreview?.visibility = View.VISIBLE
-                                dialogImgPreview?.setImageBitmap(mirrored)
-                                dialogBtnCaptureOrRetake?.text = "🔄 Reintentar"
-                                dialogBtnConfirmPhoto?.visibility = View.VISIBLE
-                                dialogTvStatus?.text = "Error al procesar. Puede guardar la foto igual."
-                                dialogTvStatus?.setTextColor(Color.parseColor("#F44336"))
-                                cameraProvider?.unbindAll()
-                            }
+                    if (!hasFace || mpResult == null) {
+                        dialogTvStatus?.text =
+                            "Advertencia: No se detectó rostro. Puede guardar igual."
+                        dialogTvStatus?.setTextColor(Color.parseColor("#FF9800"))
+                    } else {
+                        val biometrics = FaceBiometricsHelper.processFace(mirrored, mpResult)
+                        if (biometrics != null) {
+                            dialogTvStatus?.text = "Rostro verificado. ¿Usar esta foto?"
+                            dialogTvStatus?.setTextColor(Color.parseColor("#4CAF50"))
+                        } else {
+                            dialogTvStatus?.text =
+                                "Advertencia: rostro no óptimo. Puede guardar igual."
+                            dialogTvStatus?.setTextColor(Color.parseColor("#FF9800"))
                         }
-                    }.start()
-                }
+                    }
 
-                override fun onError(exception: ImageCaptureException) {
-                    Toast.makeText(
-                        this@PatientTableActivity,
-                        "Error al tomar foto: ${exception.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    camera2Helper?.stopCamera()
+                    camera2Helper = null
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error procesando rostro: ${e.message}", e)
+                runOnUiThread {
+                    capturedBitmap = mirrored
+                    dialogPreviewView?.visibility = View.GONE
+                    dialogImgPreview?.visibility = View.VISIBLE
+                    dialogImgPreview?.setImageBitmap(mirrored)
+                    dialogBtnCaptureOrRetake?.text = "🔄 Reintentar"
+                    dialogBtnConfirmPhoto?.visibility = View.VISIBLE
+                    dialogTvStatus?.text = "Error al procesar. Puede guardar la foto igual."
+                    dialogTvStatus?.setTextColor(Color.parseColor("#F44336"))
+                    camera2Helper?.stopCamera()
+                    camera2Helper = null
                 }
             }
-        )
+        }.start()
     }
 
     private fun retakePhotoInDialog() {
@@ -701,9 +621,8 @@ class PatientTableActivity : BaseActivity() {
     }
 
     private fun ocultarCamaraEnDialogo() {
-        cameraProvider?.unbindAll()
-        cameraProvider = null
-        imageCapture = null
+        camera2Helper?.stopCamera()
+        camera2Helper = null
         isCameraActive = false
 
         containerCamera?.visibility = View.GONE
@@ -723,9 +642,7 @@ class PatientTableActivity : BaseActivity() {
     }
 
     private fun mirrorBitmap(bitmap: Bitmap): Bitmap {
-        val matrix = Matrix().apply {
-            preScale(-1.0f, 1.0f)
-        }
+        val matrix = Matrix().apply { preScale(-1.0f, 1.0f) }
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
@@ -751,7 +668,9 @@ class PatientTableActivity : BaseActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == CAMERA_PERMISSION_CODE_DIALOG) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (grantResults.isNotEmpty() &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED
+            ) {
                 startCameraInDialog()
             } else {
                 Toast.makeText(this, "Se requiere permiso de cámara", Toast.LENGTH_LONG).show()
@@ -761,16 +680,15 @@ class PatientTableActivity : BaseActivity() {
     }
 
     // ==========================================
-    // LIBERAR CÁMARA AL CERRAR LA ACTIVIDAD
+    // LIBERAR CÁMARA
     // ==========================================
     override fun onDestroy() {
         super.onDestroy()
         icCardReceiver?.let {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
         }
-        cameraProvider?.unbindAll()
-        cameraProvider = null
-        imageCapture = null
+        camera2Helper?.stopCamera()
+        camera2Helper = null
         capturedBitmap?.recycle()
         capturedBitmap = null
     }
