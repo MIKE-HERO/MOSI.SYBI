@@ -100,37 +100,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- SECCIÓN 2: MÉTODO DE COMUNICACIÓN -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="#FFFFFF"
-            android:elevation="2dp"
-            android:padding="16dp"
-            android:layout_marginBottom="16dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Método de comunicación"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#333333"
-                android:layout_marginBottom="12dp"/>
-
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="8dp">
-                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Número de teléfono móvil" android:textSize="15sp" android:textColor="#333333"/>
-                <Switch android:id="@+id/switchCommPhone" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-            </LinearLayout>
-
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:padding="8dp">
-                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Correo electrónico" android:textSize="15sp" android:textColor="#333333"/>
-                <Switch android:id="@+id/switchCommEmail" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- SECCIÓN 3: CONFIGURACIÓN DE INVITADOS -->
+        <!-- SECCIÓN 2: CONFIGURACIÓN DE INVITADOS -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

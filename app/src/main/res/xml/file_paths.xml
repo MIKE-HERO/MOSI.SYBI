@@ -11,4 +11,5 @@
 
     <!-- Para compartir archivos de descargas -->
     <external-path name="external" path="." />
+
 </paths>

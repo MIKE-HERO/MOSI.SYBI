@@ -1,5 +1,7 @@
 package com.sybi.mosi
 
+import android.app.AlertDialog
+import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -9,20 +11,26 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.print.PrintAttributes
+import android.print.PrintManager
 import android.util.Base64
 import android.util.Log
 import android.view.View
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.database.AppDatabase
 import com.sybi.mosi.database.Paciente
 import com.sybi.mosi.repository.MedicionesSender
 import kotlinx.coroutines.runBlocking
+import java.io.File
+import java.io.FileOutputStream
 
 class ResultsActivity : BaseActivity() {
 
@@ -35,20 +43,18 @@ class ResultsActivity : BaseActivity() {
     private lateinit var resultsContainer: LinearLayout
     private lateinit var btnStartConsultation: Button
     private lateinit var btnPrintResults: Button
+    private lateinit var btnEmailResults: Button
     private lateinit var btnExitResults: View
 
     private var idLocal: Long = 0L
     private var paciente: Paciente? = null
     private var envioExitoso = false
 
-    // ✅ Guardar el id_usuario_web en cuanto se cargue el paciente
-    //    para evitar race conditions al tocar el botón.
     private var idUsuarioWebCargado: Int = 0
 
     private val uiHandler = Handler(Looper.getMainLooper())
     private lateinit var tvPlaceholder: TextView
 
-    // ✅ Control de mensajes periódicos durante el envío
     private var enviandoMediciones = false
     private var contadorMensajesEnvio = 0
     private val envioHandler = Handler(Looper.getMainLooper())
@@ -67,6 +73,9 @@ class ResultsActivity : BaseActivity() {
         }
     }
 
+    // ✅ HTML del reporte generado UNA SOLA VEZ y reutilizado por imprimir y correo
+    private var htmlReporte: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
@@ -77,12 +86,12 @@ class ResultsActivity : BaseActivity() {
         resultsContainer = findViewById(R.id.resultsContainer)
         btnStartConsultation = findViewById(R.id.btnStartConsultation)
         btnPrintResults = findViewById(R.id.btnPrintResults)
+        btnEmailResults = findViewById(R.id.btnEmailResults)
         btnExitResults = findViewById(R.id.btnExitResults)
 
         idLocal = intent.getLongExtra("id_local", 0L)
         Log.d(TAG, "📥 id_local recibido: $idLocal")
 
-        // ✅ Placeholder inicial — se ve al instante
         tvPlaceholder = TextView(this).apply {
             text = "Recopilando resultados..."
             textSize = 20f
@@ -139,17 +148,37 @@ class ResultsActivity : BaseActivity() {
                     ).show()
                     return@setOnClickListener
                 }
-
-                // ✅ Ruta A: lanzar TelemedicineActivity,
-                //    que carga la pantalla de médicos disponibles.
                 iniciarVideollamada(idUsuarioWebCargado)
             }
         } else {
             btnStartConsultation.visibility = View.GONE
         }
 
+        // --- Visibilidad según preferencias de informes ---
+        val allowPrint = devicePrefs.getBoolean(
+            ReportSettingsActivity.PREF_ALLOW_PRINT, true
+        )
+        val allowEmail = devicePrefs.getBoolean(
+            ReportSettingsActivity.PREF_ALLOW_EMAIL, true
+        )
+
+        btnPrintResults.visibility = if (allowPrint) View.VISIBLE else View.GONE
+        btnEmailResults.visibility = if (allowEmail) View.VISIBLE else View.GONE
+
         btnPrintResults.setOnClickListener {
-            Toast.makeText(this, "Funcionalidad de impresión próximamente", Toast.LENGTH_SHORT).show()
+            if (htmlReporte == null) {
+                Toast.makeText(this, "Esperando datos del paciente...", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            imprimirResultados()
+        }
+
+        btnEmailResults.setOnClickListener {
+            if (htmlReporte == null) {
+                Toast.makeText(this, "Esperando datos del paciente...", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            enviarResultadosPorCorreo()
         }
 
         btnExitResults.setOnClickListener {
@@ -181,13 +210,15 @@ class ResultsActivity : BaseActivity() {
                     tvPlaceholder.visibility = View.GONE
                     renderResultadosSinEcg()
 
-                    // ✅ Validar si tiene correo para mostrar advertencia
                     if (p?.correo.isNullOrBlank()) {
                         addEmailWarning()
                     }
+
+                    // ✅ Generar el HTML UNA SOLA VEZ, ya con los datos del paciente cargados
+                    htmlReporte = buildResultsHtml()
+                    Log.d(TAG, "📝 HTML del reporte generado (${htmlReporte?.length ?: 0} chars)")
                 }
 
-                // ✅ Enviar solo si tiene id_usuario_web
                 if (p != null && p.id_usuario_web != null) {
                     idUsuarioWebCargado = p.id_usuario_web!!
                     enviarMedicionesAlDoctor(p)
@@ -208,7 +239,6 @@ class ResultsActivity : BaseActivity() {
             btnStartConsultation.isEnabled = false
             btnStartConsultation.text = "Enviando resultados..."
 
-            // ✅ Arrancar los mensajes periódicos
             enviandoMediciones = true
             contadorMensajesEnvio = 0
             envioHandler.post(envioRunnable)
@@ -266,16 +296,11 @@ class ResultsActivity : BaseActivity() {
         }.start()
     }
 
-    // ✅ Detener los mensajes periódicos de envío
     private fun detenerMensajesEnvio() {
         enviandoMediciones = false
         envioHandler.removeCallbacks(envioRunnable)
     }
 
-    /**
-     * ✅ Ruta A: lanza TelemedicineActivity, que se encarga de cargar
-     *    la pantalla de médicos disponibles y todo el flujo de Angular.
-     */
     private fun iniciarVideollamada(idUsuarioWeb: Int) {
         Log.d(TAG, "🎬 Iniciando videollamada (Ruta A) con id_usuario_web=$idUsuarioWeb")
 
@@ -287,6 +312,7 @@ class ResultsActivity : BaseActivity() {
 
     private fun clearResults() {
         getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE).edit().clear().apply()
+        htmlReporte = null
     }
 
     override fun onBackPressed() {
@@ -307,7 +333,7 @@ class ResultsActivity : BaseActivity() {
         clearResults()
     }
 
-    // ── Render sin ECG (rápido) ──────────────────────────
+    // ── Render en pantalla ────────────────────────────────
 
     private fun renderResultadosSinEcg() {
         val prefs = getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE)
@@ -436,7 +462,7 @@ class ResultsActivity : BaseActivity() {
         }.start()
     }
 
-    // ── Helpers de UI ────────────────────────────────────
+    // ── Helpers de UI en pantalla ────────────────────────
 
     private fun addSection(title: String) {
         resultsContainer.addView(TextView(this).apply {
@@ -495,5 +521,409 @@ class ResultsActivity : BaseActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         })
+    }
+
+    // ==========================================
+    // IMPRESIÓN DE RESULTADOS (diálogo nativo)
+    // ==========================================
+    private fun imprimirResultados() {
+        val html = htmlReporte ?: return
+
+        // WebView temporal para generar el PrintDocumentAdapter
+        val webView = WebView(this).apply {
+            settings.javaScriptEnabled = false
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+
+                    // ✅ Verificar que el WebView no sea null antes de usarlo
+                    if (view == null) {
+                        Log.e(TAG, "❌ WebView null en onPageFinished, no se puede imprimir")
+                        return
+                    }
+
+                    val printManager = getSystemService(Context.PRINT_SERVICE) as PrintManager
+                    val jobName = "Resultados_SYBI_${System.currentTimeMillis()}"
+
+                    printManager.print(
+                        jobName,
+                        view.createPrintDocumentAdapter(jobName),   // ← sin "?" porque ya validamos
+                        PrintAttributes.Builder()
+                            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                            .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                            .build()
+                    )
+                }
+            }
+            loadDataWithBaseURL(null, html, "text/HTML", "UTF-8", null)
+        }
+    }
+
+    // ==========================================
+    // ENVÍO POR CORREO (temporal: genera PDF y guarda copia)
+    // ==========================================
+    private fun enviarResultadosPorCorreo() {
+        val destinatario = paciente?.correo
+        if (destinatario.isNullOrBlank()) {
+            Toast.makeText(
+                this,
+                "El paciente no tiene correo registrado",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        btnEmailResults.isEnabled = false
+        val textoOriginal = btnEmailResults.text
+        btnEmailResults.text = "Generando PDF..."
+        Toast.makeText(this, "Generando PDF de resultados...", Toast.LENGTH_SHORT).show()
+
+        Thread {
+            try {
+                val pdfBytes = generarPdfBytes()
+                if (pdfBytes == null) {
+                    uiHandler.post {
+                        btnEmailResults.isEnabled = true
+                        btnEmailResults.text = textoOriginal
+                        Toast.makeText(
+                            this,
+                            "No se pudo generar el PDF",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    return@Thread
+                }
+
+                val nombreArchivo = "Resultados_${paciente?.nombre?.replace(" ", "_") ?: "Paciente"}_${System.currentTimeMillis()}.pdf"
+                val archivo = File(getExternalFilesDir(null), nombreArchivo)
+                FileOutputStream(archivo).use { it.write(pdfBytes) }
+
+                Log.d(TAG, "📄 PDF generado: ${archivo.absolutePath} (${pdfBytes.size} bytes)")
+
+                uiHandler.post {
+                    btnEmailResults.isEnabled = true
+                    btnEmailResults.text = textoOriginal
+
+                    AlertDialog.Builder(this@ResultsActivity)
+                        .setTitle("PDF listo")
+                        .setMessage(
+                            "Se generó el PDF correctamente.\n\n" +
+                                    "Destinatario previsto: $destinatario\n\n" +
+                                    "Ruta: ${archivo.absolutePath}\n\n" +
+                                    "El envío por correo se activará cuando el servidor esté listo."
+                        )
+                        .setPositiveButton("Abrir PDF") { _, _ ->
+                            val uri = FileProvider.getUriForFile(
+                                this@ResultsActivity,
+                                "$packageName.fileprovider",
+                                archivo
+                            )
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, "application/pdf")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            try {
+                                startActivity(intent)
+                            } catch (e: ActivityNotFoundException) {
+                                Toast.makeText(
+                                    this,
+                                    "No hay app para ver PDFs",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                        .setNegativeButton("Cerrar", null)
+                        .show()
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error generando PDF: ${e.message}", e)
+                uiHandler.post {
+                    btnEmailResults.isEnabled = true
+                    btnEmailResults.text = textoOriginal
+                    Toast.makeText(this, "❌ Error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
+    }
+
+    // ==========================================
+    // GENERAR PDF EN MEMORIA
+    // ==========================================
+    private fun generarPdfBytes(): ByteArray? {
+        return try {
+            val pdfDocument = android.graphics.pdf.PdfDocument()
+            val pageInfo = android.graphics.pdf.PdfDocument.PageInfo
+                .Builder(1240, 1754, 1)
+                .create()
+
+            val page = pdfDocument.startPage(pageInfo)
+            val canvas = page.canvas
+
+            val paint = android.graphics.Paint().apply {
+                isAntiAlias = true
+                color = Color.BLACK
+            }
+            var y = 80f
+            val marginLeft = 60f
+            val lineHeight = 40f
+
+            // Título
+            paint.textSize = 42f
+            paint.isFakeBoldText = true
+            paint.color = Color.parseColor("#0F3E82")
+            canvas.drawText("Reporte de Resultados", marginLeft, y, paint)
+            y += 60f
+
+            // Subtítulo
+            paint.textSize = 24f
+            paint.isFakeBoldText = false
+            paint.color = Color.parseColor("#666666")
+            val fecha = java.text.SimpleDateFormat(
+                "dd/MM/yyyy HH:mm", java.util.Locale.getDefault()
+            ).format(java.util.Date())
+            val nombrePaciente = listOfNotNull(
+                paciente?.nombre,
+                paciente?.apellido_paterno,
+                paciente?.apellido_materno
+            ).joinToString(" ").trim().ifBlank { "Paciente" }
+            canvas.drawText(
+                "Paciente: $nombrePaciente   |   Fecha: $fecha",
+                marginLeft, y, paint
+            )
+            y += 70f
+
+            val prefs = getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE)
+
+            fun drawSection(title: String) {
+                paint.textSize = 32f
+                paint.isFakeBoldText = true
+                paint.color = Color.parseColor("#0F3E82")
+                canvas.drawText(title, marginLeft, y, paint)
+                y += 8f
+                canvas.drawLine(marginLeft, y, 1240f - marginLeft, y, paint.apply { strokeWidth = 2f })
+                y += 40f
+                paint.isFakeBoldText = false
+                paint.textSize = 26f
+                paint.color = Color.parseColor("#333333")
+            }
+
+            fun drawRow(label: String, value: String) {
+                canvas.drawText("$label: $value", marginLeft + 20f, y, paint)
+                y += lineHeight
+            }
+
+            val height = prefs.getFloat("height", 0f)
+            val weight = prefs.getFloat("weight", 0f)
+            val imc = prefs.getFloat("imc", 0f)
+            if (height > 0 && weight > 0) {
+                drawSection("Altura / Peso")
+                drawRow("Altura", "%.1f cm".format(height))
+                drawRow("Peso", "%.3f kg".format(weight))
+                drawRow("IMC", "%.1f".format(imc))
+                y += 20f
+            }
+
+            val fatRate = prefs.getFloat("fat_rate", 0f)
+            val waterRate = prefs.getFloat("water_rate", 0f)
+            val muscle = prefs.getFloat("muscle", 0f)
+            val metabolism = prefs.getInt("metabolism", 0)
+            val visceralFat = prefs.getFloat("visceral_fat", 0f)
+            val idealWeight = prefs.getFloat("ideal_weight", 0f)
+            val protein = prefs.getFloat("protein", 0f)
+            val mineral = prefs.getFloat("mineral", 0f)
+            val fatKg = prefs.getFloat("fat", 0f)
+            val waterKg = prefs.getFloat("water", 0f)
+            val notFat = prefs.getFloat("not_fat", 0f)
+            val fatType = prefs.getInt("fat_type", 0)
+
+            if (fatRate > 0 || waterRate > 0 || muscle > 0 || metabolism > 0) {
+                drawSection("Composición Corporal")
+                if (fatRate > 0)     drawRow("Tasa de Grasa Corporal", "%.1f%%".format(fatRate))
+                if (waterRate > 0)   drawRow("Tasa de Agua Corporal", "%.1f%%".format(waterRate))
+                if (fatKg > 0)       drawRow("Grasa Corporal", "%.1f kg".format(fatKg))
+                if (waterKg > 0)     drawRow("Agua Corporal", "%.1f kg".format(waterKg))
+                if (muscle > 0)      drawRow("Masa Muscular", "%.1f kg".format(muscle))
+                if (notFat > 0)      drawRow("Masa Libre de Grasa", "%.1f kg".format(notFat))
+                if (protein > 0)     drawRow("Proteína", "%.1f kg".format(protein))
+                if (mineral > 0)     drawRow("Minerales", "%.1f kg".format(mineral))
+                if (metabolism > 0)  drawRow("Metabolismo Basal", "%d kcal".format(metabolism))
+                if (visceralFat > 0) drawRow("Grasa Visceral", "%.1f".format(visceralFat))
+                if (idealWeight > 0) drawRow("Peso Ideal", "%.1f kg".format(idealWeight))
+                if (fatType > 0)     drawRow("Tipo de Grasa", "$fatType")
+                y += 20f
+            }
+
+            val systolic = prefs.getInt("systolic", 0)
+            val diastolic = prefs.getInt("diastolic", 0)
+            val pulse = prefs.getInt("pulse", 0)
+            if (systolic > 0) {
+                drawSection("Presión Arterial")
+                drawRow("Sistólica", "$systolic mmHg")
+                drawRow("Diastólica", "$diastolic mmHg")
+                drawRow("Pulso", "$pulse bpm")
+                y += 20f
+            }
+
+            val temperature = prefs.getFloat("temperature", 0f)
+            val temperatureF = prefs.getFloat("temperature_f", 0f)
+            if (temperature > 0) {
+                drawSection("Temperatura Corporal")
+                drawRow("Temperatura", "%.1f °C / %.1f °F".format(temperature, temperatureF))
+                y += 20f
+            }
+
+            val spo2 = prefs.getInt("spo2", 0)
+            val pulseRate = prefs.getInt("pulse_rate", 0)
+            val pi = prefs.getFloat("pi", 0f)
+            if (spo2 > 0) {
+                drawSection("Oxígeno en Sangre")
+                drawRow("SpO2", "$spo2%")
+                drawRow("Pulso", "$pulseRate bpm")
+                drawRow("PI", "%.1f".format(pi))
+                y += 20f
+            }
+
+            val heartRate = prefs.getInt("ecg_heart_rate", 0)
+            if (heartRate > 0) {
+                drawSection("ECG")
+                drawRow("Frecuencia Cardíaca", "$heartRate bpm")
+            }
+
+            pdfDocument.finishPage(page)
+
+            val output = java.io.ByteArrayOutputStream()
+            pdfDocument.writeTo(output)
+            pdfDocument.close()
+
+            output.toByteArray()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error generando PDF: ${e.message}", e)
+            null
+        }
+    }
+
+    // ==========================================
+    // CONSTRUIR HTML DEL REPORTE (UNA SOLA VEZ)
+    // ==========================================
+    private fun buildResultsHtml(): String {
+        val prefs = getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE)
+        val sb = StringBuilder()
+
+        val nombrePaciente = listOfNotNull(
+            paciente?.nombre,
+            paciente?.apellido_paterno,
+            paciente?.apellido_materno
+        ).joinToString(" ").trim().ifBlank { "Paciente" }
+
+        val fecha = java.text.SimpleDateFormat(
+            "dd/MM/yyyy HH:mm", java.util.Locale.getDefault()
+        ).format(java.util.Date())
+
+        sb.append("""
+        <html><head><meta charset="utf-8">
+        <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #333; }
+            h1 { text-align: center; color: #0F3E82; font-size: 24px; margin-bottom: 4px; }
+            .subtitle { text-align: center; color: #666; font-size: 13px; margin-bottom: 28px; }
+            h2 { color: #0F3E82; border-bottom: 2px solid #0F3E82;
+                 padding-bottom: 4px; margin-top: 26px; font-size: 17px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+            td { padding: 5px 8px; font-size: 14px; }
+            .label { color: #555; }
+            .value { color: #111; font-weight: bold; }
+        </style></head><body>
+    """.trimIndent())
+
+        sb.append("<h1>Reporte de Resultados</h1>")
+        sb.append("<div class='subtitle'>Paciente: $nombrePaciente &nbsp;|&nbsp; Fecha: $fecha</div>")
+
+        val height = prefs.getFloat("height", 0f)
+        val weight = prefs.getFloat("weight", 0f)
+        val imc = prefs.getFloat("imc", 0f)
+        if (height > 0 && weight > 0) {
+            sb.append("<h2>Altura / Peso</h2><table>")
+            sb.append("<tr><td class='label'>Altura</td><td class='value'>%.1f cm</td></tr>".format(height))
+            sb.append("<tr><td class='label'>Peso</td><td class='value'>%.3f kg</td></tr>".format(weight))
+            sb.append("<tr><td class='label'>IMC</td><td class='value'>%.1f</td></tr>".format(imc))
+            sb.append("</table>")
+        }
+
+        val fatRate = prefs.getFloat("fat_rate", 0f)
+        val waterRate = prefs.getFloat("water_rate", 0f)
+        val muscle = prefs.getFloat("muscle", 0f)
+        val metabolism = prefs.getInt("metabolism", 0)
+        val visceralFat = prefs.getFloat("visceral_fat", 0f)
+        val idealWeight = prefs.getFloat("ideal_weight", 0f)
+        val protein = prefs.getFloat("protein", 0f)
+        val mineral = prefs.getFloat("mineral", 0f)
+        val fatKg = prefs.getFloat("fat", 0f)
+        val waterKg = prefs.getFloat("water", 0f)
+        val notFat = prefs.getFloat("not_fat", 0f)
+        val fatType = prefs.getInt("fat_type", 0)
+
+        if (fatRate > 0 || waterRate > 0 || muscle > 0 || metabolism > 0) {
+            sb.append("<h2>Composición Corporal</h2><table>")
+            if (fatRate > 0)     sb.append("<tr><td class='label'>Tasa de Grasa Corporal</td><td class='value'>%.1f%%</td></tr>".format(fatRate))
+            if (waterRate > 0)   sb.append("<tr><td class='label'>Tasa de Agua Corporal</td><td class='value'>%.1f%%</td></tr>".format(waterRate))
+            if (fatKg > 0)       sb.append("<tr><td class='label'>Grasa Corporal</td><td class='value'>%.1f kg</td></tr>".format(fatKg))
+            if (waterKg > 0)     sb.append("<tr><td class='label'>Agua Corporal</td><td class='value'>%.1f kg</td></tr>".format(waterKg))
+            if (muscle > 0)      sb.append("<tr><td class='label'>Masa Muscular</td><td class='value'>%.1f kg</td></tr>".format(muscle))
+            if (notFat > 0)      sb.append("<tr><td class='label'>Masa Libre de Grasa</td><td class='value'>%.1f kg</td></tr>".format(notFat))
+            if (protein > 0)     sb.append("<tr><td class='label'>Proteína</td><td class='value'>%.1f kg</td></tr>".format(protein))
+            if (mineral > 0)     sb.append("<tr><td class='label'>Minerales</td><td class='value'>%.1f kg</td></tr>".format(mineral))
+            if (metabolism > 0)  sb.append("<tr><td class='label'>Metabolismo Basal</td><td class='value'>%d kcal</td></tr>".format(metabolism))
+            if (visceralFat > 0) sb.append("<tr><td class='label'>Grasa Visceral</td><td class='value'>%.1f</td></tr>".format(visceralFat))
+            if (idealWeight > 0) sb.append("<tr><td class='label'>Peso Ideal</td><td class='value'>%.1f kg</td></tr>".format(idealWeight))
+            if (fatType > 0)     sb.append("<tr><td class='label'>Tipo de Grasa</td><td class='value'>$fatType</td></tr>")
+            sb.append("</table>")
+        }
+
+        val systolic = prefs.getInt("systolic", 0)
+        val diastolic = prefs.getInt("diastolic", 0)
+        val pulse = prefs.getInt("pulse", 0)
+        if (systolic > 0) {
+            sb.append("<h2>Presión Arterial</h2><table>")
+            sb.append("<tr><td class='label'>Sistólica</td><td class='value'>%d mmHg</td></tr>".format(systolic))
+            sb.append("<tr><td class='label'>Diastólica</td><td class='value'>%d mmHg</td></tr>".format(diastolic))
+            sb.append("<tr><td class='label'>Pulso</td><td class='value'>%d bpm</td></tr>".format(pulse))
+            sb.append("</table>")
+        }
+
+        val temperature = prefs.getFloat("temperature", 0f)
+        val temperatureF = prefs.getFloat("temperature_f", 0f)
+        if (temperature > 0) {
+            sb.append("<h2>Temperatura Corporal</h2><table>")
+            sb.append("<tr><td class='label'>Temperatura</td><td class='value'>%.1f °C / %.1f °F</td></tr>".format(temperature, temperatureF))
+            sb.append("</table>")
+        }
+
+        val spo2 = prefs.getInt("spo2", 0)
+        val pulseRate = prefs.getInt("pulse_rate", 0)
+        val pi = prefs.getFloat("pi", 0f)
+        if (spo2 > 0) {
+            sb.append("<h2>Oxígeno en Sangre</h2><table>")
+            sb.append("<tr><td class='label'>SpO2</td><td class='value'>%d%%</td></tr>".format(spo2))
+            sb.append("<tr><td class='label'>Pulso</td><td class='value'>%d bpm</td></tr>".format(pulseRate))
+            sb.append("<tr><td class='label'>PI</td><td class='value'>%.1f</td></tr>".format(pi))
+            sb.append("</table>")
+        }
+
+        val heartRate = prefs.getInt("ecg_heart_rate", 0)
+        val ecgImageString = prefs.getString("ecg_image", null)
+        if (heartRate > 0 || ecgImageString != null) {
+            sb.append("<h2>ECG</h2><table>")
+            if (heartRate > 0) {
+                sb.append("<tr><td class='label'>Frecuencia Cardíaca</td><td class='value'>%d bpm</td></tr>".format(heartRate))
+            }
+            sb.append("</table>")
+            if (ecgImageString != null) {
+                sb.append("<img src='data:image/png;base64,$ecgImageString' style='width:100%; margin-top:8px;'/>")
+            }
+        }
+
+        sb.append("</body></html>")
+        return sb.toString()
     }
 }
