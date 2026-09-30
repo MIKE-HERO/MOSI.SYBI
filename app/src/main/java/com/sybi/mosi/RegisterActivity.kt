@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.os.Bundle
+import android.text.InputFilter
 import android.text.TextUtils
 import android.util.Log
 import android.view.View
@@ -78,6 +79,17 @@ class RegisterActivity : BaseActivity() {
         btnGuardar = findViewById(R.id.btnGuardarPaciente)
         btnCancelar = findViewById(R.id.btnCancelar)
         etSearchQuery = findViewById(R.id.etSearchQuery)
+
+        // Forzar mayúsculas en el campo de búsqueda
+        val filter = InputFilter { source, start, end, dest, dstart, dend ->
+            val upper = source.toString().uppercase()
+            if (source == upper) {
+                null // sin cambios
+            } else {
+                upper // reemplaza con mayúsculas
+            }
+        }
+        etSearchQuery.filters = arrayOf(filter)
         btnSearch = findViewById(R.id.btnSearchPaciente)
 
         etRegNombre = findViewById(R.id.etRegNombre)

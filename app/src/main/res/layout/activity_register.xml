@@ -86,12 +86,19 @@
                     android:textSize="11sp"
                     android:textColor="#0F3E82"
                     android:textStyle="bold"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Registro disponible para pacientes de 10 años en adelante."
+                    android:textSize="11sp"
+                    android:textColor="#757575"
+                    android:layout_marginBottom="12dp"/>
                 <EditText
                     android:id="@+id/etSearchQuery"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="Ingrese teléfono, CURP o folio"
-                    android:inputType="text"
+                    android:inputType="textCapCharacters"
                     android:padding="8dp"
                     android:textSize="14sp"
                     android:background="@android:drawable/edit_text"/>
