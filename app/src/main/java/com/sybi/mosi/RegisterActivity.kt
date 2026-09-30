@@ -588,7 +588,7 @@ class RegisterActivity : BaseActivity() {
                             runOnUiThread {
                                 Toast.makeText(
                                     this@RegisterActivity,
-                                    "Paciente vinculado con datos reales (ID: ${resultado.idPaciente})",
+                                    "Paciente guardado con datos reales (ID: ${resultado.idPaciente})",
                                     Toast.LENGTH_LONG
                                 ).show()
                                 irALogin()
@@ -597,7 +597,7 @@ class RegisterActivity : BaseActivity() {
                             runOnUiThread {
                                 Toast.makeText(
                                     this@RegisterActivity,
-                                    "Paciente guardado localmente. Aún no está en el sistema del doctor.",
+                                    "Paciente guardado localmente.",
                                     Toast.LENGTH_LONG
                                 ).show()
                                 irALogin()

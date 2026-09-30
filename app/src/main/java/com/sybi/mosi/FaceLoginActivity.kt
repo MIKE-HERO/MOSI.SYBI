@@ -143,6 +143,7 @@ class FaceLoginActivity : BaseActivity() {
 
     private fun startCamera() {
         camera2Helper?.stopCamera()
+        textureView.scaleX = -1f
         camera2Helper = Camera2Helper(this, textureView).also { it.startCamera() }
 
         isRunning = true

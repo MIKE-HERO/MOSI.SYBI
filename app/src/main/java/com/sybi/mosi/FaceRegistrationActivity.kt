@@ -36,6 +36,7 @@ class FaceRegistrationActivity : BaseActivity() {
     private lateinit var textureView: TextureView
     private lateinit var imgPhotoPreview: ImageView
     private lateinit var btnTakePhoto: Button
+    private lateinit var btnSkipPhoto: Button
     private lateinit var btnRetakePhoto: Button
     private lateinit var btnSavePhoto: Button
     private lateinit var btnCancel: TextView
@@ -67,6 +68,7 @@ class FaceRegistrationActivity : BaseActivity() {
         textureView = findViewById(R.id.textureView)
         imgPhotoPreview = findViewById(R.id.imgPhotoPreview)
         btnTakePhoto = findViewById(R.id.btnTakePhoto)
+        btnSkipPhoto = findViewById(R.id.btnSkipPhoto)
         btnRetakePhoto = findViewById(R.id.btnRetakePhoto)
         btnSavePhoto = findViewById(R.id.btnSavePhoto)
         btnCancel = findViewById(R.id.btnCancelFaceRegistration)
@@ -102,6 +104,7 @@ class FaceRegistrationActivity : BaseActivity() {
         // Configurar botones
         btnCancel.setOnClickListener { finish() }
         btnTakePhoto.setOnClickListener { takePhoto() }
+        btnSkipPhoto.setOnClickListener { confirmSkipPhoto() }
         btnRetakePhoto.setOnClickListener { retakePhoto() }
         btnSavePhoto.setOnClickListener { savePatientWithPhoto() }
 
@@ -136,11 +139,13 @@ class FaceRegistrationActivity : BaseActivity() {
 
     private fun startCamera() {
         camera2Helper?.stopCamera()
+        textureView.scaleX = -1f
         camera2Helper = Camera2Helper(this, textureView).also { it.startCamera() }
 
         textureView.visibility = View.VISIBLE
         imgPhotoPreview.visibility = View.GONE
         btnTakePhoto.visibility = View.VISIBLE
+        btnSkipPhoto.visibility = View.VISIBLE
         btnRetakePhoto.visibility = View.GONE
         btnSavePhoto.visibility = View.GONE
 
@@ -222,10 +227,11 @@ class FaceRegistrationActivity : BaseActivity() {
         imgPhotoPreview.setImageBitmap(bitmap)
 
         btnTakePhoto.visibility = View.GONE
+        btnSkipPhoto.visibility = View.VISIBLE
         btnRetakePhoto.visibility = View.VISIBLE
         btnSavePhoto.visibility = View.VISIBLE
 
-        tvStatus.text = "Foto capturada. ¿Desea guardarla o repetir?"
+        tvStatus.text = "Foto capturada. ¿Desea guardarla, repetir u omitir?"
         tvStatus.setTextColor(Color.parseColor("#4CAF50"))
 
         camera2Helper?.stopCamera()
@@ -240,6 +246,7 @@ class FaceRegistrationActivity : BaseActivity() {
         textureView.visibility = View.VISIBLE
 
         btnTakePhoto.visibility = View.VISIBLE
+        btnSkipPhoto.visibility = View.VISIBLE
         btnRetakePhoto.visibility = View.GONE
         btnSavePhoto.visibility = View.GONE
 
@@ -247,6 +254,111 @@ class FaceRegistrationActivity : BaseActivity() {
         tvStatus.setTextColor(Color.parseColor("#FF9800"))
 
         startCamera()
+    }
+
+    private fun confirmSkipPhoto() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Omitir registro facial")
+            .setMessage("Si omite la toma de foto, no podrá iniciar sesión mediante reconocimiento facial en el quiosco.\n\n¿Desea continuar sin foto?")
+            .setPositiveButton("Sí, omitir") { _, _ ->
+                skipPhoto()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun skipPhoto() {
+        btnSkipPhoto.isEnabled = false
+        btnTakePhoto.isEnabled = false
+        btnRetakePhoto.isEnabled = false
+        btnSavePhoto.isEnabled = false
+        btnSkipPhoto.text = "Omitiendo..."
+
+        tvStatus.text = "Guardando sin foto..."
+        tvStatus.setTextColor(Color.parseColor("#FF9800"))
+
+        val database = AppDatabase.getInstance(this)
+        val pacienteDao = database.pacienteDao()
+
+        Thread {
+            runBlocking {
+                try {
+                    val pacienteLocal = pacienteDao.obtenerPacientePorIdLocal(idLocal)
+                    if (pacienteLocal == null) {
+                        runOnUiThread {
+                            Toast.makeText(
+                                this@FaceRegistrationActivity,
+                                "No se encontró el paciente en la BD local",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            btnSkipPhoto.isEnabled = true
+                            btnTakePhoto.isEnabled = true
+                            btnRetakePhoto.isEnabled = true
+                            btnSavePhoto.isEnabled = true
+                            btnSkipPhoto.text = "⏭️ Omitir"
+                        }
+                        return@runBlocking
+                    }
+
+                    runOnUiThread { tvStatus.text = "Buscando en sistema..." }
+
+                    val repo = PacienteRemoteRepository(this@FaceRegistrationActivity)
+                    val resultado = repo.buscarPacienteEnAPI(pacienteLocal)
+
+                    if (resultado != null) {
+                        val u = resultado.usuarioWeb
+                        val pacienteActualizado = pacienteLocal.copy(
+                            id_usuario_web = resultado.idPaciente,
+                            nombre = u.nombre?.ifBlank { null }?.uppercase() ?: pacienteLocal.nombre,
+                            apellido_paterno = u.apellidoPaterno?.ifBlank { null }?.uppercase() ?: pacienteLocal.apellido_paterno,
+                            apellido_materno = u.apellidoMaterno?.ifBlank { null }?.uppercase() ?: pacienteLocal.apellido_materno,
+                            fecha_nacimiento = parsearFechaNacimiento(u.fechaNacimiento) ?: pacienteLocal.fecha_nacimiento,
+                            curp = u.curp?.ifBlank { null }?.uppercase() ?: pacienteLocal.curp,
+                            telefono = u.celular ?: u.telefonoCasa ?: pacienteLocal.telefono,
+                            correo = u.correo?.trim()?.ifBlank { null }?.lowercase() ?: pacienteLocal.correo,
+                            folio = u.folio?.ifBlank { null } ?: pacienteLocal.folio,
+                            direccion = u.direccion?.uppercase() ?: pacienteLocal.direccion,
+                            fecha_registro_global = parsearFechaRegistroAPI(u.fechaRegistro),
+                            sincronizado = true
+                        )
+                        Log.d(TAG, "🔄 Paciente actualizado con datos de la API (sin foto)")
+                        pacienteDao.actualizarPaciente(pacienteActualizado)
+
+                        runOnUiThread {
+                            Toast.makeText(
+                                this@FaceRegistrationActivity,
+                                "Registro completado sin foto. Paciente vinculado (ID: ${resultado.idPaciente})",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            irALogin()
+                        }
+                    } else {
+                        runOnUiThread {
+                            Toast.makeText(
+                                this@FaceRegistrationActivity,
+                                "Registro completado sin foto. Paciente guardado localmente.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            irALogin()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error omitiendo foto: ${e.message}", e)
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@FaceRegistrationActivity,
+                            "Error: ${e.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        btnSkipPhoto.isEnabled = true
+                        btnTakePhoto.isEnabled = true
+                        btnRetakePhoto.isEnabled = true
+                        btnSavePhoto.isEnabled = true
+                        btnSkipPhoto.text = "⏭️ Omitir"
+                    }
+                }
+            }
+        }.start()
     }
 
     // ============================================================
@@ -322,7 +434,7 @@ class FaceRegistrationActivity : BaseActivity() {
                         runOnUiThread {
                             Toast.makeText(
                                 this@FaceRegistrationActivity,
-                                "Paciente guardado localmente. Aún no está dado de alta en el sistema del doctor.",
+                                "Paciente guardado localmente.",
                                 Toast.LENGTH_LONG
                             ).show()
                             irALogin()

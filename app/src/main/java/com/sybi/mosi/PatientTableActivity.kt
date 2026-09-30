@@ -686,6 +686,7 @@ class PatientTableActivity : BaseActivity() {
         }
 
         camera2Helper?.stopCamera()
+        textureView.scaleX = -1f
         camera2Helper = Camera2Helper(this, textureView).also { it.startCamera() }
         isCameraActive = true
     }
