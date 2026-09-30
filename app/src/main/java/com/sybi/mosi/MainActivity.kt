@@ -349,19 +349,31 @@ class MainActivity : BaseActivity() {
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val savedPassword = prefs.getString("ConfigPassword", "111111") ?: "111111"
 
-        // Crear EditText programáticamente
+        // EditText con estilo
         val input = android.widget.EditText(this).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or
                     android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
             hint = "Ingrese la contraseña"
             filters = arrayOf(android.text.InputFilter.LengthFilter(12))
-            setPadding(40, 30, 40, 30)
+            setPadding(50, 40, 50, 40)
+            setBackgroundResource(R.drawable.bg_input_rounded) // fondo redondeado
+            textSize = 18f
+            setTextColor(android.graphics.Color.BLACK)
         }
 
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Contraseña requerida")
+        // Contenedor con padding para que no se pegue a los bordes
+        val container = android.widget.FrameLayout(this).apply {
+            setPadding(40, 20, 40, 0)
+            addView(input, android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+            ))
+        }
+
+        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("🔒 Contraseña requerida")
             .setMessage("Ingrese la contraseña para acceder a la configuración")
-            .setView(input)
+            .setView(container)
             .setPositiveButton("Aceptar") { dialog, _ ->
                 val entered = input.text.toString()
                 if (entered == savedPassword) {
@@ -375,6 +387,15 @@ class MainActivity : BaseActivity() {
                 dialog.dismiss()
             }
             .create()
+
+        // Botones con color personalizado (opcional)
+        dialog.setOnShowListener {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
+                .setTextColor(android.graphics.Color.parseColor("#0F3E82"))
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)
+                .setTextColor(android.graphics.Color.GRAY)
+        }
+
         setupDialogKeyboardBehavior(dialog)
         dialog.show()
     }
