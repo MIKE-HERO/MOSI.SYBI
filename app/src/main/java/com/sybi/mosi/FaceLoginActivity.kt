@@ -42,8 +42,21 @@ class FaceLoginActivity : BaseActivity() {
     @Volatile private var isRunning = false
 
     private val handler = Handler(Looper.getMainLooper())
-    private val frameIntervalMs = 800L
+    private val frameIntervalMs = 700L
 
+    // ============================================================
+    // UMBRALES de similitud coseno CRUDA (rango -1..1)
+    // Ajusta según tu modelo:
+    //   ArcFace / MobileFaceNet: mismo ≥ 0.60, distinto < 0.40
+    //   FaceNet original:        mismo ≥ 0.80, distinto < 0.55
+    // ============================================================
+    private val UMBRAL_ACEPTAR = 0.90f     // para confirmar identidad
+    private val UMBRAL_RECHAZAR = 0.70f    // por debajo → seguro distinto
+
+    // Voto por mayoría: acumula similitudes de N frames antes de decidir
+    private val FRAMES_PARA_CONFIRMAR = 5
+    // Mapa: pacienteId → lista de similitudes recientes
+    private val recentSimilarities = mutableMapOf<Long, MutableList<Float>>()
     private val frameRunnable = object : Runnable {
         override fun run() {
             if (!isRunning) return
@@ -65,18 +78,15 @@ class FaceLoginActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
-        // Inicializar vistas primero
         textureView = findViewById(R.id.textureView)
         btnBackFaceLogin = findViewById(R.id.btnBackFaceLogin)
         tvStatus = findViewById(R.id.tvFaceLoginStatus)
         sideBar = findViewById(R.id.sideBarLayout)
 
-        // Inicializar modelos DESPUÉS de las vistas
         FaceBiometricsHelper.init(this)
 
         btnBackFaceLogin.setOnClickListener { finish() }
 
-        // Receptor de color
         val colorReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val newColor = intent.getStringExtra("new_color")
@@ -86,7 +96,8 @@ class FaceLoginActivity : BaseActivity() {
                 }
             }
         }
-        LocalBroadcastManager.getInstance(this).registerReceiver(colorReceiver, IntentFilter("ACTION_UPDATE_THEME"))
+        LocalBroadcastManager.getInstance(this)
+            .registerReceiver(colorReceiver, IntentFilter("ACTION_UPDATE_THEME"))
 
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val savedColor = prefs.getString("BackgroundColor", "#0F3E82") ?: "#0F3E82"
@@ -119,12 +130,10 @@ class FaceLoginActivity : BaseActivity() {
         camera2Helper = Camera2Helper(this, textureView).also { it.startCamera() }
 
         isRunning = true
+        recentSimilarities.clear()
         handler.postDelayed(frameRunnable, frameIntervalMs)
     }
 
-    /**
-     * Captura un frame del TextureView y lo procesa con MediaPipe + FaceNet.
-     */
     private fun captureAndAnalyzeFrame() {
         if (isProcessing) return
         val bitmap = camera2Helper?.takePhoto() ?: return
@@ -138,11 +147,23 @@ class FaceLoginActivity : BaseActivity() {
                 val hasFace = mpResult != null && mpResult.faceLandmarks().isNotEmpty()
 
                 if (hasFace && mpResult != null) {
+                    val landmarks = mpResult.faceLandmarks().first()
+
+                    // === Control de calidad ANTES de procesar ===
+                    if (!FaceBiometricsHelper.isFaceQualityGood(landmarks, bitmap)) {
+                        runOnUiThread {
+                            tvStatus.text = "Acerque el rostro y mire de frente"
+                            tvStatus.setTextColor(Color.parseColor("#FF9800"))
+                        }
+                        isProcessing = false
+                        return@Thread
+                    }
+
                     val liveBiometrics = FaceBiometricsHelper.processFace(bitmap, mpResult)
 
                     if (liveBiometrics != null) {
                         runOnUiThread {
-                            tvStatus.text = "Rostro detectado, verificando..."
+                            tvStatus.text = "Verificando identidad..."
                             tvStatus.setTextColor(Color.parseColor("#FF9800"))
                         }
                         processFaceLogin(liveBiometrics)
@@ -177,16 +198,24 @@ class FaceLoginActivity : BaseActivity() {
                     val pacientes = pacienteDao.obtenerTodosLosPacientes()
 
                     var mejorPaciente: com.sybi.mosi.database.Paciente? = null
-                    var mayorSimilitud = 0f
-                    val umbralEstricto = 0.72f
+                    var mayorSimilitud = -1f
 
                     for (paciente in pacientes) {
                         val fotoGuardada = paciente.foto
                         if (!fotoGuardada.isNullOrEmpty()) {
                             val storedBiometrics = obtenerBiometriaDeFotoGuardada(fotoGuardada)
                             if (storedBiometrics != null) {
-                                val similitud = FaceBiometricsHelper.matchFaces(liveBiometrics, storedBiometrics)
+                                val similitud = FaceBiometricsHelper.matchFaces(
+                                    liveBiometrics, storedBiometrics
+                                )
                                 Log.d(TAG, "Paciente ${paciente.nombre} - Sim: $similitud")
+
+                                // Acumular en el mapa de votos
+                                val id = paciente.id_local
+                                val list = recentSimilarities.getOrPut(id) { mutableListOf() }
+                                list.add(similitud)
+                                if (list.size > FRAMES_PARA_CONFIRMAR) list.removeAt(0)
+
                                 if (similitud > mayorSimilitud) {
                                     mayorSimilitud = similitud
                                     mejorPaciente = paciente
@@ -195,11 +224,28 @@ class FaceLoginActivity : BaseActivity() {
                         }
                     }
 
-                    val pacienteEncontrado = if (mejorPaciente != null && mayorSimilitud >= umbralEstricto)
-                        mejorPaciente else null
+                    // === Decisión con voto por mayoría ===
+                    var pacienteConfirmado: com.sybi.mosi.database.Paciente? = null
 
-                    if (pacienteEncontrado != null) {
-                        val paciente = pacienteEncontrado
+                    if (mejorPaciente != null && mayorSimilitud >= UMBRAL_ACEPTAR) {
+                        val id = mejorPaciente.id_local
+                        val historial = recentSimilarities[id] ?: mutableListOf()
+                        val promedio = if (historial.isNotEmpty()) historial.average().toFloat() else 0f
+
+                        Log.d(
+                            TAG,
+                            "Candidato: ${mejorPaciente.nombre}, sim actual: $mayorSimilitud, " +
+                                    "promedio: $promedio, frames: ${historial.size}"
+                        )
+
+                        // Confirmar si tenemos suficientes frames y el promedio también supera el umbral
+                        if (historial.size >= FRAMES_PARA_CONFIRMAR && promedio >= UMBRAL_ACEPTAR) {
+                            pacienteConfirmado = mejorPaciente
+                        }
+                    }
+
+                    if (pacienteConfirmado != null) {
+                        val paciente = pacienteConfirmado
                         isRunning = false
                         handler.removeCallbacks(frameRunnable)
 
@@ -230,16 +276,16 @@ class FaceLoginActivity : BaseActivity() {
                             finish()
                         }
                     } else {
-                        runOnUiThread {
-                            Toast.makeText(
-                                this@FaceLoginActivity,
-                                "Rostro no reconocido. Intente nuevamente",
-                                Toast.LENGTH_LONG
-                            ).show()
-                            tvStatus.text = "Rostro no reconocido. Intente de nuevo"
-                            tvStatus.setTextColor(Color.parseColor("#F44336"))
+                        // Si el match más alto es claramente bajo, avisar al usuario
+                        val mensaje = if (mayorSimilitud < UMBRAL_RECHAZAR) {
+                            "Rostro no reconocido. Intente nuevamente"
+                        } else {
+                            "Verificando... mantenga la posición"
                         }
-                        Thread.sleep(1500)
+                        runOnUiThread {
+                            tvStatus.text = mensaje
+                            tvStatus.setTextColor(Color.parseColor("#FF9800"))
+                        }
                         isProcessing = false
                     }
                 } catch (e: Exception) {
@@ -270,13 +316,21 @@ class FaceLoginActivity : BaseActivity() {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == CAMERA_PERMISSION_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startCamera()
             } else {
-                Toast.makeText(this, "Se requiere permiso de cámara para el reconocimiento facial", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this,
+                    "Se requiere permiso de cámara para el reconocimiento facial",
+                    Toast.LENGTH_LONG
+                ).show()
                 finish()
             }
         }

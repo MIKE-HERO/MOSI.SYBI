@@ -11,6 +11,7 @@ import android.util.Log
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.sqrt
 
@@ -21,10 +22,17 @@ object FaceBiometricsHelper {
     // Tamaño canónico del rostro alineado (entrada de FaceNet)
     private const val ALIGNED_SIZE = 160
 
-    // Índices de landmarks de MediaPipe (478 puntos)
-    // Referencia: https://github.com/google/mediapipe/blob/master/mediapipe/modules/face_geometry/data/canonical_face_model_uv_visualization.png
-    private const val LM_LEFT_EYE_OUTER = 33
-    private const val LM_RIGHT_EYE_OUTER = 263
+    // ============================================================
+    // Índices de landmarks de MediaPipe
+    // ============================================================
+    // Si el modelo tiene iris (478 puntos), usamos las pupilas (468 y 473).
+    // Si solo tiene 468, usamos los centros aproximados de los ojos (159 y 386).
+    private const val LM_LEFT_PUPIL = 468
+    private const val LM_RIGHT_PUPIL = 473
+
+    private const val LM_LEFT_EYE_CENTER_FALLBACK = 159   // párpado superior izq
+    private const val LM_RIGHT_EYE_CENTER_FALLBACK = 386  // párpado superior der
+
     private const val LM_NOSE_TIP = 1
     private const val LM_MOUTH_LEFT = 61
     private const val LM_MOUTH_RIGHT = 291
@@ -33,20 +41,24 @@ object FaceBiometricsHelper {
     private const val LM_LEFT_CHEEK = 234
     private const val LM_RIGHT_CHEEK = 454
 
-    // Puntos canónicos para alineación afín (ArcFace 112x112, escalados a 160x160)
-    // Los originales son para 112x112; multiplicamos por 160/112 = 1.4286
+    // ============================================================
+    // Puntos canónicos ArcFace (112x112) escalados a 160x160
+    // Factor de escala: 160/112 = 1.428571
+    // ============================================================
+    private const val SCALE = 160f / 112f  // 1.428571f
+
     private val CANONICAL_POINTS = floatArrayOf(
-        54.706f, 73.851f,   // ojo izquierdo
-        105.046f, 73.573f,  // ojo derecho
-        80.036f, 102.481f,  // nariz
-        59.356f, 131.951f,  // comisura izquierda
-        101.043f, 131.72f   // comisura derecha
+        38.2946f * SCALE, 51.6963f * SCALE,   // ojo izquierdo
+        73.5318f * SCALE, 51.5014f * SCALE,   // ojo derecho
+        56.0252f * SCALE, 71.7366f * SCALE,   // nariz
+        41.5493f * SCALE, 92.3655f * SCALE,   // comisura izquierda
+        70.7299f * SCALE, 92.2041f * SCALE    // comisura derecha
     )
 
     data class BiometricFaceData(
         val originalBitmap: Bitmap,
         val alignedFaceBitmap: Bitmap,
-        val embedding: FloatArray,   // Reemplaza al vector 20D
+        val embedding: FloatArray,
         val ipd: Float,
         val landmarks: List<NormalizedLandmark>
     ) {
@@ -83,11 +95,12 @@ object FaceBiometricsHelper {
         val w = bitmap.width.toFloat()
         val h = bitmap.height.toFloat()
 
-        // Convertir landmarks normalizados (0..1) a píxeles
         fun lm(idx: Int): PointF = PointF(landmarks[idx].x() * w, landmarks[idx].y() * h)
 
-        val leftEye = lm(LM_LEFT_EYE_OUTER)
-        val rightEye = lm(LM_RIGHT_EYE_OUTER)
+        // Usar pupilas si están disponibles (478 landmarks), sino fallback
+        val hasIris = landmarks.size >= 478
+        val leftEye = if (hasIris) lm(LM_LEFT_PUPIL) else lm(LM_LEFT_EYE_CENTER_FALLBACK)
+        val rightEye = if (hasIris) lm(LM_RIGHT_PUPIL) else lm(LM_RIGHT_EYE_CENTER_FALLBACK)
         val nose = lm(LM_NOSE_TIP)
         val mouthL = lm(LM_MOUTH_LEFT)
         val mouthR = lm(LM_MOUTH_RIGHT)
@@ -98,7 +111,7 @@ object FaceBiometricsHelper {
             (rightEye.y - leftEye.y).toDouble()
         ).toFloat()
 
-        if (ipd < 20f) {
+        if (ipd < 25f) {
             Log.w(TAG, "IPD muy pequeña: $ipd")
             return null
         }
@@ -118,6 +131,64 @@ object FaceBiometricsHelper {
             ipd = ipd,
             landmarks = landmarks
         )
+    }
+
+    /**
+     * Verifica que la calidad del frame sea suficiente para un reconocimiento fiable.
+     */
+    fun isFaceQualityGood(
+        landmarks: List<NormalizedLandmark>,
+        bitmap: Bitmap
+    ): Boolean {
+        if (landmarks.size < 468) return false
+
+        var minX = 1f; var maxX = 0f; var minY = 1f; var maxY = 0f
+        for (lm in landmarks) {
+            if (lm.x() < minX) minX = lm.x()
+            if (lm.x() > maxX) maxX = lm.x()
+            if (lm.y() < minY) minY = lm.y()
+            if (lm.y() > maxY) maxY = lm.y()
+        }
+        val faceW = (maxX - minX) * bitmap.width
+        val faceH = (maxY - minY) * bitmap.height
+
+        // 1. Rostro suficientemente grande
+        if (faceW < 100f || faceH < 100f) {
+            Log.d(TAG, "Calidad: rostro pequeño ($faceW x $faceH)")
+            return false
+        }
+
+        // 2. Centrado horizontal (±20% del centro)
+        val faceCenterX = (minX + maxX) / 2f
+        if (abs(faceCenterX - 0.5f) > 0.20f) {
+            Log.d(TAG, "Calidad: descentrado (cx=$faceCenterX)")
+            return false
+        }
+
+        // 3. Pose frontal: ángulo entre ojos
+        val hasIris = landmarks.size >= 478
+        val leftEye = if (hasIris) landmarks[LM_LEFT_PUPIL] else landmarks[LM_LEFT_EYE_CENTER_FALLBACK]
+        val rightEye = if (hasIris) landmarks[LM_RIGHT_PUPIL] else landmarks[LM_RIGHT_EYE_CENTER_FALLBACK]
+        val eyeAngle = atan2(
+            (rightEye.y() - leftEye.y()).toDouble(),
+            (rightEye.x() - leftEye.x()).toDouble()
+        )
+        if (abs(eyeAngle) > 0.20) {  // ~11.5°
+            Log.d(TAG, "Calidad: cabeza inclinada ($eyeAngle rad)")
+            return false
+        }
+
+        // 4. IPD mínima
+        val ipdNorm = hypot(
+            (rightEye.x() - leftEye.x()).toDouble(),
+            (rightEye.y() - leftEye.y()).toDouble()
+        ) * bitmap.width
+        if (ipdNorm < 40f) {
+            Log.d(TAG, "Calidad: IPD pequeña ($ipdNorm)")
+            return false
+        }
+
+        return true
     }
 
     /**
@@ -155,11 +226,10 @@ object FaceBiometricsHelper {
      * Estima matriz afín 2x3 por mínimos cuadrados (5 correspondencias).
      */
     private fun estimateAffine(src: FloatArray, dst: FloatArray): Matrix? {
-        val n = src.size / 2  // 5 puntos
-        val rows = n * 2      // 10 ecuaciones
-        val cols = 6          // a, b, c, d, e, f
+        val n = src.size / 2
+        val rows = n * 2
+        val cols = 6
 
-        // Construir A (10x6) y b (10)
         val A = Array(rows) { DoubleArray(cols) }
         val b = DoubleArray(rows)
 
@@ -204,7 +274,6 @@ object FaceBiometricsHelper {
             Atb[i] = s
         }
 
-        // Gauss-Jordan con pivoteo
         val aug = Array(n) { DoubleArray(n + 1) }
         for (i in 0 until n) {
             for (j in 0 until n) aug[i][j] = AtA[i][j]
@@ -230,27 +299,29 @@ object FaceBiometricsHelper {
     }
 
     /**
-     * Similitud coseno entre dos embeddings (ambos normalizados L2).
-     * Retorna 0..1 (1 = idénticos).
+     * Similitud coseno CRUDA entre dos embeddings normalizados L2.
+     * Rango: -1..1
+     *   Mismo sujeto (FaceNet/ArcFace): > 0.75
+     *   Distinto: < 0.5
      */
     fun cosineSimilarity(e1: FloatArray, e2: FloatArray): Float {
-        if (e1.size != e2.size) return 0f
+        if (e1.size != e2.size) return -1f
         var dot = 0f
         for (i in e1.indices) dot += e1[i] * e2[i]
-        return ((dot + 1f) / 2f).coerceIn(0f, 1f)
+        return dot.coerceIn(-1f, 1f)
     }
 
     /**
-     * Matching biométrico: similitud coseno pura.
-     * Umbral recomendado para FaceNet: 0.72 (equivale a coseno crudo ~0.44).
+     * Matching biométrico: similitud coseno CRUDA.
+     * Umbral recomendado: 0.80 (mismo sujeto), rechazar < 0.60.
      */
     fun matchFaces(live: BiometricFaceData, stored: BiometricFaceData): Float {
         if (live.embedding.size != stored.embedding.size) {
             Log.e(TAG, "Embeddings de tamaño distinto: ${live.embedding.size} vs ${stored.embedding.size}")
-            return 0f
+            return -1f
         }
         val sim = cosineSimilarity(live.embedding, stored.embedding)
-        Log.d(TAG, "Similitud coseno: $sim")
+        Log.d(TAG, "Similitud coseno cruda: $sim")
         return sim
     }
 }
