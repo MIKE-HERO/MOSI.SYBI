@@ -51,12 +51,28 @@ class FaceLoginActivity : BaseActivity() {
     //   FaceNet original:        mismo ≥ 0.80, distinto < 0.55
     // ============================================================
     private val UMBRAL_ACEPTAR = 0.90f     // para confirmar identidad
-    private val UMBRAL_RECHAZAR = 0.70f    // por debajo → seguro distinto
+    private val UMBRAL_RECHAZAR = 0.55f    // por debajo → seguro distinto
 
     // Voto por mayoría: acumula similitudes de N frames antes de decidir
     private val FRAMES_PARA_CONFIRMAR = 5
     // Mapa: pacienteId → lista de similitudes recientes
     private val recentSimilarities = mutableMapOf<Long, MutableList<Float>>()
+
+    // ============================================================
+    // Control de estado del mensaje (anti-parpadeo)
+    // ============================================================
+    private enum class UiState {
+        NO_FACE,           // No hay rostro
+        BAD_QUALITY,       // Rostro detectado pero mala calidad
+        PROCESSING,        // Rostro OK, verificando
+        NOT_RECOGNIZED,    // Match bajo
+        WELCOME            // Login exitoso
+    }
+
+    private var currentUiState: UiState = UiState.NO_FACE
+    private var lastUiStateChangeMs: Long = 0L
+    private val MIN_STATE_DURATION_MS = 1500L   // mínimo 1.5s por estado
+
     private val frameRunnable = object : Runnable {
         override fun run() {
             if (!isRunning) return
@@ -131,7 +147,45 @@ class FaceLoginActivity : BaseActivity() {
 
         isRunning = true
         recentSimilarities.clear()
+        currentUiState = UiState.NO_FACE
+        lastUiStateChangeMs = 0L
         handler.postDelayed(frameRunnable, frameIntervalMs)
+    }
+
+    /**
+     * Actualiza el mensaje de estado solo si:
+     *  - El estado lógico cambió, Y
+     *  - Ha pasado al menos MIN_STATE_DURATION_MS desde el último cambio.
+     *
+     * EXCEPCIÓN: los estados PROCESSING y WELCOME se aplican de inmediato
+     * (no queremos retrasar "Verificando..." ni "Bienvenido").
+     */
+    private fun setUiState(newState: UiState, text: String, colorHex: String) {
+        val now = System.currentTimeMillis()
+
+        // Los estados urgentes siempre se aplican
+        val isUrgent = newState == UiState.WELCOME || newState == UiState.PROCESSING
+        val sameState = newState == currentUiState
+
+        // Si es el mismo estado, no hacemos nada (evita re-setear el mismo texto)
+        if (sameState) return
+
+        // Si no ha pasado el tiempo mínimo, ignoramos el cambio (anti-parpadeo)
+        if (!isUrgent && (now - lastUiStateChangeMs) < MIN_STATE_DURATION_MS) return
+
+        currentUiState = newState
+        lastUiStateChangeMs = now
+
+        runOnUiThread {
+            // Solo actualiza si el texto realmente cambia (evita redraws innecesarios)
+            if (tvStatus.text.toString() != text) {
+                tvStatus.text = text
+            }
+            val color = Color.parseColor(colorHex)
+            if (tvStatus.currentTextColor != color) {
+                tvStatus.setTextColor(color)
+            }
+        }
     }
 
     private fun captureAndAnalyzeFrame() {
@@ -151,10 +205,11 @@ class FaceLoginActivity : BaseActivity() {
 
                     // === Control de calidad ANTES de procesar ===
                     if (!FaceBiometricsHelper.isFaceQualityGood(landmarks, bitmap)) {
-                        runOnUiThread {
-                            tvStatus.text = "Acerque el rostro y mire de frente"
-                            tvStatus.setTextColor(Color.parseColor("#FF9800"))
-                        }
+                        setUiState(
+                            UiState.BAD_QUALITY,
+                            "Acerque el rostro y mire de frente",
+                            "#FF9800"
+                        )
                         isProcessing = false
                         return@Thread
                     }
@@ -162,23 +217,26 @@ class FaceLoginActivity : BaseActivity() {
                     val liveBiometrics = FaceBiometricsHelper.processFace(bitmap, mpResult)
 
                     if (liveBiometrics != null) {
-                        runOnUiThread {
-                            tvStatus.text = "Verificando identidad..."
-                            tvStatus.setTextColor(Color.parseColor("#FF9800"))
-                        }
+                        setUiState(
+                            UiState.PROCESSING,
+                            "Verificando identidad...",
+                            "#FF9800"
+                        )
                         processFaceLogin(liveBiometrics)
                     } else {
-                        runOnUiThread {
-                            tvStatus.text = "Mire fijamente a la cámara"
-                            tvStatus.setTextColor(Color.parseColor("#4CAF50"))
-                        }
+                        setUiState(
+                            UiState.BAD_QUALITY,
+                            "Mire fijamente a la cámara",
+                            "#4CAF50"
+                        )
                         isProcessing = false
                     }
                 } else {
-                    runOnUiThread {
-                        tvStatus.text = "Coloque su rostro frente a la cámara"
-                        tvStatus.setTextColor(Color.parseColor("#4CAF50"))
-                    }
+                    setUiState(
+                        UiState.NO_FACE,
+                        "Coloque su rostro frente a la cámara",
+                        "#4CAF50"
+                    )
                     isProcessing = false
                 }
             } catch (e: Exception) {
@@ -249,6 +307,12 @@ class FaceLoginActivity : BaseActivity() {
                         isRunning = false
                         handler.removeCallbacks(frameRunnable)
 
+                        setUiState(
+                            UiState.WELCOME,
+                            "¡Bienvenido ${paciente.nombre}!",
+                            "#4CAF50"
+                        )
+
                         runOnUiThread {
                             Toast.makeText(
                                 this@FaceLoginActivity,
@@ -277,14 +341,18 @@ class FaceLoginActivity : BaseActivity() {
                         }
                     } else {
                         // Si el match más alto es claramente bajo, avisar al usuario
-                        val mensaje = if (mayorSimilitud < UMBRAL_RECHAZAR) {
-                            "Rostro no reconocido. Intente nuevamente"
+                        if (mayorSimilitud < UMBRAL_RECHAZAR) {
+                            setUiState(
+                                UiState.NOT_RECOGNIZED,
+                                "Rostro no reconocido. Intente nuevamente",
+                                "#F44336"
+                            )
                         } else {
-                            "Verificando... mantenga la posición"
-                        }
-                        runOnUiThread {
-                            tvStatus.text = mensaje
-                            tvStatus.setTextColor(Color.parseColor("#FF9800"))
+                            setUiState(
+                                UiState.PROCESSING,
+                                "Verificando... mantenga la posición",
+                                "#FF9800"
+                            )
                         }
                         isProcessing = false
                     }
