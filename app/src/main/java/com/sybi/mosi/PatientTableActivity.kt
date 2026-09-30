@@ -84,8 +84,6 @@ class PatientTableActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
-        FaceBiometricsHelper.init(this)
-
         patientsContainer = findViewById(R.id.patientsContainer)
         btnAddPatient = findViewById(R.id.btnAddPatient)
         btnEditPatient = findViewById(R.id.btnEditPatient)
@@ -679,6 +677,14 @@ class PatientTableActivity : BaseActivity() {
             return
         }
 
+        // ✅ Inicializar solo cuando se va a usar
+        try {
+            FaceBiometricsHelper.init(this)
+        } catch (e: Throwable) {
+            Log.e(TAG, "No se pudo inicializar MediaPipe/FaceNet: ${e.message}", e)
+            // Continuar sin validación facial — solo guardar la foto
+        }
+
         camera2Helper?.stopCamera()
         camera2Helper = Camera2Helper(this, textureView).also { it.startCamera() }
         isCameraActive = true
@@ -694,7 +700,12 @@ class PatientTableActivity : BaseActivity() {
 
         Thread {
             try {
-                val mpResult = MediaPipeFaceHelper.detect(mirrored)
+                val mpResult = try {
+                    MediaPipeFaceHelper.detect(mirrored)
+                } catch (e: Throwable) {
+                    Log.e(TAG, "MediaPipe no disponible: ${e.message}")
+                    null
+                }
                 val hasFace = mpResult != null && mpResult.faceLandmarks().isNotEmpty()
 
                 runOnUiThread {

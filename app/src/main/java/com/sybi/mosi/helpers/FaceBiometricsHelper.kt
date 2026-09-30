@@ -75,8 +75,16 @@ object FaceBiometricsHelper {
      * Inicializa los modelos. Llama a esto en el onCreate de tu Activity/Application.
      */
     fun init(context: Context) {
-        MediaPipeFaceHelper.init(context)
-        FaceEmbeddingHelper.init(context)
+        try {
+            MediaPipeFaceHelper.init(context)
+        } catch (e: Throwable) {
+            Log.e(TAG, "MediaPipe no disponible (¿emulador x86?): ${e.message}", e)
+        }
+        try {
+            FaceEmbeddingHelper.init(context)
+        } catch (e: Throwable) {
+            Log.e(TAG, "FaceNet no disponible: ${e.message}", e)
+        }
     }
 
     /**
