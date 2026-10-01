@@ -115,7 +115,7 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center_horizontal|bottom"
                     android:backgroundTint="#0F3E82"
-                    android:text="Buscar"
+                    android:text="🔍 Buscar"
                     android:textColor="#FFFFFF"
                     android:textSize="18sp" />
 
