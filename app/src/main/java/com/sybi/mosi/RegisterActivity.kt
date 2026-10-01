@@ -81,15 +81,7 @@ class RegisterActivity : BaseActivity() {
         etSearchQuery = findViewById(R.id.etSearchQuery)
 
         // Forzar mayúsculas en el campo de búsqueda
-        val filter = InputFilter { source, start, end, dest, dstart, dend ->
-            val upper = source.toString().uppercase()
-            if (source == upper) {
-                null // sin cambios
-            } else {
-                upper // reemplaza con mayúsculas
-            }
-        }
-        etSearchQuery.filters = arrayOf(filter)
+        etSearchQuery.filters = arrayOf(InputFilter.AllCaps())
         btnSearch = findViewById(R.id.btnSearchPaciente)
 
         etRegNombre = findViewById(R.id.etRegNombre)
@@ -102,6 +94,21 @@ class RegisterActivity : BaseActivity() {
         etRegDireccion = findViewById(R.id.etRegDireccion)
         etRegTarjetaIc = findViewById(R.id.etRegTarjetaIc)
         layoutTarjetaIcContainer = findViewById(R.id.layoutTarjetaIcContainer)
+
+        // Desactivar autocompletar, sugerencias y predicciones en todos los campos de texto
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        }
+
+        val allEditTexts = listOf(
+            etSearchQuery, etRegNombre, etRegApellidoPaterno, etRegApellidoMaterno,
+            etRegTelefono, etRegCorreo, etRegTarjetaIc, etRegFolio, etRegCurp, etRegDireccion
+        )
+        for (et in allEditTexts) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                et.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+            }
+        }
 
         val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
         val icLoginEnabled = userPrefs.getBoolean("login_ic", true)

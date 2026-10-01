@@ -98,20 +98,28 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="Ingrese teléfono, CURP o folio"
-                    android:inputType="textCapCharacters"
+                    android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                    android:importantForAutofill="no"
                     android:padding="8dp"
                     android:textSize="14sp"
                     android:background="@android:drawable/edit_text"/>
             </LinearLayout>
 
-            <Button
-                android:id="@+id/btnSearchPaciente"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Buscar"
-                android:textSize="12sp"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#0F3E82"/>
+            <FrameLayout
+                android:layout_width="200dp"
+                android:layout_height="match_parent">
+
+                <Button
+                    android:id="@+id/btnSearchPaciente"
+                    android:layout_width="180dp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal|bottom"
+                    android:backgroundTint="#0F3E82"
+                    android:text="Buscar"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp" />
+
+            </FrameLayout>
         </LinearLayout>
 
         <!-- LISTA DE RESULTADOS (solo visible cuando la búsqueda por folio devuelve varios) -->
@@ -200,7 +208,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:hint="Juan Carlos"
-                            android:inputType="textPersonName|textCapCharacters"
+                            android:inputType="textPersonName|textCapCharacters|textNoSuggestions|textVisiblePassword"
+                            android:importantForAutofill="no"
                             android:padding="8dp"
                             android:textSize="13sp"
                             android:background="@android:drawable/edit_text"/>
@@ -224,7 +233,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:hint="Pérez"
-                            android:inputType="textPersonName|textCapCharacters"
+                            android:inputType="textPersonName|textCapCharacters|textNoSuggestions|textVisiblePassword"
+                            android:importantForAutofill="no"
                             android:padding="8dp"
                             android:textSize="13sp"
                             android:background="@android:drawable/edit_text"/>
@@ -247,7 +257,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:hint="López"
-                            android:inputType="textPersonName|textCapCharacters"
+                            android:inputType="textPersonName|textCapCharacters|textNoSuggestions|textVisiblePassword"
+                            android:importantForAutofill="no"
                             android:padding="8dp"
                             android:textSize="13sp"
                             android:background="@android:drawable/edit_text"/>
@@ -365,7 +376,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:hint="5512345678"
-                            android:inputType="phone"
+                            android:inputType="phone|textNoSuggestions"
+                            android:importantForAutofill="no"
                             android:padding="8dp"
                             android:textSize="13sp"
                             android:background="@android:drawable/edit_text"/>
@@ -388,7 +400,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:hint="ejemplo@correo.com"
-                            android:inputType="textEmailAddress"
+                            android:inputType="textEmailAddress|textNoSuggestions|textVisiblePassword"
+                            android:importantForAutofill="no"
                             android:padding="8dp"
                             android:textSize="13sp"
                             android:background="@android:drawable/edit_text"/>
@@ -414,7 +427,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:hint="Pase su tarjeta por el lector o ingrese los 10 dígitos..."
-                        android:inputType="number"
+                        android:inputType="number|textNoSuggestions"
+                        android:importantForAutofill="no"
                         android:maxLength="10"
                         android:padding="8dp"
                         android:textSize="13sp"
@@ -440,9 +454,8 @@
 
                     <RadioButton
                         android:id="@+id/rbMasculino"
-                        android:layout_width="0dp"
+                        android:layout_width="200dp"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:text="Masculino"
                         android:textSize="13sp"
                         android:buttonTint="#0F3E82"
@@ -450,9 +463,8 @@
 
                     <RadioButton
                         android:id="@+id/rbFemenino"
-                        android:layout_width="0dp"
+                        android:layout_width="200dp"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:text="Femenino"
                         android:textSize="13sp"
                         android:buttonTint="#0F3E82"
@@ -465,19 +477,22 @@
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:visibility="gone"
-                    android:inputType="number"/>
+                    android:inputType="number|textNoSuggestions"
+                    android:importantForAutofill="no"/>
                 <EditText
                     android:id="@+id/etRegCurp"
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:visibility="gone"
-                    android:inputType="text"/>
+                    android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                    android:importantForAutofill="no"/>
                 <EditText
                     android:id="@+id/etRegDireccion"
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:visibility="gone"
-                    android:inputType="text"/>
+                    android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword"
+                    android:importantForAutofill="no"/>
 
             </LinearLayout>
         </ScrollView>
@@ -495,6 +510,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Cancelar"
+                android:textSize="18sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#757575"
                 android:layout_marginEnd="8dp"/>
@@ -505,6 +521,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="2"
                 android:text="Registrar paciente"
+                android:textSize="18sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#0F3E82"/>
         </LinearLayout>
