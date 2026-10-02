@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#FFFFFF">
+
+    <!-- ✅ TÍTULO FIJO ARRIBA -->
+    <LinearLayout
+        android:id="@+id/headerConsentBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#0F3E82"
+        android:padding="16dp"
+        android:gravity="center">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="CONSENTIMIENTO INFORMADO PARA LA PRESTACIÓN DE ATENCIÓN MÉDICA A TRAVÉS DE TELEMEDICINA."
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+    </LinearLayout>
+
+    <!-- ✅ CONTENIDO CON SCROLL VERTICAL -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:padding="20dp"
+        android:fillViewport="true">
+
+        <TextView
+            android:id="@+id/tvConsentContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mediante la presente, después de que he sido informado(a) sobre los beneficios, ventajas y riesgos del procedimiento de atención médica a través de Telemedicina a través de la empresa OPERADORA DE SERVICIOS MEDICOS ML S.A. DE C.V.\n\nEntiendo que mi médico tratante ejecutará el procedimiento de la manera habitual por lo cual observarán, participarán y emitirán comentarios o sugerencias a distancia, a través del uso de diversos dispositivos, tanto fijos como móviles, y de múltiples plataformas tecnológicas, para la provisión de servicios de salud a distancia, mismos que pasarán a formar parte de mi expediente clínico.\n\nEntiendo que puede ser necesario que, haya personal adicional presente en ambos extremos del enlace con fines de apoyo profesional y/o para ayudar con la transmisión, que trabajen en la unidad o sean autorizados por la empresa que proporciona el servicio.\n\nAutorizo a mi médico tratante, comunicar a los profesionales de la salud que se encuentren relacionados con el procedimiento, cualquier información sobre mi salud, permitiendo el intercambio de datos, imágenes, audio y video para realizar diagnósticos, tratamientos y prevención en tiempo real, incluyendo antecedentes, sintomatología actual, así como datos de auxiliares de diagnóstico que considere, permitiéndoles la asistencia en este procedimiento, así mismo autorizo a los médicos y demás profesionales de la salud que participen como Interconsultantes en el procedimiento para que tengan acceso a mi expediente clínico o historia clínica si fuera necesario, con el fin de ayudar a mi médico en los servicios de asistencia en esta consulta, mediante aplicaciones tecnológicas.\n\nSe me ha informado que los médicos y otros participantes en el procedimiento respetarán mi privacidad y confidencialidad de conformidad con lo dispuesto por la Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP) y su reglamento, la empresa OPERADORA DE SERVICIOS MEDICOS ML S.A. DE C.V.; está comprometida en manejar los datos personales que usted le proporcione, observando en todo momento los principios de licitud, consentimiento, información, calidad, finalidad, lealtad y proporcionalidad previstos en la LFPDPPP y conforme al presente Aviso de Privacidad.\n\nAdicional a lo anterior hago del conocimiento que acepto las intervenciones relacionadas con el equipo tecnológico mediante la interacción con la “maquina” a fin de recabar la información correspondiente a mi salud, y con ello el personal de salud involucrado, cuente con elementos más fidedignos de mi situación de salud actual incluyendo de manera enunciativa mas no limitativa:\n\n• Interrogatorio clínico, toma de signos vitales y exploración física completa.\n\n• Toma de estudios de Imagenología (Rayos X, electrocardiograma)\n\n• Curaciones, retiro de uñas, suturas, lavados ótico, oftálmico, control de hemorragia nasal, o cualquier procedimiento medico (si se requirieran en el momento de la consulta)\n\n• Administración de medicamentos tanto Intramuscular, intravenoso, subcutáneo, en caso de requerirlas con el conocimiento de que los mismos pueden producir alergias, reacciones de hipersensibilidad, intolerancia, efectos secundarios o adversos e incluso poner la vida en peligro.\n\nUna vez comprendido y no quedando ninguna duda, firmo el presente consentimiento informado previa lectura del mismo."
+            android:textSize="14sp"
+            android:textColor="#333333"
+            android:lineSpacingExtra="4dp" />
+    </ScrollView>
+
+    <!-- ✅ BOTONES FIJOS ABAJO -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center"
+        android:background="#F5F5F5">
+
+        <Button
+            android:id="@+id/btnCancelConsent"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Cancelar"
+            android:backgroundTint="#E0E0E0"
+            android:textColor="#000000" />
+
+        <Button
+            android:id="@+id/btnConfirmConsent"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Confirmar"
+            android:backgroundTint="#2196F3"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+</LinearLayout>
