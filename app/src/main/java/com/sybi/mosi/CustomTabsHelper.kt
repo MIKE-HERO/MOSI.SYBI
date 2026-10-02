@@ -195,14 +195,25 @@ object CustomTabsHelper {
     /**
      * Abre una URL en Custom Tabs aplicando la preferencia de navegador elegida
      * y el color de tema de la barra.
+     *
+     * @param efimero Navegación efímera (sin compartir cookies/caché/permisos con el navegador
+     *   normal, ni persistirlos entre llamadas): cada consulta de telemedicina debe pedir
+     *   permiso de cámara/mic de nuevo, no reusar uno de una sesión anterior. Solo se activa
+     *   cuando el llamador lo pide explícitamente -- no cambia el comportamiento por defecto de
+     *   las demás pantallas (pruebas de calibración, etc.) que usan este mismo helper.
+     *   Se manda el extra "private_tab", que Firefox acepta de apps externas para abrir en modo
+     *   privado -- no se usa el método estándar setEphemeralBrowsingEnabled (androidx.browser
+     *   1.9.0+) porque exige compileSdk 36 y AGP 8.9.1, mientras el proyecto sigue en
+     *   compileSdk 34/AGP 8.7.2; subir eso es un cambio aparte, no algo para mezclar aquí.
      */
     fun openUrl(
         context: Context,
         url: String,
-        preferredBrowser: String = TelemedicineSettingsActivity.getPreferredBrowser(context)
+        preferredBrowser: String = TelemedicineSettingsActivity.getPreferredBrowser(context),
+        efimero: Boolean = false
     ): Boolean {
         val uri = url.toUri()
-        Log.d(TAG, "🌐 Abriendo URL en CustomTabs: $url (prefBrowser=$preferredBrowser)")
+        Log.d(TAG, "🌐 Abriendo URL en CustomTabs: $url (prefBrowser=$preferredBrowser, efimero=$efimero)")
 
         val prefs = context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val savedColorHex = prefs.getString("BackgroundColor", "#0F3E82") ?: "#0F3E82"
@@ -223,6 +234,9 @@ object CustomTabsHelper {
         }
 
         val customTabsIntent = builder.build()
+        if (efimero) {
+            customTabsIntent.intent.putExtra("private_tab", true)
+        }
         val selectedPackage = getSelectedPackage(context, preferredBrowser)
 
         if (selectedPackage != null) {
