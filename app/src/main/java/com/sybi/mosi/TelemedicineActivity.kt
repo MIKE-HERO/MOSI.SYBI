@@ -75,6 +75,14 @@ class TelemedicineActivity : BaseActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             VideoLoopRemote.silenciarMientras(appContext, TAG)
         }
+
+        // SerialService lee los puertos de los sensores de la cabina en hilos propios de forma
+        // continua (sondeo cada 20ms por puerto, no es solo espera pasiva) -- ese dato no se usa
+        // durante la consulta, solo se manda después, así que se detiene mientras dure la llamada
+        // para no competirle CPU a Firefox en una tablet de 2GB. onCreate() de SerialService
+        // reabre todos los puertos solo con que se vuelva a arrancar el servicio, así que es
+        // seguro parar/reiniciar en cada entrada/salida de esta pantalla.
+        stopService(Intent(this, SerialService::class.java))
     }
 
     override fun onDestroy() {
@@ -82,6 +90,7 @@ class TelemedicineActivity : BaseActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             VideoLoopRemote.restaurarSilencio(appContext, TAG)
         }
+        startService(Intent(this, SerialService::class.java))
         super.onDestroy()
     }
 
@@ -148,7 +157,9 @@ class TelemedicineActivity : BaseActivity() {
     private fun lanzarCustomTabs() {
         val uri = urlConsulta().toString()
         Log.d(TAG, "🌐 Abriendo consulta en CustomTabs: $uri")
-        val exito = CustomTabsHelper.openUrl(this, uri)
+        // efimero=true: cada consulta pide permiso de cámara/mic de nuevo, sin reusar uno
+        // guardado de una sesión anterior (ver CustomTabsHelper.openUrl).
+        val exito = CustomTabsHelper.openUrl(this, uri, efimero = true)
         if (!exito) {
             tvEstado.text = "No se pudo abrir la consulta en el navegador."
             Toast.makeText(this, "No se encontró un navegador compatible instalado", Toast.LENGTH_LONG).show()
