@@ -194,18 +194,20 @@ class FaceLoginActivity : BaseActivity() {
         val bitmap = camera2Helper?.takePhoto() ?: return
         if (bitmap.width == 0 || bitmap.height == 0) return
 
+        val mirroredBitmap = mirrorBitmap(bitmap) // Espejar para coincidir con el registro
+
         isProcessing = true
 
         Thread {
             try {
-                val mpResult = MediaPipeFaceHelper.detect(bitmap)
+                val mpResult = MediaPipeFaceHelper.detect(mirroredBitmap)
                 val hasFace = mpResult != null && mpResult.faceLandmarks().isNotEmpty()
 
                 if (hasFace && mpResult != null) {
                     val landmarks = mpResult.faceLandmarks().first()
 
                     // === Control de calidad ANTES de procesar ===
-                    if (!FaceBiometricsHelper.isFaceQualityGood(landmarks, bitmap)) {
+                    if (!FaceBiometricsHelper.isFaceQualityGood(landmarks, mirroredBitmap)) {
                         setUiState(
                             UiState.BAD_QUALITY,
                             "Acerque el rostro y mire de frente",
@@ -215,7 +217,7 @@ class FaceLoginActivity : BaseActivity() {
                         return@Thread
                     }
 
-                    val liveBiometrics = FaceBiometricsHelper.processFace(bitmap, mpResult)
+                    val liveBiometrics = FaceBiometricsHelper.processFace(mirroredBitmap, mpResult)
 
                     if (liveBiometrics != null) {
                         setUiState(
@@ -426,5 +428,10 @@ class FaceLoginActivity : BaseActivity() {
         handler.removeCallbacks(frameRunnable)
         camera2Helper?.stopCamera()
         camera2Helper = null
+    }
+
+    private fun mirrorBitmap(bitmap: Bitmap): Bitmap {
+        val matrix = Matrix().apply { preScale(-1.0f, 1.0f) }
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 }

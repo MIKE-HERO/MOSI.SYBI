@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
+import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
@@ -32,6 +33,8 @@ import kotlin.math.abs
 class Camera2Helper(
     private val context: Context,
     private val textureView: TextureView,
+    private val targetCameraId: String? = null,
+    private val isMirrored: Boolean? = null,
     private val onFrameAvailable: ((Bitmap) -> Unit)? = null
 ) {
 
@@ -39,6 +42,15 @@ class Camera2Helper(
         private const val TAG = "Camera2Helper"
         private const val DEFAULT_PREVIEW_WIDTH = 640
         private const val DEFAULT_PREVIEW_HEIGHT = 480
+
+        fun getAvailableCameraIds(context: Context): List<String> {
+            return try {
+                val manager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
+                manager?.cameraIdList?.toList().orEmpty()
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
     }
 
     private val cameraManager: CameraManager =
@@ -70,8 +82,29 @@ class Camera2Helper(
         if (isCameraRunning) return
         isCameraRunning = true
 
+        val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val configuredMirror = isMirrored ?: prefs.getBoolean("pref_main_camera_mirror", true)
+        textureView.scaleX = if (configuredMirror) 1f else -1f
+
         startBackgroundThread()
         buildCameraPriorityList()
+
+        if (targetCameraId != null && cameraPriorityList.contains(targetCameraId)) {
+            val list = cameraPriorityList.toMutableList()
+            list.remove(targetCameraId)
+            list.add(0, targetCameraId)
+            cameraPriorityList = list
+            currentCameraIndex = 0
+        } else if (targetCameraId == null) {
+            val savedMainId = prefs.getString("pref_main_camera_id", null)
+            if (savedMainId != null && cameraPriorityList.contains(savedMainId)) {
+                val list = cameraPriorityList.toMutableList()
+                list.remove(savedMainId)
+                list.add(0, savedMainId)
+                cameraPriorityList = list
+                currentCameraIndex = 0
+            }
+        }
 
         if (textureView.isAvailable) {
             openNextCameraInternal()
@@ -318,11 +351,23 @@ class Camera2Helper(
      */
     fun takePhoto(): Bitmap? {
         return try {
-            textureView.getBitmap(previewWidth, previewHeight)
+            val bitmap = textureView.getBitmap(previewWidth, previewHeight) ?: return null
+            val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+            val configuredMirror = isMirrored ?: prefs.getBoolean("pref_main_camera_mirror", true)
+            if (configuredMirror) {
+                mirrorBitmap(bitmap)
+            } else {
+                bitmap
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error capturando foto: ${e.message}")
             null
         }
+    }
+
+    private fun mirrorBitmap(bitmap: Bitmap): Bitmap {
+        val matrix = Matrix().apply { preScale(-1.0f, 1.0f) }
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
     /**

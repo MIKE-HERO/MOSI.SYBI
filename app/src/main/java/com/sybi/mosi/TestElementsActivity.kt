@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PorterDuff
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
@@ -20,6 +22,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.sybi.mosi.helpers.Camera2Helper
 import java.io.File
 
 class TestElementsActivity : BaseActivity() {
@@ -149,6 +152,27 @@ class TestElementsActivity : BaseActivity() {
         val icCardRow = createDeviceRow("Lector de Tarjeta IC", PREF_DEVICE_IC_CARD, devicePrefs, availablePorts)
         container.addView(icCardRow)
         configRowsMap[PREF_DEVICE_IC_CARD] = icCardRow
+
+        // --- LÍNEA DIVISORIA ---
+        container.addView(createDividerLine())
+
+        // --- CREAR CONFIGURACIÓN DE CÁMARAS (Principal y Secundaria) ---
+        val availableCameras = Camera2Helper.getAvailableCameraIds(this).ifEmpty { listOf("0") }
+
+        val cameraHeader = TextView(this).apply {
+            text = "Configuración de Cámaras"
+            textSize = 20f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(Color.parseColor("#0F3E82"))
+            setPadding(0, 16, 0, 12)
+        }
+        container.addView(cameraHeader)
+
+        val mainCameraRow = createCameraConfigRow("Cámara Principal", "pref_main_camera_id", "pref_main_camera_mirror", true, devicePrefs, availableCameras)
+        container.addView(mainCameraRow)
+
+        val secondaryCameraRow = createCameraConfigRow("Cámara Secundaria", "pref_secondary_camera_id", "pref_secondary_camera_mirror", false, devicePrefs, availableCameras)
+        container.addView(secondaryCameraRow)
 
         val initialColor = Color.parseColor(savedColor)
         applySwitchTint(initialColor)
@@ -664,5 +688,127 @@ class TestElementsActivity : BaseActivity() {
             sw.thumbDrawable?.setColorFilter(originalColor, PorterDuff.Mode.SRC_ATOP)
             sw.trackDrawable?.setColorFilter(originalColor, PorterDuff.Mode.SRC_ATOP)
         }
+    }
+
+    private fun createCameraConfigRow(
+        title: String,
+        prefIdKey: String,
+        prefMirrorKey: String,
+        defaultMirror: Boolean,
+        prefs: android.content.SharedPreferences,
+        availableCameras: List<String>
+    ): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16, 16, 16, 16)
+            setBackgroundResource(android.R.drawable.list_selector_background)
+            elevation = 4f
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 8) }
+        }
+
+        // Top row: Title and Switch (Modo Espejo)
+        val topRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val textView = TextView(this).apply {
+            text = title
+            textSize = 18f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(android.graphics.Color.DKGRAY)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        val switchMirror = Switch(this).apply {
+            text = "Modo Espejo"
+            textSize = 14f
+            if (!prefs.contains(prefMirrorKey)) {
+                prefs.edit().putBoolean(prefMirrorKey, defaultMirror).apply()
+            }
+            isChecked = prefs.getBoolean(prefMirrorKey, defaultMirror)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        allSwitches.add(switchMirror)
+
+        topRow.addView(textView)
+        topRow.addView(switchMirror)
+        row.addView(topRow)
+
+        // Bottom row: Spinner for Camera USB selection
+        val bottomRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 12, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val labelSpinner = TextView(this).apply {
+            text = "Seleccionar Cámara USB:"
+            textSize = 14f
+            setTextColor(android.graphics.Color.GRAY)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 16, 0) }
+        }
+
+        val spinner = Spinner(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
+
+        val displayNames = availableCameras.map { id ->
+            when (id) {
+                "0" -> "Cámara 0 (Frontal)"
+                "1" -> "Cámara 1 (Externa)"
+                else -> "Cámara $id (Externa)"
+            }
+        }
+
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, displayNames.ifEmpty { listOf("Cámara 0 (USB / Estándar)") })
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = adapter
+
+        val savedId = prefs.getString(prefIdKey, availableCameras.firstOrNull() ?: "0")
+        val savedIndex = availableCameras.indexOf(savedId)
+        if (savedIndex >= 0) {
+            spinner.setSelection(savedIndex)
+        }
+
+        bottomRow.addView(labelSpinner)
+        bottomRow.addView(spinner)
+        row.addView(bottomRow)
+
+        // Listeners
+        switchMirror.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean(prefMirrorKey, isChecked).apply()
+        }
+
+        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+                val selectedCameraId = availableCameras.getOrNull(position) ?: "0"
+                prefs.edit().putString(prefIdKey, selectedCameraId).apply()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
+
+        return row
     }
 }
