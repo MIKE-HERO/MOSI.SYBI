@@ -86,7 +86,7 @@ class MeasurementController(
 
             LocalBroadcastManager.getInstance(context).sendBroadcast(Intent("START_OXYGEN_MEASURE"))
             commandSentMap["OXIGENO"] = true
-            callbacks.onStatusMessage("Coloque su dedo en el oxímetro", "#FF9800")
+            callbacks.onStatusMessage("Esperando resultados...", "#FF9800")
 
             resultRunnable = object : Runnable {
                 override fun run() {

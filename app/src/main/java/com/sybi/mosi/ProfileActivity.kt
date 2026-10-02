@@ -29,9 +29,16 @@ class ProfileActivity : BaseActivity() {
     private lateinit var btnAccess: Button
     private var currentColor: String = "#0F3E82"
 
-    // ✅ Datos cargados desde Room
+    // ✅ Datos cargados desde Room y del Intent
     private var idLocal: Long = 0L
     private var idUsuarioWeb: Int = 0
+    private var nombre: String = ""
+    private var apellidoPaterno: String = ""
+    private var apellidoMaterno: String = ""
+    private var telefono: String = ""
+    private var fechaNacimiento: String = ""
+    private var genero: String = "M"
+    private var sessionType: String = "measurement"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,13 +70,13 @@ class ProfileActivity : BaseActivity() {
 
         // --- DATOS DEL INTENT ---
         idLocal = intent.getLongExtra("id_local", 0L)
-        val nombre = intent.getStringExtra("nombre") ?: "Desconocido"
-        val apellidoPaterno = intent.getStringExtra("apellido_paterno") ?: ""
-        val apellidoMaterno = intent.getStringExtra("apellido_materno") ?: ""
-        val telefono = intent.getStringExtra("telefono") ?: ""
-        val fechaNacimiento = intent.getStringExtra("fecha_nacimiento") ?: ""
-        val genero = intent.getStringExtra("genero") ?: "M"
-        val sessionType = intent.getStringExtra("session_type") ?: "measurement"
+        nombre = intent.getStringExtra("nombre") ?: "Desconocido"
+        apellidoPaterno = intent.getStringExtra("apellido_paterno") ?: ""
+        apellidoMaterno = intent.getStringExtra("apellido_materno") ?: ""
+        telefono = intent.getStringExtra("telefono") ?: ""
+        fechaNacimiento = intent.getStringExtra("fecha_nacimiento") ?: ""
+        genero = intent.getStringExtra("genero") ?: "M"
+        sessionType = intent.getStringExtra("session_type") ?: "measurement"
 
         // --- MOSTRAR DATOS ---
         findViewById<TextView>(R.id.tvUserName).text = "$nombre $apellidoPaterno $apellidoMaterno"
@@ -93,35 +100,80 @@ class ProfileActivity : BaseActivity() {
 
         // --- BOTÓN ACCESO ---
         btnAccess.setOnClickListener {
-            if (sessionType == "telemedicine") {
-                // Igual que en ResultsActivity: sin id_usuario_web el médico no puede atenderlo
-                if (idUsuarioWeb <= 0) {
-                    Toast.makeText(
-                        this,
-                        "Este paciente no está dado de alta en el sistema del doctor",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    return@setOnClickListener
-                }
-                val intent = Intent(this, TelemedicineActivity::class.java)
-                intent.putExtra(TelemedicineActivity.EXTRA_ID_USUARIO_WEB, idUsuarioWeb)
-                startActivity(intent)
-            } else {
-                val intent = Intent(this, MeasurementActivity::class.java)
-                intent.putExtra("id_local", idLocal)
-                intent.putExtra("id_usuario_web", idUsuarioWeb)
-                intent.putExtra("nombre", nombre)
-                intent.putExtra("apellido_paterno", apellidoPaterno)
-                intent.putExtra("apellido_materno", apellidoMaterno)
-                intent.putExtra("telefono", telefono)
-                intent.putExtra("fecha_nacimiento", fechaNacimiento)
-                intent.putExtra("genero", genero)
-                startActivity(intent)
+            if (sessionType == "telemedicine" && idUsuarioWeb <= 0) {
+                Toast.makeText(
+                    this,
+                    "Este paciente no está dado de alta en el sistema del doctor",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@setOnClickListener
             }
-            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+            mostrarDialogoConsentimiento()
         }
 
         btnNotMe.setOnClickListener { finish() }
+    }
+
+    private fun mostrarDialogoConsentimiento() {
+        val dialog = android.app.Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_consentimiento)
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+
+        // ✅ Solo porcentajes de la pantalla
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+
+        val width = (screenWidth * 0.50).toInt()
+        val height = (screenHeight * 0.80).toInt()
+
+        dialog.window?.setLayout(width, height)
+
+        // ✅ Centrado
+        dialog.window?.setGravity(android.view.Gravity.CENTER)
+
+        val headerBar = dialog.findViewById<View>(R.id.headerConsentBar)
+        headerBar.setBackgroundColor(Color.parseColor(currentColor))
+
+        val btnConfirm = dialog.findViewById<Button>(R.id.btnConfirmConsent)
+        btnConfirm.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor(currentColor))
+
+        val btnCancel = dialog.findViewById<Button>(R.id.btnCancelConsent)
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        btnConfirm.setOnClickListener {
+            dialog.dismiss()
+            ejecutarAcceso()
+        }
+
+        dialog.show()
+
+        // ✅ Reforzar después de show()
+        dialog.window?.setGravity(android.view.Gravity.CENTER)
+        dialog.window?.setLayout(width, height)
+    }
+
+    private fun ejecutarAcceso() {
+        if (sessionType == "telemedicine") {
+            val intent = Intent(this, TelemedicineActivity::class.java)
+            intent.putExtra(TelemedicineActivity.EXTRA_ID_USUARIO_WEB, idUsuarioWeb)
+            startActivity(intent)
+        } else {
+            val intent = Intent(this, MeasurementActivity::class.java)
+            intent.putExtra("id_local", idLocal)
+            intent.putExtra("id_usuario_web", idUsuarioWeb)
+            intent.putExtra("nombre", nombre)
+            intent.putExtra("apellido_paterno", apellidoPaterno)
+            intent.putExtra("apellido_materno", apellidoMaterno)
+            intent.putExtra("telefono", telefono)
+            intent.putExtra("fecha_nacimiento", fechaNacimiento)
+            intent.putExtra("genero", genero)
+            startActivity(intent)
+        }
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
 
     /**

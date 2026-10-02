@@ -158,6 +158,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private val completedMeasurements = mutableSetOf<String>()
     private var currentPlayingAudioName: String? = null
     private var isActivityResumed = false
+    private var oxygenReadingStarted = false
 
     // ── Receivers de datos ────────────────────────────────
     private val dataReceiver = object : BroadcastReceiver() {
@@ -170,6 +171,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         override fun onReceive(ctx: Context, intent: Intent) {
             if (intent.action == "OXYGEN_WAVE_DATA" && currentMeasurementType == "OXIGENO") {
                 waveformView.addPoint(intent.getIntExtra("value", 0))
+                if (!oxygenReadingStarted) {
+                    oxygenReadingStarted = true
+                    showStatusMessage("Esperando resultados...", "#FF9800")
+                }
             }
         }
     }
@@ -392,6 +397,39 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         statusSweep.setSweepColor(themeColor)
     }
 
+    private fun getPatientAge(): Int {
+        if (pacienteFechaNacimiento.isBlank()) return 30
+        return try {
+            val partes = pacienteFechaNacimiento.split("/")
+            if (partes.size < 3) return 30
+            val dia = partes[0].toInt()
+            val mes = partes[1].toInt()
+            val anio = partes[2].toInt()
+
+            val calendario = java.util.Calendar.getInstance()
+            val anioActual = calendario.get(java.util.Calendar.YEAR)
+            val mesActual = calendario.get(java.util.Calendar.MONTH) + 1
+            val diaActual = calendario.get(java.util.Calendar.DAY_OF_MONTH)
+
+            var edad = anioActual - anio
+            if (mesActual < mes || (mesActual == mes && diaActual < dia)) {
+                edad--
+            }
+            edad.coerceIn(1, 120)
+        } catch (e: Exception) {
+            30
+        }
+    }
+
+    private fun updatePillColor(textView: TextView, isNormal: Boolean) {
+        val color = if (isNormal) {
+            Color.parseColor("#4D4CAF50") // Verde semitransparente (~30% opacity Green)
+        } else {
+            Color.parseColor("#4DF44336") // Rojo semitransparente (~30% opacity Red)
+        }
+        textView.background = pillDrawable(color, 18f)
+    }
+
     /** Píldoras de resultado de la vista activa que deben "pulsar" mientras se espera su valor. */
     private fun setActiveResultPills(vararg views: TextView) {
         activeResultPills = views.toList()
@@ -414,7 +452,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun stopPillPulse() {
         pillPulseAnimator?.cancel()
         pillPulseAnimator = null
-        activeResultPills.forEach { (it.background as? android.graphics.drawable.GradientDrawable)?.setColor(pillLightColor) }
     }
 
     private fun lightenColor(color: Int, whiteRatio: Float): Int {
@@ -502,6 +539,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         if (completedMeasurements.contains("ALTURA_PESO") || state.hasHeightWeight()) {
             btnRepeat.visibility = View.VISIBLE
+            showStatusMessage("Medición completada correctamente", "#4CAF50")
+            showSuccessCheck(true)
             return
         }
         showReady()
@@ -520,6 +559,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             layoutProgressComposicion.visibility = View.GONE
             layoutResultadosComposicion.visibility = View.VISIBLE
             btnRepeat.visibility = View.VISIBLE
+            showStatusMessage("Medición completada correctamente", "#4CAF50")
+            showSuccessCheck(true)
             return
         }
         if (!state.hasHeightWeight()) {
@@ -544,6 +585,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         if (completedMeasurements.contains("PRESION") || state.hasPressure()) {
             btnRepeat.visibility = View.VISIBLE
+            showStatusMessage("Medición completada correctamente", "#4CAF50")
+            showSuccessCheck(true)
             return
         }
         showReady()
@@ -557,6 +600,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         if (completedMeasurements.contains("TEMPERATURA") || state.hasTemperature()) {
             btnRepeat.visibility = View.VISIBLE
+            showStatusMessage("Medición completada correctamente", "#4CAF50")
+            showSuccessCheck(true)
             return
         }
         showReady()
@@ -565,11 +610,14 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun startOxygen() {
         currentMeasurementType = "OXIGENO"
+        oxygenReadingStarted = false
         switchTab("Oxígeno en Sangre", "oxigeno", groupOxigeno)
         setActiveResultPills(tvResultSpO2, tvResultPulseRate, tvResultPI)
 
         if (completedMeasurements.contains("OXIGENO") || state.hasOxygen()) {
             btnRepeat.visibility = View.VISIBLE
+            showStatusMessage("Medición completada correctamente", "#4CAF50")
+            showSuccessCheck(true)
             return
         }
         waveformView.clear()
@@ -589,8 +637,11 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             state.ecgResults?.let { showEcgResults(it, state.ecgImage!!) }
             btnStarECG.visibility = View.GONE
             btnRepeat.visibility = View.VISIBLE
+            showStatusMessage("Medición completada correctamente", "#4CAF50")
+            showSuccessCheck(true)
         } else {
             showStatusMessage("Presione el botón ECG para iniciar la medición", "#FF9800")
+            showSuccessCheck(false)
             btnStarECG.visibility = View.VISIBLE
             btnRepeat.visibility = View.GONE
         }
@@ -617,6 +668,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun repeatCurrent() {
         cancelCountdownTimer()
         setRepeatMode(false)
+        showSuccessCheck(false)
         completedMeasurements.remove(currentMeasurementType)
         getAudioName(currentMeasurementType, "start")?.let { playAudio(it, forceRestart = true) }
         if (!deviceManager.isAvailableFor(currentMeasurementType)) {
@@ -661,6 +713,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             }
             "OXIGENO" -> {
                 state.resetOxygen()
+                oxygenReadingStarted = false
                 tvResultSpO2.text = "SpO2\n-- %"
                 tvResultPulseRate.text = "Pulso\n-- bpm"
                 tvResultPI.text = "PI\n--"
@@ -690,6 +743,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                         tvResultHeight.text = "Altura\n%.1f cm".format(state.height)
                         tvResultWeight.text = "Peso\n%.3f kg".format(state.weight)
                         tvResultIMC.text = "IMC\n%.1f".format(state.imc)
+                        updatePillColor(tvResultHeight, true)
+                        updatePillColor(tvResultWeight, true)
+                        updatePillColor(tvResultIMC, state.imc in 18.5..24.9)
                         if (currentMeasurementType == "ALTURA_PESO") {
                             groupAlturaPeso.visibility = View.VISIBLE
                             if (!completedMeasurements.contains("ALTURA_PESO")) {
@@ -754,6 +810,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                         tvResultSistolica.text = "Sistólica\n${state.systolic} mmHg"
                         tvResultDiastolica.text = "Diastólica\n${state.diastolic} mmHg"
                         tvResultPulso.text = "Pulso\n${state.pulse} bpm"
+                        updatePillColor(tvResultSistolica, state.systolic in 90..120)
+                        updatePillColor(tvResultDiastolica, state.diastolic in 60..80)
+                        updatePillColor(tvResultPulso, state.pulse in 60..100)
                         if (currentMeasurementType == "PRESION") {
                             groupPresion.visibility = View.VISIBLE
                             if (!completedMeasurements.contains("PRESION")) {
@@ -769,6 +828,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                     state.bodyMode = intent.getStringExtra("mode") ?: ""
                     if (state.hasTemperature()) {
                         tvResultTemperature.text = "Temperatura\n%.1f °C / %.1f °F".format(state.temperature, state.temperatureF)
+                        updatePillColor(tvResultTemperature, true)
                         if (currentMeasurementType == "TEMPERATURA") {
                             groupTemperatura.visibility = View.VISIBLE
                             if (!completedMeasurements.contains("TEMPERATURA")) {
@@ -796,6 +856,23 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     }
 
     private fun renderComposition() {
+        val age = getPatientAge()
+        val isMale = pacienteGenero.equals("M", ignoreCase = true)
+        val normalFatRange = if (isMale) {
+            when {
+                age < 40 -> 8.0..19.9
+                age < 60 -> 11.0..21.9
+                else -> 13.0..24.9
+            }
+        } else {
+            when {
+                age < 40 -> 21.0..32.9
+                age < 60 -> 23.0..33.9
+                else -> 24.0..35.9
+            }
+        }
+        val normalWaterRange = if (isMale) 50.0..65.0 else 45.0..60.0
+
         tvResultFat.text = "Tasa Grasa\n%.1f%%".format(state.fatRate)
         tvResultWater.text = "Tasa Agua\n%.1f%%".format(state.waterRate)
         tvResultFatKg.text = "Grasa\n%.1f kg".format(state.fatKg)
@@ -808,6 +885,20 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         tvResultVisceralFat.text = "Grasa Visc.\n%.1f".format(state.visceralFat)
         tvResultIdealWeight.text = "Peso Ideal\n%.1f kg".format(state.idealWeight)
         tvResultFatType.text = "Tipo Grasa\n${state.fatType}"
+
+        updatePillColor(tvResultFat, state.fatRate in normalFatRange)
+        updatePillColor(tvResultWater, state.waterRate in normalWaterRange)
+        updatePillColor(tvResultFatKg, state.fatKg > 0)
+        updatePillColor(tvResultWaterKg, state.waterKg > 0)
+        updatePillColor(tvResultMuscle, state.muscle > 10.0)
+        updatePillColor(tvResultNotFat, state.notFat > 20.0)
+        updatePillColor(tvResultProtein, state.protein in 5.0..25.0)
+        updatePillColor(tvResultMineral, state.mineral in 2.0..6.0)
+        updatePillColor(tvResultMetabolism, state.metabolism in 800..3500)
+        updatePillColor(tvResultVisceralFat, state.visceralFat in 1.0..9.0)
+        updatePillColor(tvResultIdealWeight, state.idealWeight in 30.0..150.0)
+        updatePillColor(tvResultFatType, state.fatType in 1..8)
+
         groupComposicion.visibility = View.VISIBLE
     }
 
@@ -826,6 +917,24 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         tvResultRV5.text = "Onda RV5\n${results.rv5}"
         tvResultSV1.text = "Onda SV1\n${results.sv1}"
         tvResultResCode.text = "Resultado\n${results.resCode}"
+
+        val isMale = pacienteGenero.equals("M", ignoreCase = true)
+        val maxQtc = if (isMale) 440.0 else 450.0
+        val prVal = results.prInterval.toIntOrNull() ?: 0
+        val qrsVal = results.qrsDuration.toIntOrNull() ?: 0
+        val qtcVal = results.qtc.toDoubleOrNull() ?: 0.0
+
+        updatePillColor(tvResultHeartRate, results.heartRate in 60..100)
+        updatePillColor(tvResultPAxis, true)
+        updatePillColor(tvResultQRSAxis, true)
+        updatePillColor(tvResultTAxis, true)
+        updatePillColor(tvResultPR, prVal in 120..200)
+        updatePillColor(tvResultQRS, qrsVal in 60..110)
+        updatePillColor(tvResultQT, true)
+        updatePillColor(tvResultQTC, qtcVal in 300.0..maxQtc)
+        updatePillColor(tvResultRV5, true)
+        updatePillColor(tvResultSV1, true)
+        updatePillColor(tvResultResCode, results.resCode.equals("Normal", ignoreCase = true) || results.resCode == "0")
         btnStarECG.visibility = View.GONE
         layoutResultadosEcg.visibility = View.VISIBLE
         groupEcg.visibility = View.VISIBLE
@@ -1425,6 +1534,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         tvResultSpO2.text = "SpO2\n$spo2 %"
         tvResultPulseRate.text = "Pulso\n$pulseRate bpm"
         tvResultPI.text = "PI\n%.1f".format(pi)
+
+        updatePillColor(tvResultSpO2, spo2 in 95..100)
+        updatePillColor(tvResultPulseRate, pulseRate in 60..100)
+        updatePillColor(tvResultPI, pi >= 0.3)
 
         if (currentMeasurementType == "OXIGENO") {
             groupOxigeno.visibility = View.VISIBLE
