@@ -217,7 +217,7 @@
                                 android:background="@drawable/bg_measurement_card"
                                 android:orientation="vertical"
                                 android:padding="10dp"
-                                android:gravity="center"
+                                android:gravity="top|center_horizontal"
                                 android:layout_marginBottom="6dp">
 
                                 <TextView
@@ -231,9 +231,16 @@
 
                                 <LinearLayout
                                     android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
                                     android:orientation="horizontal"
                                     android:gravity="center">
+
+                                    <com.sybi.mosi.measurement.EqualizerLoaderView
+                                        android:id="@+id/pbAlturaLoading"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:visibility="visible" />
 
                                     <ImageView
                                         android:id="@+id/ivHeightIcon"
@@ -241,7 +248,8 @@
                                         android:layout_height="48dp"
                                         android:src="@drawable/ic_measurement_height"
                                         android:contentDescription="Icono Altura"
-                                        android:layout_marginEnd="12dp" />
+                                        android:layout_marginEnd="12dp"
+                                        android:visibility="gone" />
 
                                     <TextView
                                         android:id="@+id/tvResultHeightValue"
@@ -250,7 +258,8 @@
                                         android:text="--"
                                         android:textSize="36sp"
                                         android:textStyle="bold"
-                                        android:textColor="#001B3A" />
+                                        android:textColor="#001B3A"
+                                        android:visibility="gone" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
@@ -271,7 +280,7 @@
                                 android:background="@drawable/bg_measurement_card"
                                 android:orientation="vertical"
                                 android:padding="10dp"
-                                android:gravity="center">
+                                android:gravity="top|center_horizontal">
 
                                 <TextView
                                     android:layout_width="wrap_content"
@@ -284,9 +293,16 @@
 
                                 <LinearLayout
                                     android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
                                     android:orientation="horizontal"
                                     android:gravity="center">
+
+                                    <com.sybi.mosi.measurement.EqualizerLoaderView
+                                        android:id="@+id/pbPesoLoading"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:visibility="visible" />
 
                                     <ImageView
                                         android:id="@+id/ivWeightIcon"
@@ -294,7 +310,8 @@
                                         android:layout_height="48dp"
                                         android:src="@drawable/ic_measurement_weight"
                                         android:contentDescription="Icono Peso"
-                                        android:layout_marginEnd="12dp" />
+                                        android:layout_marginEnd="12dp"
+                                        android:visibility="gone" />
 
                                     <TextView
                                         android:id="@+id/tvResultWeightValue"
@@ -303,7 +320,8 @@
                                         android:text="--"
                                         android:textSize="36sp"
                                         android:textStyle="bold"
-                                        android:textColor="#001B3A" />
+                                        android:textColor="#001B3A"
+                                        android:visibility="gone" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
@@ -325,7 +343,7 @@
                             android:background="@drawable/bg_measurement_card"
                             android:orientation="vertical"
                             android:padding="12dp"
-                            android:gravity="center_horizontal"
+                            android:gravity="top|center_horizontal"
                             android:layout_marginStart="6dp">
 
                             <TextView
@@ -343,13 +361,27 @@
                                 android:text="--"
                                 android:textSize="44sp"
                                 android:textStyle="bold"
-                                android:textColor="#001B3A" />
+                                android:textColor="#001B3A"
+                                android:visibility="gone" />
 
-                            <com.sybi.mosi.measurement.GaugeView
-                                android:id="@+id/gaugeIMC"
+                            <FrameLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="0dp"
-                                android:layout_weight="1" />
+                                android:layout_weight="1">
+
+                                <com.sybi.mosi.measurement.GaugeView
+                                    android:id="@+id/gaugeIMC"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:visibility="gone" />
+
+                                <com.sybi.mosi.measurement.EqualizerLoaderView
+                                    android:id="@+id/pbImcLoading"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center"
+                                    android:visibility="visible" />
+                            </FrameLayout>
 
                             <TextView
                                 android:id="@+id/tvImcStatus"
@@ -358,7 +390,8 @@
                                 android:text="--"
                                 android:textSize="18sp"
                                 android:textStyle="bold"
-                                android:textColor="#32A852" />
+                                android:textColor="#32A852"
+                                android:visibility="gone" />
                         </LinearLayout>
                     </LinearLayout>
 
@@ -850,7 +883,7 @@
                                 android:background="@drawable/bg_measurement_card"
                                 android:orientation="vertical"
                                 android:padding="10dp"
-                                android:gravity="center"
+                                android:gravity="top|center_horizontal"
                                 android:layout_marginBottom="6dp">
 
                                 <TextView
@@ -864,9 +897,16 @@
 
                                 <LinearLayout
                                     android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
                                     android:orientation="horizontal"
                                     android:gravity="center">
+
+                                    <com.sybi.mosi.measurement.EqualizerLoaderView
+                                        android:id="@+id/pbSistolicaLoading"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:visibility="visible" />
 
                                     <ImageView
                                         android:id="@+id/ivSystolicIcon"
@@ -874,7 +914,8 @@
                                         android:layout_height="44dp"
                                         android:src="@drawable/ic_measurement_systolic"
                                         android:contentDescription="Sistólica"
-                                        android:layout_marginEnd="10dp" />
+                                        android:layout_marginEnd="10dp"
+                                        android:visibility="gone" />
 
                                     <TextView
                                         android:id="@+id/tvResultSystolicValue"
@@ -883,7 +924,8 @@
                                         android:text="--"
                                         android:textSize="36sp"
                                         android:textStyle="bold"
-                                        android:textColor="#001B3A" />
+                                        android:textColor="#001B3A"
+                                        android:visibility="gone" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
@@ -903,7 +945,7 @@
                                 android:background="@drawable/bg_measurement_card"
                                 android:orientation="vertical"
                                 android:padding="10dp"
-                                android:gravity="center">
+                                android:gravity="top|center_horizontal">
 
                                 <TextView
                                     android:layout_width="wrap_content"
@@ -916,9 +958,16 @@
 
                                 <LinearLayout
                                     android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
                                     android:orientation="horizontal"
                                     android:gravity="center">
+
+                                    <com.sybi.mosi.measurement.EqualizerLoaderView
+                                        android:id="@+id/pbDiastolicaLoading"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:visibility="visible" />
 
                                     <ImageView
                                         android:id="@+id/ivDiastolicIcon"
@@ -926,7 +975,8 @@
                                         android:layout_height="44dp"
                                         android:src="@drawable/ic_measurement_diastolic"
                                         android:contentDescription="Diastólica"
-                                        android:layout_marginEnd="10dp" />
+                                        android:layout_marginEnd="10dp"
+                                        android:visibility="gone" />
 
                                     <TextView
                                         android:id="@+id/tvResultDiastolicValue"
@@ -935,7 +985,8 @@
                                         android:text="--"
                                         android:textSize="36sp"
                                         android:textStyle="bold"
-                                        android:textColor="#001B3A" />
+                                        android:textColor="#001B3A"
+                                        android:visibility="gone" />
 
                                     <TextView
                                         android:layout_width="wrap_content"
@@ -956,7 +1007,7 @@
                             android:background="@drawable/bg_measurement_card"
                             android:orientation="vertical"
                             android:padding="12dp"
-                            android:gravity="center_horizontal"
+                            android:gravity="top|center_horizontal"
                             android:layout_marginStart="6dp">
 
                             <TextView
@@ -967,11 +1018,24 @@
                                 android:textStyle="bold"
                                 android:textColor="#001B3A" />
 
-                            <com.sybi.mosi.measurement.RingProgressView
-                                android:id="@+id/ringPresionPulse"
+                            <FrameLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="0dp"
-                                android:layout_weight="1" />
+                                android:layout_weight="1">
+
+                                <com.sybi.mosi.measurement.RingProgressView
+                                    android:id="@+id/ringPresionPulse"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:visibility="gone" />
+
+                                <com.sybi.mosi.measurement.EqualizerLoaderView
+                                    android:id="@+id/pbPulsoLoading"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center"
+                                    android:visibility="visible" />
+                            </FrameLayout>
 
                             <ImageView
                                 android:id="@+id/ivPresionPulseRingIcon"
@@ -979,7 +1043,8 @@
                                 android:layout_height="32dp"
                                 android:src="@drawable/ic_measurement_heart_rate"
                                 android:contentDescription="Pulso"
-                                android:layout_marginBottom="4dp" />
+                                android:layout_marginBottom="4dp"
+                                android:visibility="gone" />
 
                             <TextView
                                 android:id="@+id/tvPresionStatus"
@@ -988,7 +1053,8 @@
                                 android:text="--"
                                 android:textSize="17sp"
                                 android:textStyle="bold"
-                                android:textColor="#32A852" />
+                                android:textColor="#32A852"
+                                android:visibility="gone" />
                         </LinearLayout>
                     </LinearLayout>
 

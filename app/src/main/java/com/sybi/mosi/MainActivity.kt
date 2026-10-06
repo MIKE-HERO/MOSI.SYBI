@@ -47,14 +47,6 @@ class MainActivity : BaseActivity() {
     private lateinit var rootLayout: View
     private var breathingAnimator: ObjectAnimator? = null
 
-    // Modo multicolor: ciclo automático de colores de fondo con transición suave
-    private val multicolorHandler = Handler(Looper.getMainLooper())
-    private var multicolorRunnable: Runnable? = null
-    private var multicolorColors: List<Int> = emptyList()
-    private var multicolorIndex = 0
-    private var colorTransitionAnimator: ValueAnimator? = null
-    private var multicolorReceiver: BroadcastReceiver? = null
-
     // 🔥 Variables para los receivers (para poder desregistrarlos)
     private var deviceUpdateReceiver: BroadcastReceiver? = null
     private var colorReceiver: BroadcastReceiver? = null
@@ -65,8 +57,6 @@ class MainActivity : BaseActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val PERMISSION_REQUEST_CODE = 100
-        private const val MULTICOLOR_INTERVAL_MS = 150_000L // 2.5 minutos
-        private const val MULTICOLOR_TRANSITION_MS = 5000L
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -161,17 +151,8 @@ class MainActivity : BaseActivity() {
             IntentFilter("DEVICE_CONNECTION_STATUS")
         )
 
-        // --- RECEPTOR PARA CAMBIOS EN EL MODO MULTICOLOR ---
-        multicolorReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                stopMulticolorCycle()
-                startMulticolorCycle()
-            }
-        }
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-            multicolorReceiver!!,
-            IntentFilter("ACTION_UPDATE_MULTICOLOR")
-        )
+        // Nota: el ciclo del modo multicolor ahora lo maneja BaseActivity para toda la app;
+        // esta pantalla solo necesita su colorReceiver (arriba) para repintar rootLayout.
 
         val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val defaultColor = "#0F3E82"
@@ -407,70 +388,14 @@ class MainActivity : BaseActivity() {
         super.onResume()
         shineOverlay.startSweeping()
         startBreathingEffect()
-        startMulticolorCycle()
+        // El ciclo del modo multicolor ya lo arranca BaseActivity.onResume(); esta pantalla
+        // solo necesita su colorReceiver (registrado arriba) para pintarse con cada color.
     }
 
     override fun onPause() {
         super.onPause()
         shineOverlay.stopSweeping()
         stopBreathingEffect()
-        stopMulticolorCycle()
-    }
-
-    // ==========================================
-    // MODO MULTICOLOR (ciclo automático de fondo)
-    // ==========================================
-    private fun startMulticolorCycle() {
-        val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-        val enabled = appPrefs.getBoolean("MulticolorEnabled", false)
-        val saved = appPrefs.getString("MulticolorColors", null)
-        multicolorColors = if (!saved.isNullOrBlank()) {
-            saved.split(",").mapNotNull { hex ->
-                try { Color.parseColor(hex) } catch (e: Exception) { null }
-            }
-        } else {
-            emptyList()
-        }
-
-        if (!enabled || multicolorColors.size < 2) return
-
-        multicolorIndex = 0
-        val target = multicolorColors[0]
-        val fromColor = (rootLayout.background as? ColorDrawable)?.color ?: target
-        colorTransitionAnimator = ValueAnimator.ofObject(ArgbEvaluator(), fromColor, target).apply {
-            duration = MULTICOLOR_TRANSITION_MS
-            addUpdateListener { animator -> rootLayout.setBackgroundColor(animator.animatedValue as Int) }
-            start()
-        }
-        scheduleNextMulticolorChange()
-    }
-
-    private fun stopMulticolorCycle() {
-        multicolorRunnable?.let { multicolorHandler.removeCallbacks(it) }
-        multicolorRunnable = null
-        colorTransitionAnimator?.cancel()
-        colorTransitionAnimator = null
-    }
-
-    private fun scheduleNextMulticolorChange() {
-        val runnable = Runnable { performMulticolorTransition() }
-        multicolorRunnable = runnable
-        multicolorHandler.postDelayed(runnable, MULTICOLOR_INTERVAL_MS)
-    }
-
-    private fun performMulticolorTransition() {
-        if (multicolorColors.size < 2) return
-        multicolorIndex = (multicolorIndex + 1) % multicolorColors.size
-        val toColor = multicolorColors[multicolorIndex]
-        val fromColor = (rootLayout.background as? ColorDrawable)?.color ?: toColor
-
-        colorTransitionAnimator?.cancel()
-        colorTransitionAnimator = ValueAnimator.ofObject(ArgbEvaluator(), fromColor, toColor).apply {
-            duration = MULTICOLOR_TRANSITION_MS
-            addUpdateListener { animator -> rootLayout.setBackgroundColor(animator.animatedValue as Int) }
-            start()
-        }
-        scheduleNextMulticolorChange()
     }
 
     /** Pulso suave y lento de escala en el logo, para dar sensación de "respiración". */
@@ -500,8 +425,6 @@ class MainActivity : BaseActivity() {
     override fun onDestroy() {
         super.onDestroy()
 
-        stopMulticolorCycle()
-
         // 🔥 Desregistrar todos los receivers
         try {
             deviceUpdateReceiver?.let {
@@ -517,9 +440,6 @@ class MainActivity : BaseActivity() {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
             connectionReceiver?.let {
-                LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
-            }
-            multicolorReceiver?.let {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
         } catch (e: Exception) {

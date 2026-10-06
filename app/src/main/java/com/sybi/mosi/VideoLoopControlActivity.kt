@@ -1,6 +1,9 @@
 package com.sybi.mosi
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -14,6 +17,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import kotlinx.coroutines.launch
 
 /**
@@ -34,6 +38,7 @@ class VideoLoopControlActivity : BaseActivity() {
     private lateinit var btnFindVideo: Button
 
     private var uploading = false
+    private var colorReceiver: BroadcastReceiver? = null
 
     private val pickVideo = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) askMode(uri)
@@ -63,14 +68,7 @@ class VideoLoopControlActivity : BaseActivity() {
         // Aplicar color del tema
         val savedColor = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
             .getString("BackgroundColor", "#0F3E82")!!
-        findViewById<View>(R.id.sideBarLayout).setBackgroundColor(Color.parseColor(savedColor))
-
-        val colorInt = Color.parseColor(savedColor)
-        val colorStateList = android.content.res.ColorStateList.valueOf(colorInt)
-
-        btnFindVideo.backgroundTintList = colorStateList
-        btnSendVideo.backgroundTintList = colorStateList
-        btnRefresh.backgroundTintList = colorStateList
+        aplicarColorTema(savedColor)
 
         findViewById<View>(R.id.btnBackVideoLoop).setOnClickListener {
             if (uploading) {
@@ -93,11 +91,32 @@ class VideoLoopControlActivity : BaseActivity() {
             etVideoKey.setText(VideoLoopRemote.getSavedKey(this))
         }
         refresh()
+
+        colorReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val newColor = intent.getStringExtra("new_color") ?: return
+                aplicarColorTema(newColor)
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(colorReceiver!!, IntentFilter("ACTION_UPDATE_THEME"))
     }
 
     override fun onPause() {
         super.onPause()
         guardarConexionVideo()
+        colorReceiver?.let {
+            try { LocalBroadcastManager.getInstance(this).unregisterReceiver(it) } catch (_: Exception) {}
+        }
+        colorReceiver = null
+    }
+
+    private fun aplicarColorTema(hex: String) {
+        val colorInt = Color.parseColor(hex)
+        val colorStateList = android.content.res.ColorStateList.valueOf(colorInt)
+        findViewById<View>(R.id.sideBarLayout).setBackgroundColor(colorInt)
+        btnFindVideo.backgroundTintList = colorStateList
+        btnSendVideo.backgroundTintList = colorStateList
+        btnRefresh.backgroundTintList = colorStateList
     }
 
     private fun refresh() {
