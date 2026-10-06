@@ -71,9 +71,8 @@ class MeasurementResults(private val activity: Activity) {
     var ringSpO2: RingProgressView? = null
     var ringHeartRate: RingProgressView? = null
     var ringPI: RingProgressView? = null
-    var ivSpO2RingIcon: ImageView? = null
-    var ivHeartRateRingIcon: ImageView? = null
-    var ivPIRingIcon: ImageView? = null
+    // Los íconos de SpO2/Ritmo/PI ahora se dibujan dentro del propio RingProgressView
+    // (RingProgressView.setIcon), no como ImageView aparte.
     var pbSpO2Loading: EqualizerLoaderView? = null
     var pbHeartRateLoading: EqualizerLoaderView? = null
     var pbPILoading: EqualizerLoaderView? = null
@@ -85,7 +84,7 @@ class MeasurementResults(private val activity: Activity) {
     var ringPresionPulse: RingProgressView? = null
     var ivSystolicIcon: ImageView? = null
     var ivDiastolicIcon: ImageView? = null
-    var ivPresionPulseRingIcon: ImageView? = null
+    // ivPresionPulseRingIcon también se dibuja ahora dentro del ring (RingProgressView.setIcon).
     var pbSistolicaLoading: EqualizerLoaderView? = null
     var pbDiastolicaLoading: EqualizerLoaderView? = null
     var pbPulsoLoading: EqualizerLoaderView? = null
@@ -145,20 +144,16 @@ class MeasurementResults(private val activity: Activity) {
         ringSpO2 = root.findViewById(R.id.ringSpO2)
         ringHeartRate = root.findViewById(R.id.ringHeartRate)
         ringPI = root.findViewById(R.id.ringPI)
-        ivSpO2RingIcon = root.findViewById(R.id.ivSpO2RingIcon)
-        ivHeartRateRingIcon = root.findViewById(R.id.ivHeartRateRingIcon)
-        ivPIRingIcon = root.findViewById(R.id.ivPIRingIcon)
         pbSpO2Loading = root.findViewById(R.id.pbSpO2Loading)
         pbHeartRateLoading = root.findViewById(R.id.pbHeartRateLoading)
         pbPILoading = root.findViewById(R.id.pbPILoading)
 
-        // ringSpO2 ya no se colorea aquí con un azul fijo: toma el color de marca en
-        // applyLoaderColor(), igual que el resto de los indicadores de esta pantalla.
-        ringHeartRate?.setColors(
-            trackClr = Color.parseColor("#FFCDD2"),
-            activeClr = Color.parseColor("#E53935"),
-            textClr = Color.parseColor("#E53935")
-        )
+        // ringSpO2 y ringHeartRate ya no llevan un color fijo aquí: se recalcula por rango
+        // de salud cada vez que llega un valor nuevo (ver updateOxygen). ringPI se queda
+        // con un color fijo porque no se dio un rango para él.
+        ringSpO2?.setIcon(androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.ic_measurement_spo2))
+        ringHeartRate?.setIcon(androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.ic_measurement_heart_rate))
+        ringPI?.setIcon(androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.ic_measurement_pi))
         ringPI?.setColors(
             trackClr = Color.parseColor("#C8E6C9"),
             activeClr = Color.parseColor("#388E3C"),
@@ -172,16 +167,30 @@ class MeasurementResults(private val activity: Activity) {
         ringPresionPulse = root.findViewById(R.id.ringPresionPulse)
         ivSystolicIcon = root.findViewById(R.id.ivSystolicIcon)
         ivDiastolicIcon = root.findViewById(R.id.ivDiastolicIcon)
-        ivPresionPulseRingIcon = root.findViewById(R.id.ivPresionPulseRingIcon)
         pbSistolicaLoading = root.findViewById(R.id.pbSistolicaLoading)
         pbDiastolicaLoading = root.findViewById(R.id.pbDiastolicaLoading)
         pbPulsoLoading = root.findViewById(R.id.pbPulsoLoading)
 
+        ringPresionPulse?.setIcon(androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.ic_measurement_heart_rate))
         ringPresionPulse?.setColors(
             trackClr = Color.parseColor("#FFCDD2"),
             activeClr = Color.parseColor("#E53935"),
             textClr = Color.parseColor("#E53935")
         )
+    }
+
+    // ── Colores por rango de salud ──────────────────────────────────
+    private fun spo2RangeColor(spo2: Int): Int = when {
+        spo2 >= 90 -> Color.parseColor("#32A852") // verde: 100-90
+        spo2 >= 70 -> Color.parseColor("#FBC02D") // amarillo: 89-70
+        else -> Color.parseColor("#D32F2F")       // rojo: menor a 70
+    }
+
+    private fun heartRateRangeColor(bpm: Int): Int = when {
+        bpm in 60..70 -> Color.parseColor("#32A852") // verde: 60-70
+        bpm in 71..90 -> Color.parseColor("#FBC02D") // amarillo: 70-90
+        bpm > 90 -> Color.parseColor("#D32F2F")      // rojo: mas de 90
+        else -> Color.parseColor("#D32F2F")          // menor a 60: tambien fuera de rango
     }
 
     fun updateHeightWeight(height: Double, weight: Double, imc: Double) {
@@ -240,8 +249,9 @@ class MeasurementResults(private val activity: Activity) {
         pbPillMineralLoading?.setDotColor(color)
         pbPillMetabolismLoading?.setDotColor(color)
         pbPillNotFatLoading?.setDotColor(color)
-
-        ringSpO2?.setColors(trackClr = lightenColor(color, 0.75f), activeClr = color, textClr = color)
+        // ringSpO2 y ringHeartRate no se tocan aquí: su color depende del rango de salud
+        // del valor medido (ver spo2RangeColor/heartRateRangeColor en updateOxygen), no
+        // del color de marca del quiosco.
     }
 
     private fun lightenColor(color: Int, whiteRatio: Float): Int {
@@ -375,39 +385,39 @@ class MeasurementResults(private val activity: Activity) {
 
     fun updateOxygen(spo2: Int, pulseRate: Int, pi: Double) {
         if (spo2 > 0) {
+            val spo2Color = spo2RangeColor(spo2)
+            ringSpO2?.setColors(trackClr = lightenColor(spo2Color, 0.75f), activeClr = spo2Color, textClr = spo2Color)
             val spo2Ratio = (spo2 / 100f).coerceIn(0f, 1f)
             ringSpO2?.setData("SpO2", "$spo2", "%", spo2Ratio, animated = true)
             ringSpO2?.visibility = View.VISIBLE
-            ivSpO2RingIcon?.visibility = View.VISIBLE
             pbSpO2Loading?.visibility = View.GONE
 
             val pulseRatio = if (pulseRate > 0) (pulseRate / 150f).coerceIn(0f, 1f) else 0f
             val pulseValStr = if (pulseRate > 0) "$pulseRate" else "--"
+            if (pulseRate > 0) {
+                val bpmColor = heartRateRangeColor(pulseRate)
+                ringHeartRate?.setColors(trackClr = lightenColor(bpmColor, 0.75f), activeClr = bpmColor, textClr = bpmColor)
+            }
             ringHeartRate?.setData("BPM", pulseValStr, "", pulseRatio, animated = true)
             ringHeartRate?.visibility = View.VISIBLE
-            ivHeartRateRingIcon?.visibility = View.VISIBLE
             pbHeartRateLoading?.visibility = View.GONE
 
             val piRatio = if (pi > 0) (pi / 20.0).toFloat().coerceIn(0f, 1f) else 0f
             val piValStr = if (pi > 0) "%.1f".format(pi) else "--"
             ringPI?.setData("PI %", piValStr, "", piRatio, animated = true)
             ringPI?.visibility = View.VISIBLE
-            ivPIRingIcon?.visibility = View.VISIBLE
             pbPILoading?.visibility = View.GONE
         } else {
             ringSpO2?.setData("SpO2", "", "%", 0f, animated = false)
             ringSpO2?.visibility = View.GONE
-            ivSpO2RingIcon?.visibility = View.GONE
             pbSpO2Loading?.visibility = View.VISIBLE
 
             ringHeartRate?.setData("BPM", "", "", 0f, animated = false)
             ringHeartRate?.visibility = View.GONE
-            ivHeartRateRingIcon?.visibility = View.GONE
             pbHeartRateLoading?.visibility = View.VISIBLE
 
             ringPI?.setData("PI %", "", "", 0f, animated = false)
             ringPI?.visibility = View.GONE
-            ivPIRingIcon?.visibility = View.GONE
             pbPILoading?.visibility = View.VISIBLE
         }
     }
@@ -428,7 +438,6 @@ class MeasurementResults(private val activity: Activity) {
             val pulseValStr = if (pulse > 0) "$pulse" else "--"
             ringPresionPulse?.setData("BPM", pulseValStr, "", pulseRatio, animated = true)
             ringPresionPulse?.visibility = View.VISIBLE
-            ivPresionPulseRingIcon?.visibility = View.VISIBLE
             pbPulsoLoading?.visibility = View.GONE
         } else {
             tvResultSystolicValue?.visibility = View.GONE
@@ -441,7 +450,6 @@ class MeasurementResults(private val activity: Activity) {
 
             ringPresionPulse?.setData("BPM", "", "", 0f, animated = false)
             ringPresionPulse?.visibility = View.GONE
-            ivPresionPulseRingIcon?.visibility = View.GONE
             pbPulsoLoading?.visibility = View.VISIBLE
             tvPresionStatus?.visibility = View.GONE
         }

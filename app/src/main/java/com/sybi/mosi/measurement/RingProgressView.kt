@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.view.View
 import android.view.animation.DecelerateInterpolator
@@ -53,11 +54,18 @@ class RingProgressView @JvmOverloads constructor(
     }
 
     private val ringBounds = RectF()
+    private var iconDrawable: Drawable? = null
 
     fun setColors(trackClr: Int, activeClr: Int, textClr: Int = activeClr) {
         this.trackColor = trackClr
         this.progressColor = activeClr
         this.valueTextColor = textClr
+        invalidate()
+    }
+
+    /** Ícono que se dibuja dentro del anillo, debajo del valor (se tiñe con el color activo). */
+    fun setIcon(drawable: Drawable?) {
+        this.iconDrawable = drawable?.mutate()
         invalidate()
     }
 
@@ -122,5 +130,14 @@ class RingProgressView @JvmOverloads constructor(
         // Draw Main Value Text (e.g. "98 %", "72", "5.8")
         val fullValue = if (unitText.isNotBlank()) "$valueText $unitText" else valueText
         canvas.drawText(fullValue, cx, cy + (radius * 0.16f), valueTextPaint)
+
+        // Draw Icon (below the value, inside the ring, teñido con el color activo)
+        iconDrawable?.let { icon ->
+            icon.setTint(progressColor)
+            val iconHalf = (radius * 0.16f).toInt()
+            val iconCy = (cy + radius * 0.52f).toInt()
+            icon.setBounds(cx.toInt() - iconHalf, iconCy - iconHalf, cx.toInt() + iconHalf, iconCy + iconHalf)
+            icon.draw(canvas)
+        }
     }
 }
