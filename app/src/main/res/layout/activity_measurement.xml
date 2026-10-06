@@ -238,8 +238,9 @@
 
                                     <com.sybi.mosi.measurement.EqualizerLoaderView
                                         android:id="@+id/pbAlturaLoading"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
+                                        android:layout_width="32dp"
+                                        android:layout_height="32dp"
+                                        android:layout_gravity="center"
                                         android:visibility="visible" />
 
                                     <ImageView
@@ -300,8 +301,9 @@
 
                                     <com.sybi.mosi.measurement.EqualizerLoaderView
                                         android:id="@+id/pbPesoLoading"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
+                                        android:layout_width="32dp"
+                                        android:layout_height="32dp"
+                                        android:layout_gravity="center"
                                         android:visibility="visible" />
 
                                     <ImageView
@@ -377,8 +379,8 @@
 
                                 <com.sybi.mosi.measurement.EqualizerLoaderView
                                     android:id="@+id/pbImcLoading"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
+                                    android:layout_width="36dp"
+                                    android:layout_height="36dp"
                                     android:layout_gravity="center"
                                     android:visibility="visible" />
                             </FrameLayout>
@@ -402,7 +404,7 @@
                         android:layout_height="match_parent"
                         android:background="@drawable/bg_measurement_card"
                         android:orientation="vertical"
-                        android:gravity="center"
+                        android:gravity="top|center_horizontal"
                         android:padding="20dp"
                         android:visibility="gone">
 
@@ -414,6 +416,14 @@
                             android:textStyle="bold"
                             android:textColor="#001B3A"
                             android:layout_marginBottom="16dp" />
+
+                        <com.sybi.mosi.measurement.EqualizerLoaderView
+                            android:id="@+id/pbTemperaturaLoading"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:layout_gravity="center_horizontal"
+                            android:layout_marginVertical="10dp"
+                            android:visibility="visible" />
 
                         <LinearLayout
                             android:id="@+id/layoutResultTempContent"
@@ -539,7 +549,7 @@
                                         android:background="@drawable/bg_measurement_card"
                                         android:orientation="vertical"
                                         android:padding="8dp"
-                                        android:gravity="center"
+                                        android:gravity="top|center_horizontal"
                                         android:layout_marginEnd="3dp">
 
                                         <TextView
@@ -556,6 +566,13 @@
                                             android:layout_weight="1"
                                             android:orientation="horizontal"
                                             android:gravity="center">
+
+                                            <com.sybi.mosi.measurement.EqualizerLoaderView
+                                                android:id="@+id/pbFatLoading"
+                                                android:layout_width="28dp"
+                                                android:layout_height="28dp"
+                                                android:layout_gravity="center"
+                                                android:visibility="visible" />
 
                                             <ImageView
                                                 android:id="@+id/ivFatIcon"
@@ -606,7 +623,7 @@
                                         android:background="@drawable/bg_measurement_card"
                                         android:orientation="vertical"
                                         android:padding="8dp"
-                                        android:gravity="center"
+                                        android:gravity="top|center_horizontal"
                                         android:layout_marginStart="3dp">
 
                                         <TextView
@@ -623,6 +640,13 @@
                                             android:layout_weight="1"
                                             android:orientation="horizontal"
                                             android:gravity="center">
+
+                                            <com.sybi.mosi.measurement.EqualizerLoaderView
+                                                android:id="@+id/pbMuscleLoading"
+                                                android:layout_width="28dp"
+                                                android:layout_height="28dp"
+                                                android:layout_gravity="center"
+                                                android:visibility="visible" />
 
                                             <ImageView
                                                 android:id="@+id/ivMuscleIcon"
@@ -681,7 +705,7 @@
                                         android:background="@drawable/bg_measurement_card"
                                         android:orientation="vertical"
                                         android:padding="8dp"
-                                        android:gravity="center"
+                                        android:gravity="top|center_horizontal"
                                         android:layout_marginEnd="3dp">
 
                                         <TextView
@@ -698,6 +722,13 @@
                                             android:layout_weight="1"
                                             android:orientation="horizontal"
                                             android:gravity="center">
+
+                                            <com.sybi.mosi.measurement.EqualizerLoaderView
+                                                android:id="@+id/pbWaterLoading"
+                                                android:layout_width="28dp"
+                                                android:layout_height="28dp"
+                                                android:layout_gravity="center"
+                                                android:visibility="visible" />
 
                                             <ImageView
                                                 android:id="@+id/ivWaterIcon"
@@ -748,7 +779,7 @@
                                         android:background="@drawable/bg_measurement_card"
                                         android:orientation="vertical"
                                         android:padding="8dp"
-                                        android:gravity="center"
+                                        android:gravity="top|center_horizontal"
                                         android:layout_marginStart="3dp">
 
                                         <TextView
@@ -765,6 +796,13 @@
                                             android:layout_weight="1"
                                             android:orientation="horizontal"
                                             android:gravity="center">
+
+                                            <com.sybi.mosi.measurement.EqualizerLoaderView
+                                                android:id="@+id/pbVisceralLoading"
+                                                android:layout_width="28dp"
+                                                android:layout_height="28dp"
+                                                android:layout_gravity="center"
+                                                android:visibility="visible" />
 
                                             <ImageView
                                                 android:id="@+id/ivVisceralIcon"
@@ -801,56 +839,176 @@
                                 android:orientation="vertical"
                                 android:gravity="center">
 
-                                <TextView
-                                    android:id="@+id/tvPillProtein"
+                                <!-- Píldora: Masa Protéica -->
+                                <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="0dp"
                                     android:layout_weight="1"
                                     android:background="@drawable/bg_measurement_pill"
-                                    android:text="Masa Protéica"
-                                    android:textSize="13sp"
-                                    android:textColor="#001B3A"
-                                    android:gravity="center"
+                                    android:orientation="vertical"
+                                    android:gravity="top|center_horizontal"
                                     android:padding="6dp"
-                                    android:layout_marginBottom="6dp" />
+                                    android:layout_marginBottom="6dp">
 
-                                <TextView
-                                    android:id="@+id/tvPillMineral"
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Masa Protéica"
+                                        android:textSize="13sp"
+                                        android:textColor="#001B3A" />
+
+                                    <FrameLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="0dp"
+                                        android:layout_weight="1">
+
+                                        <TextView
+                                            android:id="@+id/tvPillProtein"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:layout_gravity="center"
+                                            android:text=""
+                                            android:textSize="13sp"
+                                            android:textColor="#001B3A"
+                                            android:gravity="center"
+                                            android:visibility="gone" />
+
+                                        <com.sybi.mosi.measurement.DotsLoaderView
+                                            android:id="@+id/pbPillProteinLoading"
+                                            android:layout_width="24dp"
+                                            android:layout_height="24dp"
+                                            android:layout_gravity="center"
+                                            android:visibility="visible" />
+                                    </FrameLayout>
+                                </LinearLayout>
+
+                                <!-- Píldora: Masa Mineral -->
+                                <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="0dp"
                                     android:layout_weight="1"
                                     android:background="@drawable/bg_measurement_pill"
-                                    android:text="Masa Mineral"
-                                    android:textSize="13sp"
-                                    android:textColor="#001B3A"
-                                    android:gravity="center"
+                                    android:orientation="vertical"
+                                    android:gravity="top|center_horizontal"
                                     android:padding="6dp"
-                                    android:layout_marginBottom="6dp" />
+                                    android:layout_marginBottom="6dp">
 
-                                <TextView
-                                    android:id="@+id/tvPillMetabolism"
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Masa Mineral"
+                                        android:textSize="13sp"
+                                        android:textColor="#001B3A" />
+
+                                    <FrameLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="0dp"
+                                        android:layout_weight="1">
+
+                                        <TextView
+                                            android:id="@+id/tvPillMineral"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:layout_gravity="center"
+                                            android:text=""
+                                            android:textSize="13sp"
+                                            android:textColor="#001B3A"
+                                            android:gravity="center"
+                                            android:visibility="gone" />
+
+                                        <com.sybi.mosi.measurement.DotsLoaderView
+                                            android:id="@+id/pbPillMineralLoading"
+                                            android:layout_width="24dp"
+                                            android:layout_height="24dp"
+                                            android:layout_gravity="center"
+                                            android:visibility="visible" />
+                                    </FrameLayout>
+                                </LinearLayout>
+
+                                <!-- Píldora: Metabolismo basal -->
+                                <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="0dp"
                                     android:layout_weight="1"
                                     android:background="@drawable/bg_measurement_pill"
-                                    android:text="Metabolísmo basal"
-                                    android:textSize="13sp"
-                                    android:textColor="#001B3A"
-                                    android:gravity="center"
+                                    android:orientation="vertical"
+                                    android:gravity="top|center_horizontal"
                                     android:padding="6dp"
-                                    android:layout_marginBottom="6dp" />
+                                    android:layout_marginBottom="6dp">
 
-                                <TextView
-                                    android:id="@+id/tvPillNotFat"
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Metabolísmo basal"
+                                        android:textSize="13sp"
+                                        android:textColor="#001B3A" />
+
+                                    <FrameLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="0dp"
+                                        android:layout_weight="1">
+
+                                        <TextView
+                                            android:id="@+id/tvPillMetabolism"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:layout_gravity="center"
+                                            android:text=""
+                                            android:textSize="13sp"
+                                            android:textColor="#001B3A"
+                                            android:gravity="center"
+                                            android:visibility="gone" />
+
+                                        <com.sybi.mosi.measurement.DotsLoaderView
+                                            android:id="@+id/pbPillMetabolismLoading"
+                                            android:layout_width="24dp"
+                                            android:layout_height="24dp"
+                                            android:layout_gravity="center"
+                                            android:visibility="visible" />
+                                    </FrameLayout>
+                                </LinearLayout>
+
+                                <!-- Píldora: Masa libre de grasa -->
+                                <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="0dp"
                                     android:layout_weight="1"
                                     android:background="@drawable/bg_measurement_pill"
-                                    android:text="Masa libre de grasa"
-                                    android:textSize="13sp"
-                                    android:textColor="#001B3A"
-                                    android:gravity="center"
-                                    android:padding="6dp" />
+                                    android:orientation="vertical"
+                                    android:gravity="top|center_horizontal"
+                                    android:padding="6dp">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Masa libre de grasa"
+                                        android:textSize="13sp"
+                                        android:textColor="#001B3A" />
+
+                                    <FrameLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="0dp"
+                                        android:layout_weight="1">
+
+                                        <TextView
+                                            android:id="@+id/tvPillNotFat"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:layout_gravity="center"
+                                            android:text=""
+                                            android:textSize="13sp"
+                                            android:textColor="#001B3A"
+                                            android:gravity="center"
+                                            android:visibility="gone" />
+
+                                        <com.sybi.mosi.measurement.DotsLoaderView
+                                            android:id="@+id/pbPillNotFatLoading"
+                                            android:layout_width="24dp"
+                                            android:layout_height="24dp"
+                                            android:layout_gravity="center"
+                                            android:visibility="visible" />
+                                    </FrameLayout>
+                                </LinearLayout>
                             </LinearLayout>
 
                         </LinearLayout>
@@ -904,8 +1062,9 @@
 
                                     <com.sybi.mosi.measurement.EqualizerLoaderView
                                         android:id="@+id/pbSistolicaLoading"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
+                                        android:layout_width="32dp"
+                                        android:layout_height="32dp"
+                                        android:layout_gravity="center"
                                         android:visibility="visible" />
 
                                     <ImageView
@@ -965,8 +1124,9 @@
 
                                     <com.sybi.mosi.measurement.EqualizerLoaderView
                                         android:id="@+id/pbDiastolicaLoading"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
+                                        android:layout_width="32dp"
+                                        android:layout_height="32dp"
+                                        android:layout_gravity="center"
                                         android:visibility="visible" />
 
                                     <ImageView
@@ -1031,8 +1191,8 @@
 
                                 <com.sybi.mosi.measurement.EqualizerLoaderView
                                     android:id="@+id/pbPulsoLoading"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
                                     android:layout_gravity="center"
                                     android:visibility="visible" />
                             </FrameLayout>
@@ -1087,11 +1247,24 @@
                                 android:textStyle="bold"
                                 android:textColor="#001B3A" />
 
-                            <com.sybi.mosi.measurement.RingProgressView
-                                android:id="@+id/ringSpO2"
+                            <FrameLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="0dp"
-                                android:layout_weight="1" />
+                                android:layout_weight="1">
+
+                                <com.sybi.mosi.measurement.RingProgressView
+                                    android:id="@+id/ringSpO2"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:visibility="gone" />
+
+                                <com.sybi.mosi.measurement.EqualizerLoaderView
+                                    android:id="@+id/pbSpO2Loading"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:layout_gravity="center"
+                                    android:visibility="visible" />
+                            </FrameLayout>
 
                             <ImageView
                                 android:id="@+id/ivSpO2RingIcon"
@@ -1121,11 +1294,24 @@
                                 android:textStyle="bold"
                                 android:textColor="#001B3A" />
 
-                            <com.sybi.mosi.measurement.RingProgressView
-                                android:id="@+id/ringHeartRate"
+                            <FrameLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="0dp"
-                                android:layout_weight="1" />
+                                android:layout_weight="1">
+
+                                <com.sybi.mosi.measurement.RingProgressView
+                                    android:id="@+id/ringHeartRate"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:visibility="gone" />
+
+                                <com.sybi.mosi.measurement.EqualizerLoaderView
+                                    android:id="@+id/pbHeartRateLoading"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:layout_gravity="center"
+                                    android:visibility="visible" />
+                            </FrameLayout>
 
                             <ImageView
                                 android:id="@+id/ivHeartRateRingIcon"
@@ -1155,11 +1341,24 @@
                                 android:textStyle="bold"
                                 android:textColor="#001B3A" />
 
-                            <com.sybi.mosi.measurement.RingProgressView
-                                android:id="@+id/ringPI"
+                            <FrameLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="0dp"
-                                android:layout_weight="1" />
+                                android:layout_weight="1">
+
+                                <com.sybi.mosi.measurement.RingProgressView
+                                    android:id="@+id/ringPI"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:visibility="gone" />
+
+                                <com.sybi.mosi.measurement.EqualizerLoaderView
+                                    android:id="@+id/pbPILoading"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:layout_gravity="center"
+                                    android:visibility="visible" />
+                            </FrameLayout>
 
                             <ImageView
                                 android:id="@+id/ivPIRingIcon"

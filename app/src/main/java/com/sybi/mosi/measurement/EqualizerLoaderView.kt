@@ -29,7 +29,10 @@ class EqualizerLoaderView @JvmOverloads constructor(
 
     init {
         orientation = HORIZONTAL
-        gravity = Gravity.BOTTOM
+        // Centradas en el propio espacio del loader (cada barra igual crece desde su propia
+        // base gracias al pivotY, así que esto no cambia la animación, solo dónde se ubica
+        // el grupo si el contenedor termina siendo más grande que las barras).
+        gravity = Gravity.CENTER
         val anchoBarraPx = (4 * resources.displayMetrics.density).toInt()
         val espacioPx = (4 * resources.displayMetrics.density).toInt()
         val altoMaxPx = (28 * resources.displayMetrics.density).toInt()
