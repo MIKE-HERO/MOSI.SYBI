@@ -45,11 +45,19 @@ class MeasurementResults(private val activity: Activity) {
     var tvPillMineral: TextView? = null
     var tvPillMetabolism: TextView? = null
     var tvPillNotFat: TextView? = null
+    var pbPillProteinLoading: DotsLoaderView? = null
+    var pbPillMineralLoading: DotsLoaderView? = null
+    var pbPillMetabolismLoading: DotsLoaderView? = null
+    var pbPillNotFatLoading: DotsLoaderView? = null
 
     var ivFatIcon: ImageView? = null
     var ivMuscleIcon: ImageView? = null
     var ivWaterIcon: ImageView? = null
     var ivVisceralIcon: ImageView? = null
+    var pbFatLoading: EqualizerLoaderView? = null
+    var pbMuscleLoading: EqualizerLoaderView? = null
+    var pbWaterLoading: EqualizerLoaderView? = null
+    var pbVisceralLoading: EqualizerLoaderView? = null
 
     // Temperatura
     var layoutResultTempContent: View? = null
@@ -57,6 +65,7 @@ class MeasurementResults(private val activity: Activity) {
     var tvResultTempMain: TextView? = null
     var tvResultTempSub: TextView? = null
     var tvTempStatus: TextView? = null
+    var pbTemperaturaLoading: EqualizerLoaderView? = null
 
     // Oxígeno
     var ringSpO2: RingProgressView? = null
@@ -65,6 +74,9 @@ class MeasurementResults(private val activity: Activity) {
     var ivSpO2RingIcon: ImageView? = null
     var ivHeartRateRingIcon: ImageView? = null
     var ivPIRingIcon: ImageView? = null
+    var pbSpO2Loading: EqualizerLoaderView? = null
+    var pbHeartRateLoading: EqualizerLoaderView? = null
+    var pbPILoading: EqualizerLoaderView? = null
 
     // Presión
     var tvResultSystolicValue: TextView? = null
@@ -107,11 +119,19 @@ class MeasurementResults(private val activity: Activity) {
         tvPillMineral = root.findViewById(R.id.tvPillMineral)
         tvPillMetabolism = root.findViewById(R.id.tvPillMetabolism)
         tvPillNotFat = root.findViewById(R.id.tvPillNotFat)
+        pbPillProteinLoading = root.findViewById(R.id.pbPillProteinLoading)
+        pbPillMineralLoading = root.findViewById(R.id.pbPillMineralLoading)
+        pbPillMetabolismLoading = root.findViewById(R.id.pbPillMetabolismLoading)
+        pbPillNotFatLoading = root.findViewById(R.id.pbPillNotFatLoading)
 
         ivFatIcon = root.findViewById(R.id.ivFatIcon)
         ivMuscleIcon = root.findViewById(R.id.ivMuscleIcon)
         ivWaterIcon = root.findViewById(R.id.ivWaterIcon)
         ivVisceralIcon = root.findViewById(R.id.ivVisceralIcon)
+        pbFatLoading = root.findViewById(R.id.pbFatLoading)
+        pbMuscleLoading = root.findViewById(R.id.pbMuscleLoading)
+        pbWaterLoading = root.findViewById(R.id.pbWaterLoading)
+        pbVisceralLoading = root.findViewById(R.id.pbVisceralLoading)
 
         // Temperatura
         layoutResultTempContent = root.findViewById(R.id.layoutResultTempContent)
@@ -119,6 +139,7 @@ class MeasurementResults(private val activity: Activity) {
         tvResultTempMain = root.findViewById(R.id.tvResultTempMain)
         tvResultTempSub = root.findViewById(R.id.tvResultTempSub)
         tvTempStatus = root.findViewById(R.id.tvTempStatus)
+        pbTemperaturaLoading = root.findViewById(R.id.pbTemperaturaLoading)
 
         // Oxígeno
         ringSpO2 = root.findViewById(R.id.ringSpO2)
@@ -127,12 +148,12 @@ class MeasurementResults(private val activity: Activity) {
         ivSpO2RingIcon = root.findViewById(R.id.ivSpO2RingIcon)
         ivHeartRateRingIcon = root.findViewById(R.id.ivHeartRateRingIcon)
         ivPIRingIcon = root.findViewById(R.id.ivPIRingIcon)
+        pbSpO2Loading = root.findViewById(R.id.pbSpO2Loading)
+        pbHeartRateLoading = root.findViewById(R.id.pbHeartRateLoading)
+        pbPILoading = root.findViewById(R.id.pbPILoading)
 
-        ringSpO2?.setColors(
-            trackClr = Color.parseColor("#BBDEFB"),
-            activeClr = Color.parseColor("#1E88E5"),
-            textClr = Color.parseColor("#1E88E5")
-        )
+        // ringSpO2 ya no se colorea aquí con un azul fijo: toma el color de marca en
+        // applyLoaderColor(), igual que el resto de los indicadores de esta pantalla.
         ringHeartRate?.setColors(
             trackClr = Color.parseColor("#FFCDD2"),
             activeClr = Color.parseColor("#E53935"),
@@ -207,6 +228,27 @@ class MeasurementResults(private val activity: Activity) {
         pbSistolicaLoading?.setBarColor(color)
         pbDiastolicaLoading?.setBarColor(color)
         pbPulsoLoading?.setBarColor(color)
+        pbTemperaturaLoading?.setBarColor(color)
+        pbFatLoading?.setBarColor(color)
+        pbMuscleLoading?.setBarColor(color)
+        pbWaterLoading?.setBarColor(color)
+        pbVisceralLoading?.setBarColor(color)
+        pbSpO2Loading?.setBarColor(color)
+        pbHeartRateLoading?.setBarColor(color)
+        pbPILoading?.setBarColor(color)
+        pbPillProteinLoading?.setDotColor(color)
+        pbPillMineralLoading?.setDotColor(color)
+        pbPillMetabolismLoading?.setDotColor(color)
+        pbPillNotFatLoading?.setDotColor(color)
+
+        ringSpO2?.setColors(trackClr = lightenColor(color, 0.75f), activeClr = color, textClr = color)
+    }
+
+    private fun lightenColor(color: Int, whiteRatio: Float): Int {
+        val r = (Color.red(color) * (1 - whiteRatio) + 255 * whiteRatio).toInt().coerceIn(0, 255)
+        val g = (Color.green(color) * (1 - whiteRatio) + 255 * whiteRatio).toInt().coerceIn(0, 255)
+        val b = (Color.blue(color) * (1 - whiteRatio) + 255 * whiteRatio).toInt().coerceIn(0, 255)
+        return Color.rgb(r, g, b)
     }
 
     fun clearComposition() {
@@ -216,22 +258,33 @@ class MeasurementResults(private val activity: Activity) {
         ivFatIcon?.visibility = View.GONE
         tvResultFatRate?.visibility = View.GONE
         tvResultFatKg?.visibility = View.GONE
+        pbFatLoading?.visibility = View.VISIBLE
 
         ivMuscleIcon?.visibility = View.GONE
         tvResultMuscleRate?.visibility = View.GONE
         tvResultMuscleKg?.visibility = View.GONE
+        pbMuscleLoading?.visibility = View.VISIBLE
 
         ivWaterIcon?.visibility = View.GONE
         tvResultWaterRate?.visibility = View.GONE
         tvResultWaterKg?.visibility = View.GONE
+        pbWaterLoading?.visibility = View.VISIBLE
 
         ivVisceralIcon?.visibility = View.GONE
         tvResultVisceralFat?.visibility = View.GONE
+        pbVisceralLoading?.visibility = View.VISIBLE
 
-        tvPillProtein?.text = "Masa Protéica"
-        tvPillMineral?.text = "Masa Mineral"
-        tvPillMetabolism?.text = "Metabolísmo basal"
-        tvPillNotFat?.text = "Masa libre de grasa"
+        tvPillProtein?.visibility = View.GONE
+        pbPillProteinLoading?.visibility = View.VISIBLE
+
+        tvPillMineral?.visibility = View.GONE
+        pbPillMineralLoading?.visibility = View.VISIBLE
+
+        tvPillMetabolism?.visibility = View.GONE
+        pbPillMetabolismLoading?.visibility = View.VISIBLE
+
+        tvPillNotFat?.visibility = View.GONE
+        pbPillNotFatLoading?.visibility = View.VISIBLE
     }
 
     fun updateComposition(state: MeasurementState, isMale: Boolean, age: Int) {
@@ -253,6 +306,7 @@ class MeasurementResults(private val activity: Activity) {
         val fatResult = evaluateFat(state.fatRate, isMale, age)
         ivFatIcon?.setImageResource(fatResult.iconResId)
         ivFatIcon?.visibility = View.VISIBLE
+        pbFatLoading?.visibility = View.GONE
 
         // 3. Masa Muscular Total
         val muscleKg = state.muscle
@@ -266,6 +320,7 @@ class MeasurementResults(private val activity: Activity) {
         val muscleResult = evaluateMuscle(muscleRate, isMale, age)
         ivMuscleIcon?.setImageResource(muscleResult.iconResId)
         ivMuscleIcon?.visibility = View.VISIBLE
+        pbMuscleLoading?.visibility = View.GONE
 
         // 4. Agua Corporal
         tvResultWaterRate?.text = "%.0f%%".format(state.waterRate)
@@ -275,6 +330,7 @@ class MeasurementResults(private val activity: Activity) {
         val waterResult = evaluateWater(state.waterRate, isMale, age)
         ivWaterIcon?.setImageResource(waterResult.iconResId)
         ivWaterIcon?.visibility = View.VISIBLE
+        pbWaterLoading?.visibility = View.GONE
 
         // 5. Grasa Visceral
         tvResultVisceralFat?.text = "%.1f".format(state.visceralFat)
@@ -282,12 +338,24 @@ class MeasurementResults(private val activity: Activity) {
         val visceralResult = evaluateVisceral(state.visceralFat)
         ivVisceralIcon?.setImageResource(visceralResult.iconResId)
         ivVisceralIcon?.visibility = View.VISIBLE
+        pbVisceralLoading?.visibility = View.GONE
 
         // Píldoras / Tarjetas secundarias
-        tvPillProtein?.text = "Masa Protéica\n%.1f kg - 15 %%".format(state.protein)
-        tvPillMineral?.text = "Masa Mineral\n%.1f kg - 15 %%".format(state.mineral)
-        tvPillMetabolism?.text = "Metabolísmo basal\n${state.metabolism} Kcal"
-        tvPillNotFat?.text = "Masa libre de grasa\n%.1f kg".format(state.notFat)
+        tvPillProtein?.text = "%.1f kg - 15 %%".format(state.protein)
+        tvPillProtein?.visibility = View.VISIBLE
+        pbPillProteinLoading?.visibility = View.GONE
+
+        tvPillMineral?.text = "%.1f kg - 15 %%".format(state.mineral)
+        tvPillMineral?.visibility = View.VISIBLE
+        pbPillMineralLoading?.visibility = View.GONE
+
+        tvPillMetabolism?.text = "${state.metabolism} Kcal"
+        tvPillMetabolism?.visibility = View.VISIBLE
+        pbPillMetabolismLoading?.visibility = View.GONE
+
+        tvPillNotFat?.text = "%.1f kg".format(state.notFat)
+        tvPillNotFat?.visibility = View.VISIBLE
+        pbPillNotFatLoading?.visibility = View.GONE
     }
 
     fun updateTemperature(tempC: Double, tempF: Double) {
@@ -297,9 +365,11 @@ class MeasurementResults(private val activity: Activity) {
             tvResultTempSub?.text = "%.2f °F".format(subF)
 
             layoutResultTempContent?.visibility = View.VISIBLE
+            pbTemperaturaLoading?.visibility = View.GONE
         } else {
             layoutResultTempContent?.visibility = View.GONE
             tvTempStatus?.visibility = View.GONE
+            pbTemperaturaLoading?.visibility = View.VISIBLE
         }
     }
 
@@ -309,30 +379,36 @@ class MeasurementResults(private val activity: Activity) {
             ringSpO2?.setData("SpO2", "$spo2", "%", spo2Ratio, animated = true)
             ringSpO2?.visibility = View.VISIBLE
             ivSpO2RingIcon?.visibility = View.VISIBLE
+            pbSpO2Loading?.visibility = View.GONE
 
             val pulseRatio = if (pulseRate > 0) (pulseRate / 150f).coerceIn(0f, 1f) else 0f
             val pulseValStr = if (pulseRate > 0) "$pulseRate" else "--"
             ringHeartRate?.setData("BPM", pulseValStr, "", pulseRatio, animated = true)
             ringHeartRate?.visibility = View.VISIBLE
             ivHeartRateRingIcon?.visibility = View.VISIBLE
+            pbHeartRateLoading?.visibility = View.GONE
 
             val piRatio = if (pi > 0) (pi / 20.0).toFloat().coerceIn(0f, 1f) else 0f
             val piValStr = if (pi > 0) "%.1f".format(pi) else "--"
             ringPI?.setData("PI %", piValStr, "", piRatio, animated = true)
             ringPI?.visibility = View.VISIBLE
             ivPIRingIcon?.visibility = View.VISIBLE
+            pbPILoading?.visibility = View.GONE
         } else {
             ringSpO2?.setData("SpO2", "", "%", 0f, animated = false)
             ringSpO2?.visibility = View.GONE
             ivSpO2RingIcon?.visibility = View.GONE
+            pbSpO2Loading?.visibility = View.VISIBLE
 
             ringHeartRate?.setData("BPM", "", "", 0f, animated = false)
             ringHeartRate?.visibility = View.GONE
             ivHeartRateRingIcon?.visibility = View.GONE
+            pbHeartRateLoading?.visibility = View.VISIBLE
 
             ringPI?.setData("PI %", "", "", 0f, animated = false)
             ringPI?.visibility = View.GONE
             ivPIRingIcon?.visibility = View.GONE
+            pbPILoading?.visibility = View.VISIBLE
         }
     }
 
