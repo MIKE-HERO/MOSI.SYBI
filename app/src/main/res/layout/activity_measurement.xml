@@ -1197,15 +1197,6 @@
                                     android:visibility="visible" />
                             </FrameLayout>
 
-                            <ImageView
-                                android:id="@+id/ivPresionPulseRingIcon"
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:src="@drawable/ic_measurement_heart_rate"
-                                android:contentDescription="Pulso"
-                                android:layout_marginBottom="4dp"
-                                android:visibility="gone" />
-
                             <TextView
                                 android:id="@+id/tvPresionStatus"
                                 android:layout_width="wrap_content"
@@ -1266,13 +1257,6 @@
                                     android:visibility="visible" />
                             </FrameLayout>
 
-                            <ImageView
-                                android:id="@+id/ivSpO2RingIcon"
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:src="@drawable/ic_measurement_spo2"
-                                android:contentDescription="SpO2"
-                                android:layout_marginBottom="4dp" />
                         </LinearLayout>
 
                         <!-- Card 2: Ritmo Cardíaco (BPM) -->
@@ -1313,13 +1297,6 @@
                                     android:visibility="visible" />
                             </FrameLayout>
 
-                            <ImageView
-                                android:id="@+id/ivHeartRateRingIcon"
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:src="@drawable/ic_measurement_heart_rate"
-                                android:contentDescription="Ritmo Cardíaco"
-                                android:layout_marginBottom="4dp" />
                         </LinearLayout>
 
                         <!-- Card 3: Índice de Perfusión (PI) -->
@@ -1360,13 +1337,6 @@
                                     android:visibility="visible" />
                             </FrameLayout>
 
-                            <ImageView
-                                android:id="@+id/ivPIRingIcon"
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:src="@drawable/ic_measurement_pi"
-                                android:contentDescription="Índice de Perfusión"
-                                android:layout_marginBottom="4dp" />
                         </LinearLayout>
                     </LinearLayout>
 
