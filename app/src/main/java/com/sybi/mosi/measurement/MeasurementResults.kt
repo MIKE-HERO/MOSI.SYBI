@@ -27,6 +27,9 @@ class MeasurementResults(private val activity: Activity) {
     var gaugeIMC: GaugeView? = null
     var ivHeightIcon: ImageView? = null
     var ivWeightIcon: ImageView? = null
+    var pbAlturaLoading: EqualizerLoaderView? = null
+    var pbPesoLoading: EqualizerLoaderView? = null
+    var pbImcLoading: EqualizerLoaderView? = null
 
     // Composición Corporal
     var tvComplexionTitle: TextView? = null
@@ -71,6 +74,9 @@ class MeasurementResults(private val activity: Activity) {
     var ivSystolicIcon: ImageView? = null
     var ivDiastolicIcon: ImageView? = null
     var ivPresionPulseRingIcon: ImageView? = null
+    var pbSistolicaLoading: EqualizerLoaderView? = null
+    var pbDiastolicaLoading: EqualizerLoaderView? = null
+    var pbPulsoLoading: EqualizerLoaderView? = null
 
     fun bindViews(root: View = activity.window.decorView) {
         // Altura / Peso / IMC
@@ -81,6 +87,9 @@ class MeasurementResults(private val activity: Activity) {
         gaugeIMC = root.findViewById(R.id.gaugeIMC)
         ivHeightIcon = root.findViewById(R.id.ivHeightIcon)
         ivWeightIcon = root.findViewById(R.id.ivWeightIcon)
+        pbAlturaLoading = root.findViewById(R.id.pbAlturaLoading)
+        pbPesoLoading = root.findViewById(R.id.pbPesoLoading)
+        pbImcLoading = root.findViewById(R.id.pbImcLoading)
 
         gaugeIMC?.setGaugeType(GaugeView.GaugeType.IMC)
 
@@ -143,6 +152,9 @@ class MeasurementResults(private val activity: Activity) {
         ivSystolicIcon = root.findViewById(R.id.ivSystolicIcon)
         ivDiastolicIcon = root.findViewById(R.id.ivDiastolicIcon)
         ivPresionPulseRingIcon = root.findViewById(R.id.ivPresionPulseRingIcon)
+        pbSistolicaLoading = root.findViewById(R.id.pbSistolicaLoading)
+        pbDiastolicaLoading = root.findViewById(R.id.pbDiastolicaLoading)
+        pbPulsoLoading = root.findViewById(R.id.pbPulsoLoading)
 
         ringPresionPulse?.setColors(
             trackClr = Color.parseColor("#FFCDD2"),
@@ -156,28 +168,45 @@ class MeasurementResults(private val activity: Activity) {
             tvResultHeightValue?.text = "%.1f".format(height)
             tvResultHeightValue?.visibility = View.VISIBLE
             ivHeightIcon?.visibility = View.VISIBLE
+            pbAlturaLoading?.visibility = View.GONE
 
             tvResultWeightValue?.text = "%.1f".format(weight)
             tvResultWeightValue?.visibility = View.VISIBLE
             ivWeightIcon?.visibility = View.VISIBLE
+            pbPesoLoading?.visibility = View.GONE
 
             tvResultIMCValue?.text = "%.1f".format(imc)
             tvResultIMCValue?.visibility = View.VISIBLE
             gaugeIMC?.setValue(imc, animated = true)
             gaugeIMC?.visibility = View.VISIBLE
+            pbImcLoading?.visibility = View.GONE
 
             tvImcStatus?.visibility = View.GONE
         } else {
             tvResultHeightValue?.visibility = View.GONE
             ivHeightIcon?.visibility = View.GONE
+            pbAlturaLoading?.visibility = View.VISIBLE
 
             tvResultWeightValue?.visibility = View.GONE
             ivWeightIcon?.visibility = View.GONE
+            pbPesoLoading?.visibility = View.VISIBLE
 
             tvResultIMCValue?.visibility = View.GONE
             gaugeIMC?.visibility = View.GONE
+            pbImcLoading?.visibility = View.VISIBLE
             tvImcStatus?.visibility = View.GONE
         }
+    }
+
+    /** Recolorea los seis loaders de barritas (Altura/Peso/IMC/Sistólica/Diastólica/Pulso)
+     *  con el color de marca del quiosco, igual que el resto de los indicadores de la pantalla. */
+    fun applyLoaderColor(color: Int) {
+        pbAlturaLoading?.setBarColor(color)
+        pbPesoLoading?.setBarColor(color)
+        pbImcLoading?.setBarColor(color)
+        pbSistolicaLoading?.setBarColor(color)
+        pbDiastolicaLoading?.setBarColor(color)
+        pbPulsoLoading?.setBarColor(color)
     }
 
     fun clearComposition() {
@@ -312,26 +341,32 @@ class MeasurementResults(private val activity: Activity) {
             tvResultSystolicValue?.text = "$systolic"
             tvResultSystolicValue?.visibility = View.VISIBLE
             ivSystolicIcon?.visibility = View.VISIBLE
+            pbSistolicaLoading?.visibility = View.GONE
 
             tvResultDiastolicValue?.text = "$diastolic"
             tvResultDiastolicValue?.visibility = View.VISIBLE
             ivDiastolicIcon?.visibility = View.VISIBLE
+            pbDiastolicaLoading?.visibility = View.GONE
 
             val pulseRatio = if (pulse > 0) (pulse / 150f).coerceIn(0f, 1f) else 0f
             val pulseValStr = if (pulse > 0) "$pulse" else "--"
             ringPresionPulse?.setData("BPM", pulseValStr, "", pulseRatio, animated = true)
             ringPresionPulse?.visibility = View.VISIBLE
             ivPresionPulseRingIcon?.visibility = View.VISIBLE
+            pbPulsoLoading?.visibility = View.GONE
         } else {
             tvResultSystolicValue?.visibility = View.GONE
             ivSystolicIcon?.visibility = View.GONE
+            pbSistolicaLoading?.visibility = View.VISIBLE
 
             tvResultDiastolicValue?.visibility = View.GONE
             ivDiastolicIcon?.visibility = View.GONE
+            pbDiastolicaLoading?.visibility = View.VISIBLE
 
             ringPresionPulse?.setData("BPM", "", "", 0f, animated = false)
             ringPresionPulse?.visibility = View.GONE
             ivPresionPulseRingIcon?.visibility = View.GONE
+            pbPulsoLoading?.visibility = View.VISIBLE
             tvPresionStatus?.visibility = View.GONE
         }
     }

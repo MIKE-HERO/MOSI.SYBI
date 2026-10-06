@@ -19,6 +19,7 @@ class IcCardLoginActivity : BaseActivity() {
     private lateinit var tvStatus: TextView
     private var currentColor: String = "#0F3E82"
     private lateinit var dataReceiver: BroadcastReceiver
+    private var colorReceiver: BroadcastReceiver? = null
     private var sessionType: String = "measurement"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,6 +55,16 @@ class IcCardLoginActivity : BaseActivity() {
             }
         }
         LocalBroadcastManager.getInstance(this).registerReceiver(dataReceiver, IntentFilter("DEVICE_DATA_RECEIVED"))
+
+        // Repintar la barra lateral si cambia el color de marca (ajuste manual o ciclo multicolor)
+        colorReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val newColor = intent.getStringExtra("new_color") ?: return
+                currentColor = newColor
+                sideBar.setBackgroundColor(Color.parseColor(newColor))
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(colorReceiver!!, IntentFilter("ACTION_UPDATE_THEME"))
     }
 
     private fun onCardScanned(cardNumber: String) {
@@ -99,6 +110,7 @@ class IcCardLoginActivity : BaseActivity() {
         super.onDestroy()
         try {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(dataReceiver)
+            colorReceiver?.let { LocalBroadcastManager.getInstance(this).unregisterReceiver(it) }
         } catch (_: Exception) {}
     }
 }

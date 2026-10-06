@@ -310,17 +310,30 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         deviceManager.register()
     }
 
+    private val colorReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val newColor = intent.getStringExtra("new_color") ?: return
+            applyTheme(Color.parseColor(newColor))
+        }
+    }
+
     private fun setupReceivers() {
         LocalBroadcastManager.getInstance(this).apply {
             registerReceiver(dataReceiver, IntentFilter("DEVICE_DATA_RECEIVED"))
             registerReceiver(waveReceiver, IntentFilter("OXYGEN_WAVE_DATA"))
+            registerReceiver(colorReceiver, IntentFilter("ACTION_UPDATE_THEME"))
         }
     }
 
     private fun applyTheme() {
         val saved = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
             .getString("BackgroundColor", "#0F3E82") ?: "#0F3E82"
-        val color = Color.parseColor(saved)
+        applyTheme(Color.parseColor(saved))
+    }
+
+    /** Repinta la pantalla con [color] — llamado al abrir la pantalla y cada vez que cambia
+     *  el color de marca en vivo (ajuste manual o ciclo del modo multicolor). */
+    private fun applyTheme(color: Int) {
         findViewById<View>(R.id.topMeasurementBar).setBackgroundColor(color)
         findViewById<View>(R.id.bottomMeasurementBar).setBackgroundColor(color)
         btnStarECG.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
@@ -337,6 +350,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         layoutStatusContent.background = pillDrawable(pillLightColor, 28f)
         statusSweep.setCornerRadiusDp(28f)
         statusSweep.setSweepColor(themeColor)
+
+        measurementResults.applyLoaderColor(themeColor)
     }
 
     private fun getPatientAge(): Int {
@@ -1455,6 +1470,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         deviceManager.unregister()
         try { LocalBroadcastManager.getInstance(this).unregisterReceiver(dataReceiver) } catch (_: Exception) {}
         try { LocalBroadcastManager.getInstance(this).unregisterReceiver(waveReceiver) } catch (_: Exception) {}
+        try { LocalBroadcastManager.getInstance(this).unregisterReceiver(colorReceiver) } catch (_: Exception) {}
         if (VideoLoopRemote.isMeasurementMuteEnabled(this)) {
             val appContext = applicationContext
             // Devuelve el audio solo si lo silenció la app; si el usuario lo había silenciado, sigue así
