@@ -57,28 +57,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     // ── Vistas ────────────────────────────────────────────
     private lateinit var tvTitle: TextView
-    private lateinit var tvResultHeight: TextView
-    private lateinit var tvResultWeight: TextView
-    private lateinit var tvResultIMC: TextView
-    private lateinit var tvResultTemperature: TextView
-    private lateinit var tvResultFat: TextView
-    private lateinit var tvResultFatKg: TextView
-    private lateinit var tvResultWater: TextView
-    private lateinit var tvResultWaterKg: TextView
-    private lateinit var tvResultMuscle: TextView
-    private lateinit var tvResultNotFat: TextView
-    private lateinit var tvResultProtein: TextView
-    private lateinit var tvResultMineral: TextView
-    private lateinit var tvResultMetabolism: TextView
-    private lateinit var tvResultVisceralFat: TextView
-    private lateinit var tvResultIdealWeight: TextView
-    private lateinit var tvResultFatType: TextView
-    private lateinit var tvResultSistolica: TextView
-    private lateinit var tvResultDiastolica: TextView
-    private lateinit var tvResultPulso: TextView
-    private lateinit var tvResultSpO2: TextView
-    private lateinit var tvResultPulseRate: TextView
-    private lateinit var tvResultPI: TextView
+    private lateinit var measurementResults: MeasurementResults
 
     // ÚLTIMOS RESULTADOS (Historial)
     private lateinit var layoutLastResults: LinearLayout
@@ -123,6 +102,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var imgGuide: ImageView
     private var guideBreathingAnimator: android.animation.ObjectAnimator? = null
     private lateinit var waveformView: WaveformView
+    private lateinit var layoutStatusContent: LinearLayout
     private lateinit var tvStatusMessage: TextView
     private lateinit var ivStatusCheck: ImageView
     private lateinit var statusSweep: LoadingSweepView
@@ -140,11 +120,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var groupAcidoUrico: LinearLayout
     private lateinit var groupColesterol: LinearLayout
 
-    // Progreso composición
-    private lateinit var layoutProgressComposicion: LinearLayout
+    private lateinit var tvStatusProgress: TextView
     private lateinit var layoutResultadosComposicion: LinearLayout
-    private lateinit var pbComposicion: ProgressBar
-    private lateinit var tvProgressPercent: TextView
 
     private lateinit var btnStarECG: Button
     private lateinit var btnConfirmMeasurements: Button
@@ -226,28 +203,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun bindViews() {
         tvTitle = findViewById(R.id.tvMeasurementTitle)
-        tvResultHeight = findViewById(R.id.tvResultHeight)
-        tvResultWeight = findViewById(R.id.tvResultWeight)
-        tvResultIMC = findViewById(R.id.tvResultIMC)
-        tvResultTemperature = findViewById(R.id.tvResultTemperature)
-        tvResultFat = findViewById(R.id.tvResultFat)
-        tvResultFatKg = findViewById(R.id.tvResultFatKg)
-        tvResultWater = findViewById(R.id.tvResultWater)
-        tvResultWaterKg = findViewById(R.id.tvResultWaterKg)
-        tvResultMuscle = findViewById(R.id.tvResultMuscle)
-        tvResultNotFat = findViewById(R.id.tvResultNotFat)
-        tvResultProtein = findViewById(R.id.tvResultProtein)
-        tvResultMineral = findViewById(R.id.tvResultMineral)
-        tvResultMetabolism = findViewById(R.id.tvResultMetabolism)
-        tvResultVisceralFat = findViewById(R.id.tvResultVisceralFat)
-        tvResultIdealWeight = findViewById(R.id.tvResultIdealWeight)
-        tvResultFatType = findViewById(R.id.tvResultFatType)
-        tvResultSistolica = findViewById(R.id.tvResultSistolica)
-        tvResultDiastolica = findViewById(R.id.tvResultDiastolica)
-        tvResultPulso = findViewById(R.id.tvResultPulso)
-        tvResultSpO2 = findViewById(R.id.tvResultSpO2)
-        tvResultPulseRate = findViewById(R.id.tvResultPulseRate)
-        tvResultPI = findViewById(R.id.tvResultPI)
+        measurementResults = MeasurementResults(this)
+        measurementResults.bindViews()
 
         // Binding últimos resultados
         layoutLastResults = findViewById(R.id.layoutLastResults)
@@ -289,6 +246,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         cardEcgImage = findViewById(R.id.cardEcgImage)
         imgGuide = findViewById(R.id.imgMeasurementGuide)
         waveformView = findViewById(R.id.waveformView)
+        layoutStatusContent = findViewById(R.id.layoutStatusContent)
         tvStatusMessage = findViewById(R.id.tvStatusMessage)
         ivStatusCheck = findViewById(R.id.ivStatusCheck)
         statusSweep = findViewById(R.id.statusSweep)
@@ -302,10 +260,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         groupAcidoUrico = findViewById(R.id.groupAcidoUrico)
         groupColesterol = findViewById(R.id.groupColesterol)
 
-        layoutProgressComposicion = findViewById(R.id.layoutProgressComposicion)
+        tvStatusProgress = findViewById(R.id.tvStatusProgress)
         layoutResultadosComposicion = findViewById(R.id.layoutResultadosComposicion)
-        pbComposicion = findViewById(R.id.pbComposicion)
-        tvProgressPercent = findViewById(R.id.tvProgressPercent)
 
         btnStarECG = findViewById(R.id.btnStarECG)
         btnConfirmMeasurements = findViewById(R.id.btnConfirmMeasurements)
@@ -378,21 +334,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         pillLightColor = lightenColor(themeColor, 0.85f)
         pillPulseColor = lightenColor(themeColor, 0.55f)
 
-        val allResultPills = listOf(
-            tvResultHeight, tvResultWeight, tvResultIMC,
-            tvResultTemperature,
-            tvResultSistolica, tvResultDiastolica, tvResultPulso,
-            tvResultSpO2, tvResultPulseRate, tvResultPI,
-            tvResultFat, tvResultFatKg, tvResultWater, tvResultWaterKg, tvResultMuscle,
-            tvResultNotFat, tvResultProtein, tvResultMineral, tvResultMetabolism,
-            tvResultVisceralFat, tvResultIdealWeight, tvResultFatType,
-            tvResultHeartRate, tvResultPAxis, tvResultQRSAxis, tvResultTAxis, tvResultPR,
-            tvResultQRS, tvResultQT, tvResultQTC, tvResultRV5, tvResultSV1, tvResultResCode
-        )
-        allResultPills.forEach { it.background = pillDrawable(pillLightColor, 18f) }
-
-        tvStatusMessage.background = pillDrawable(pillLightColor, 28f)
-        tvStatusMessage.setPadding(dp(20), dp(12), dp(20), dp(12))
+        layoutStatusContent.background = pillDrawable(pillLightColor, 28f)
         statusSweep.setCornerRadiusDp(28f)
         statusSweep.setSweepColor(themeColor)
     }
@@ -535,7 +477,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun startHeightWeight() {
         currentMeasurementType = "ALTURA_PESO"
         switchTab("Altura / Peso", "altura_peso", groupAlturaPeso)
-        setActiveResultPills(tvResultHeight, tvResultWeight, tvResultIMC)
+        measurementResults.updateHeightWeight(state.height, state.weight, state.imc)
 
         if (completedMeasurements.contains("ALTURA_PESO") || state.hasHeightWeight()) {
             btnRepeat.visibility = View.VISIBLE
@@ -550,14 +492,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun startComposition() {
         currentMeasurementType = "COMPOSICION"
         switchTab("Composición Corporal", "composicion", groupComposicion)
-        setActiveResultPills()
-
-        // Asegurar que el grupo esté visible y ocultar las celdas de resultado para mostrar el progreso
-        layoutResultadosComposicion.visibility = View.GONE
 
         if (completedMeasurements.contains("COMPOSICION") || state.hasComposition()) {
-            layoutProgressComposicion.visibility = View.GONE
-            layoutResultadosComposicion.visibility = View.VISIBLE
+            tvStatusProgress.visibility = View.GONE
+            renderComposition()
             btnRepeat.visibility = View.VISIBLE
             showStatusMessage("Medición completada correctamente", "#4CAF50")
             showSuccessCheck(true)
@@ -568,10 +506,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             onMeasurementError(); return
         }
 
-        // Preparar barra de progreso y ocultar resultados
-        pbComposicion.progress = 0
-        tvProgressPercent.text = "0%"
-        layoutProgressComposicion.visibility = View.VISIBLE
+        measurementResults.clearComposition()
+        tvStatusProgress.text = "0%"
+        tvStatusProgress.visibility = View.VISIBLE
+        ivStatusCheck.visibility = View.GONE
 
         sendPatientDataToService()
         showReady()
@@ -581,7 +519,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun startPressure() {
         currentMeasurementType = "PRESION"
         switchTab("Presión Arterial", "presion", groupPresion)
-        setActiveResultPills(tvResultSistolica, tvResultDiastolica, tvResultPulso)
+        measurementResults.updatePressure(state.systolic, state.diastolic, state.pulse)
 
         if (completedMeasurements.contains("PRESION") || state.hasPressure()) {
             btnRepeat.visibility = View.VISIBLE
@@ -596,7 +534,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun startTemperature() {
         currentMeasurementType = "TEMPERATURA"
         switchTab("Temperatura Corporal", "temperatura", groupTemperatura)
-        setActiveResultPills(tvResultTemperature)
+        measurementResults.updateTemperature(state.temperature, state.temperatureF)
 
         if (completedMeasurements.contains("TEMPERATURA") || state.hasTemperature()) {
             btnRepeat.visibility = View.VISIBLE
@@ -612,7 +550,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         currentMeasurementType = "OXIGENO"
         oxygenReadingStarted = false
         switchTab("Oxígeno en Sangre", "oxigeno", groupOxigeno)
-        setActiveResultPills(tvResultSpO2, tvResultPulseRate, tvResultPI)
+        measurementResults.updateOxygen(state.spo2, state.pulseRate, state.pi)
 
         if (completedMeasurements.contains("OXIGENO") || state.hasOxygen()) {
             btnRepeat.visibility = View.VISIBLE
@@ -679,9 +617,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         when (currentMeasurementType) {
             "ALTURA_PESO" -> {
                 state.resetHeightWeight()
-                tvResultHeight.text = "Altura\n--"
-                tvResultWeight.text = "Peso\n--"
-                tvResultIMC.text = "IMC\n--"
+                measurementResults.updateHeightWeight(0.0, 0.0, 0.0)
                 showReady(); controller.forceSendCommand("ALTURA_PESO")
             }
             "COMPOSICION" -> {
@@ -690,33 +626,27 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                     return
                 }
                 state.resetComposition()
-                layoutResultadosComposicion.visibility = View.GONE
-
-                // Reiniciar progreso
-                pbComposicion.progress = 0
-                tvProgressPercent.text = "0%"
-                layoutProgressComposicion.visibility = View.VISIBLE
+                measurementResults.clearComposition()
+                tvStatusProgress.text = "0%"
+                tvStatusProgress.visibility = View.VISIBLE
+                ivStatusCheck.visibility = View.GONE
 
                 sendPatientDataToService(); showReady(); controller.forceSendCommand("COMPOSICION")
             }
             "PRESION" -> {
                 state.resetPressure()
-                tvResultSistolica.text = "Sistólica\n-- mmHg"
-                tvResultDiastolica.text = "Diastólica\n-- mmHg"
-                tvResultPulso.text = "Pulso\n-- bpm"
+                measurementResults.updatePressure(0, 0, 0)
                 showReady(); controller.forceSendCommand("PRESION")
             }
             "TEMPERATURA" -> {
                 state.resetTemperature()
-                tvResultTemperature.text = "Temperatura\n--"
+                measurementResults.updateTemperature(0.0, 0.0)
                 showReady(); controller.forceSendCommand("TEMPERATURA")
             }
             "OXIGENO" -> {
                 state.resetOxygen()
                 oxygenReadingStarted = false
-                tvResultSpO2.text = "SpO2\n-- %"
-                tvResultPulseRate.text = "Pulso\n-- bpm"
-                tvResultPI.text = "PI\n--"
+                measurementResults.updateOxygen(0, 0, 0.0)
                 waveformView.clear()
                 controller.startOxygenMeasurement(delayMs = 5000, timeoutMs = 15000)
             }
@@ -740,12 +670,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                     state.weight = intent.getDoubleExtra("weight", 0.0)
                     state.imc = intent.getDoubleExtra("imc", 0.0)
                     if (state.hasHeightWeight()) {
-                        tvResultHeight.text = "Altura\n%.1f cm".format(state.height)
-                        tvResultWeight.text = "Peso\n%.3f kg".format(state.weight)
-                        tvResultIMC.text = "IMC\n%.1f".format(state.imc)
-                        updatePillColor(tvResultHeight, true)
-                        updatePillColor(tvResultWeight, true)
-                        updatePillColor(tvResultIMC, state.imc in 18.5..24.9)
+                        measurementResults.updateHeightWeight(state.height, state.weight, state.imc)
                         if (currentMeasurementType == "ALTURA_PESO") {
                             groupAlturaPeso.visibility = View.VISIBLE
                             if (!completedMeasurements.contains("ALTURA_PESO")) {
@@ -770,10 +695,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                     state.fatType = intent.getIntExtra("fat_type", 0)
 
                     if (currentMeasurementType == "COMPOSICION") {
-                        // ✅ OCULTAR BARRA DE PROGRESO Y MOSTRAR RESULTADOS AL TERMINAR
-                        layoutProgressComposicion.visibility = View.GONE
-                        layoutResultadosComposicion.visibility = View.VISIBLE
-
+                        tvStatusProgress.visibility = View.GONE
                         renderComposition()
                         if (!completedMeasurements.contains("COMPOSICION")) {
                             completedMeasurements.add("COMPOSICION")
@@ -784,22 +706,11 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 "COMPOSICION_PROGRESS" -> {
                     val progress = intent.getIntExtra("progress", 0)
                     if (currentMeasurementType == "COMPOSICION") {
-                        layoutProgressComposicion.visibility = View.VISIBLE
-                        layoutResultadosComposicion.visibility = View.GONE
-
-                        // ✅ Animación suave de la barra
-                        val animator = ValueAnimator.ofInt(pbComposicion.progress, progress)
-                        animator.duration = 500
-                        animator.addUpdateListener { animation ->
-                            val animValue = animation.animatedValue as Int
-                            pbComposicion.progress = animValue
-                            tvProgressPercent.text = "$animValue%"
-                        }
-                        animator.start()
-
-                        if (progress < 100) {
-                            groupComposicion.visibility = View.VISIBLE
-                        }
+                        tvStatusProgress.text = "$progress%"
+                        tvStatusProgress.visibility = View.VISIBLE
+                        ivStatusCheck.visibility = View.GONE
+                        showStatusMessage("Analizando composición...", "#FF9800")
+                        groupComposicion.visibility = View.VISIBLE
                     }
                 }
                 "PRESION" -> {
@@ -807,12 +718,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                     state.diastolic = intent.getIntExtra("diastolic", 0)
                     state.pulse = intent.getIntExtra("pulse", 0)
                     if (state.hasPressure()) {
-                        tvResultSistolica.text = "Sistólica\n${state.systolic} mmHg"
-                        tvResultDiastolica.text = "Diastólica\n${state.diastolic} mmHg"
-                        tvResultPulso.text = "Pulso\n${state.pulse} bpm"
-                        updatePillColor(tvResultSistolica, state.systolic in 90..120)
-                        updatePillColor(tvResultDiastolica, state.diastolic in 60..80)
-                        updatePillColor(tvResultPulso, state.pulse in 60..100)
+                        measurementResults.updatePressure(state.systolic, state.diastolic, state.pulse)
                         if (currentMeasurementType == "PRESION") {
                             groupPresion.visibility = View.VISIBLE
                             if (!completedMeasurements.contains("PRESION")) {
@@ -827,8 +733,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                     state.temperatureF = intent.getDoubleExtra("temperature_f", 0.0)
                     state.bodyMode = intent.getStringExtra("mode") ?: ""
                     if (state.hasTemperature()) {
-                        tvResultTemperature.text = "Temperatura\n%.1f °C / %.1f °F".format(state.temperature, state.temperatureF)
-                        updatePillColor(tvResultTemperature, true)
+                        measurementResults.updateTemperature(state.temperature, state.temperatureF)
                         if (currentMeasurementType == "TEMPERATURA") {
                             groupTemperatura.visibility = View.VISIBLE
                             if (!completedMeasurements.contains("TEMPERATURA")) {
@@ -858,47 +763,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun renderComposition() {
         val age = getPatientAge()
         val isMale = pacienteGenero.equals("M", ignoreCase = true)
-        val normalFatRange = if (isMale) {
-            when {
-                age < 40 -> 8.0..19.9
-                age < 60 -> 11.0..21.9
-                else -> 13.0..24.9
-            }
-        } else {
-            when {
-                age < 40 -> 21.0..32.9
-                age < 60 -> 23.0..33.9
-                else -> 24.0..35.9
-            }
-        }
-        val normalWaterRange = if (isMale) 50.0..65.0 else 45.0..60.0
-
-        tvResultFat.text = "Tasa Grasa\n%.1f%%".format(state.fatRate)
-        tvResultWater.text = "Tasa Agua\n%.1f%%".format(state.waterRate)
-        tvResultFatKg.text = "Grasa\n%.1f kg".format(state.fatKg)
-        tvResultWaterKg.text = "Agua\n%.1f kg".format(state.waterKg)
-        tvResultMuscle.text = "Músculo\n%.1f kg".format(state.muscle)
-        tvResultNotFat.text = "Masa Libre\n%.1f kg".format(state.notFat)
-        tvResultProtein.text = "Proteína\n%.1f kg".format(state.protein)
-        tvResultMineral.text = "Minerales\n%.1f kg".format(state.mineral)
-        tvResultMetabolism.text = "Metabolismo\n${state.metabolism} kcal"
-        tvResultVisceralFat.text = "Grasa Visc.\n%.1f".format(state.visceralFat)
-        tvResultIdealWeight.text = "Peso Ideal\n%.1f kg".format(state.idealWeight)
-        tvResultFatType.text = "Tipo Grasa\n${state.fatType}"
-
-        updatePillColor(tvResultFat, state.fatRate in normalFatRange)
-        updatePillColor(tvResultWater, state.waterRate in normalWaterRange)
-        updatePillColor(tvResultFatKg, state.fatKg > 0)
-        updatePillColor(tvResultWaterKg, state.waterKg > 0)
-        updatePillColor(tvResultMuscle, state.muscle > 10.0)
-        updatePillColor(tvResultNotFat, state.notFat > 20.0)
-        updatePillColor(tvResultProtein, state.protein in 5.0..25.0)
-        updatePillColor(tvResultMineral, state.mineral in 2.0..6.0)
-        updatePillColor(tvResultMetabolism, state.metabolism in 800..3500)
-        updatePillColor(tvResultVisceralFat, state.visceralFat in 1.0..9.0)
-        updatePillColor(tvResultIdealWeight, state.idealWeight in 30.0..150.0)
-        updatePillColor(tvResultFatType, state.fatType in 1..8)
-
+        measurementResults.updateComposition(state, isMale, age)
         groupComposicion.visibility = View.VISIBLE
     }
 
@@ -951,13 +816,11 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         cancelCountdownTimer()
         controller.cancelTimers()
         setRepeatMode(false)
+        tvStatusProgress.visibility = View.GONE
         listOf(groupAlturaPeso, groupTemperatura, groupComposicion, groupPresion,
             groupOxigeno, groupEcg, groupAzucar, groupAcidoUrico, groupColesterol)
             .forEach { it.visibility = View.GONE }
 
-        // ✅ OCULTAR SIEMPRE RESULTADOS/PROGRESO AL CAMBIAR DE PESTAÑA
-        layoutProgressComposicion.visibility = View.GONE
-        layoutResultadosComposicion.visibility = View.GONE
         layoutResultadosEcg.visibility = View.GONE
 
         group?.visibility = View.VISIBLE
@@ -1145,6 +1008,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     /** Muestra (con una animación de aparición) o esconde el check verde de medición completada. */
     private fun showSuccessCheck(show: Boolean) {
         if (show) {
+            tvStatusProgress.visibility = View.GONE
             ivStatusCheck.scaleX = 0f
             ivStatusCheck.scaleY = 0f
             ivStatusCheck.visibility = View.VISIBLE
@@ -1391,8 +1255,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         runOnUiThread {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
             cancelCountdownTimer()
-            layoutProgressComposicion.visibility = View.GONE
-            layoutResultadosComposicion.visibility = View.GONE
+            tvStatusProgress.visibility = View.GONE
             layoutResultadosEcg.visibility = View.GONE
             showStatusMessage("Error de medición, favor de repetir", "#F44336")
             updateButtonVisibility()
@@ -1531,13 +1394,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         state.spo2 = spo2
         state.pulseRate = pulseRate
         state.pi = pi
-        tvResultSpO2.text = "SpO2\n$spo2 %"
-        tvResultPulseRate.text = "Pulso\n$pulseRate bpm"
-        tvResultPI.text = "PI\n%.1f".format(pi)
-
-        updatePillColor(tvResultSpO2, spo2 in 95..100)
-        updatePillColor(tvResultPulseRate, pulseRate in 60..100)
-        updatePillColor(tvResultPI, pi >= 0.3)
+        measurementResults.updateOxygen(spo2, pulseRate, pi)
 
         if (currentMeasurementType == "OXIGENO") {
             groupOxigeno.visibility = View.VISIBLE

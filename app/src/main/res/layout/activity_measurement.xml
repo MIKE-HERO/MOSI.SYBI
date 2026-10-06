@@ -129,31 +129,51 @@
                 android:padding="10dp">
 
                 <!-- 1. SECCIÓN SUPERIOR: MENSAJE DE ESTADO -->
-                <ImageView
-                    android:id="@+id/ivStatusCheck"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:layout_gravity="center"
-                    android:layout_marginTop="5dp"
-                    android:src="@drawable/ic_check_circle"
-                    android:visibility="gone" />
-
                 <FrameLayout
+                    android:id="@+id/statusPillContainer"
                     android:layout_width="match_parent"
                     android:layout_height="64dp"
                     android:layout_marginTop="5dp"
                     android:layout_marginBottom="10dp">
 
-                    <TextView
-                        android:id="@+id/tvStatusMessage"
+                    <LinearLayout
+                        android:id="@+id/layoutStatusContent"
                         android:layout_width="match_parent"
                         android:layout_height="64dp"
-                        android:text=""
-                        android:textSize="26sp"
-                        android:textStyle="bold"
-                        android:textColor="#0F3E82"
+                        android:orientation="horizontal"
                         android:gravity="center"
-                        android:visibility="gone" />
+                        android:paddingHorizontal="20dp">
+
+                        <TextView
+                            android:id="@+id/tvStatusProgress"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0%"
+                            android:textSize="24sp"
+                            android:textStyle="bold"
+                            android:textColor="#FF9800"
+                            android:layout_marginEnd="10dp"
+                            android:visibility="gone" />
+
+                        <ImageView
+                            android:id="@+id/ivStatusCheck"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:src="@drawable/ic_check_circle"
+                            android:layout_marginEnd="10dp"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/tvStatusMessage"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textSize="24sp"
+                            android:textStyle="bold"
+                            android:textColor="#0F3E82"
+                            android:gravity="center"
+                            android:visibility="gone" />
+                    </LinearLayout>
 
                     <com.sybi.mosi.LoadingSweepView
                         android:id="@+id/statusSweep"
@@ -175,207 +195,631 @@
                     <LinearLayout
                         android:id="@+id/groupAlturaPeso"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
                         android:orientation="horizontal"
                         android:gravity="center"
+                        android:padding="4dp"
                         android:visibility="gone">
 
-                        <TextView
-                            android:id="@+id/tvResultHeight"
+                        <!-- Columna Izquierda: Altura + Peso -->
+                        <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="match_parent"
                             android:layout_weight="1"
-                            android:text="Altura\n--"
-                            android:textSize="20sp"
-                            android:textColor="#0F3E82"
-                            android:textStyle="bold"
-                            android:gravity="center"
-                            android:paddingHorizontal="6dp"
-                            android:paddingVertical="10dp"
-                            android:layout_marginHorizontal="6dp" />
+                            android:orientation="vertical"
+                            android:layout_marginEnd="6dp">
 
-                        <TextView
-                            android:id="@+id/tvResultWeight"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="Peso\n--"
-                            android:textSize="20sp"
-                            android:textColor="#0F3E82"
-                            android:textStyle="bold"
-                            android:gravity="center"
-                            android:paddingHorizontal="6dp"
-                            android:paddingVertical="10dp"
-                            android:layout_marginHorizontal="6dp" />
+                            <!-- Card Altura -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1"
+                                android:background="@drawable/bg_measurement_card"
+                                android:orientation="vertical"
+                                android:padding="10dp"
+                                android:gravity="center"
+                                android:layout_marginBottom="6dp">
 
-                        <TextView
-                            android:id="@+id/tvResultIMC"
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="ALTURA"
+                                    android:textSize="18sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#001B3A"
+                                    android:layout_marginBottom="8dp" />
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center">
+
+                                    <ImageView
+                                        android:id="@+id/ivHeightIcon"
+                                        android:layout_width="48dp"
+                                        android:layout_height="48dp"
+                                        android:src="@drawable/ic_measurement_height"
+                                        android:contentDescription="Icono Altura"
+                                        android:layout_marginEnd="12dp" />
+
+                                    <TextView
+                                        android:id="@+id/tvResultHeightValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="--"
+                                        android:textSize="36sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#001B3A" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="cm"
+                                        android:textSize="22sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#001B3A"
+                                        android:layout_marginStart="6dp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <!-- Card Peso -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1"
+                                android:background="@drawable/bg_measurement_card"
+                                android:orientation="vertical"
+                                android:padding="10dp"
+                                android:gravity="center">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="PESO"
+                                    android:textSize="18sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#001B3A"
+                                    android:layout_marginBottom="8dp" />
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center">
+
+                                    <ImageView
+                                        android:id="@+id/ivWeightIcon"
+                                        android:layout_width="48dp"
+                                        android:layout_height="48dp"
+                                        android:src="@drawable/ic_measurement_weight"
+                                        android:contentDescription="Icono Peso"
+                                        android:layout_marginEnd="12dp" />
+
+                                    <TextView
+                                        android:id="@+id/tvResultWeightValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="--"
+                                        android:textSize="36sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#001B3A" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="kg"
+                                        android:textSize="22sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#001B3A"
+                                        android:layout_marginStart="6dp" />
+                                </LinearLayout>
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- Columna Derecha: Card IMC -->
+                        <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="match_parent"
                             android:layout_weight="1"
-                            android:text="IMC\n--"
-                            android:textSize="20sp"
-                            android:textColor="#0F3E82"
-                            android:textStyle="bold"
-                            android:gravity="center"
-                            android:paddingHorizontal="6dp"
-                            android:paddingVertical="10dp"
-                            android:layout_marginHorizontal="6dp" />
+                            android:background="@drawable/bg_measurement_card"
+                            android:orientation="vertical"
+                            android:padding="12dp"
+                            android:gravity="center_horizontal"
+                            android:layout_marginStart="6dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="IMC"
+                                android:textSize="22sp"
+                                android:textStyle="bold"
+                                android:textColor="#001B3A" />
+
+                            <TextView
+                                android:id="@+id/tvResultIMCValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textSize="44sp"
+                                android:textStyle="bold"
+                                android:textColor="#001B3A" />
+
+                            <com.sybi.mosi.measurement.GaugeView
+                                android:id="@+id/gaugeIMC"
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1" />
+
+                            <TextView
+                                android:id="@+id/tvImcStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:textColor="#32A852" />
+                        </LinearLayout>
                     </LinearLayout>
 
                     <!-- GRUPO TEMPERATURA -->
                     <LinearLayout
                         android:id="@+id/groupTemperatura"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_measurement_card"
                         android:orientation="vertical"
                         android:gravity="center"
+                        android:padding="20dp"
                         android:visibility="gone">
 
                         <TextView
-                            android:id="@+id/tvResultTemperature"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Temperatura\n--"
-                            android:textSize="26sp"
-                            android:textColor="#0F3E82"
+                            android:text="TEMPERATURA CORPORAL"
+                            android:textSize="22sp"
                             android:textStyle="bold"
-                            android:gravity="center" />
+                            android:textColor="#001B3A"
+                            android:layout_marginBottom="16dp" />
+
+                        <LinearLayout
+                            android:id="@+id/layoutResultTempContent"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginVertical="10dp"
+                            android:visibility="gone">
+
+                            <ImageView
+                                android:id="@+id/ivTempIcon"
+                                android:layout_width="72dp"
+                                android:layout_height="72dp"
+                                android:src="@drawable/ic_measurement_temperature"
+                                android:contentDescription="Termómetro"
+                                android:layout_marginEnd="20dp" />
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:gravity="center_horizontal">
+
+                                <TextView
+                                    android:id="@+id/tvResultTempMain"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text=""
+                                    android:textSize="48sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#001B3A" />
+
+                                <TextView
+                                    android:id="@+id/tvResultTempSub"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text=""
+                                    android:textSize="24sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#001B3A"
+                                    android:layout_marginTop="4dp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvTempStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textSize="20sp"
+                            android:textStyle="bold"
+                            android:textColor="#32A852"
+                            android:layout_marginTop="16dp"
+                            android:visibility="gone" />
                     </LinearLayout>
 
                     <!-- GRUPO COMPOSICIÓN CORPORAL -->
                     <LinearLayout
                         android:id="@+id/groupComposicion"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
                         android:orientation="vertical"
                         android:visibility="gone">
 
-                        <!-- Contenedor para ocultar/mostrar resultados -->
+                        <!-- Banner Superior -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_measurement_banner"
+                            android:orientation="vertical"
+                            android:padding="8dp"
+                            android:layout_marginBottom="6dp">
+
+                            <TextView
+                                android:id="@+id/tvComplexionTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="COMPLEXIÓN: EN ANÁLISIS"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="#001B3A" />
+
+                            <TextView
+                                android:id="@+id/tvComplexionSub"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Esperando resultados de composición..."
+                                android:textSize="12sp"
+                                android:textColor="#4B5563" />
+                        </LinearLayout>
+
+                        <!-- Contenedor Principal: 2 Columnas (Izquierda: Grid 2x2, Derecha: Columna 4 Píldoras) -->
                         <LinearLayout
                             android:id="@+id/layoutResultadosComposicion"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:visibility="gone">
+                            android:layout_height="0dp"
+                            android:layout_weight="1"
+                            android:orientation="horizontal"
+                            android:visibility="visible">
 
-                            <!-- Fila 1 -->
+                            <!-- Columna Izquierda: Grid 2x2 de Cuadros Principales -->
                             <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="10dp">
-                                <TextView
-                                    android:id="@+id/tvResultFat"
-                                    style="@style/ComposicionCell"
-                                    android:text="Tasa Grasa\n--" />
-                                <TextView
-                                    android:id="@+id/tvResultWater"
-                                    style="@style/ComposicionCell"
-                                    android:text="Tasa Agua\n--" />
-                                <TextView
-                                    android:id="@+id/tvResultFatKg"
-                                    style="@style/ComposicionCell"
-                                    android:text="Grasa\n-- kg" />
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="3"
+                                android:orientation="vertical"
+                                android:layout_marginEnd="6dp">
+
+                                <!-- Fila 1: Grasa Corporal y Masa Muscular -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
+                                    android:orientation="horizontal"
+                                    android:layout_marginBottom="6dp">
+
+                                    <!-- Card 1: Grasa Corporal -->
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="match_parent"
+                                        android:layout_weight="1"
+                                        android:background="@drawable/bg_measurement_card"
+                                        android:orientation="vertical"
+                                        android:padding="8dp"
+                                        android:gravity="center"
+                                        android:layout_marginEnd="3dp">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="GRASA CORPORAL"
+                                            android:textSize="13sp"
+                                            android:textStyle="bold"
+                                            android:textColor="#001B3A" />
+
+                                        <LinearLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="0dp"
+                                            android:layout_weight="1"
+                                            android:orientation="horizontal"
+                                            android:gravity="center">
+
+                                            <ImageView
+                                                android:id="@+id/ivFatIcon"
+                                                android:layout_width="0dp"
+                                                android:layout_height="match_parent"
+                                                android:layout_weight="1"
+                                                android:scaleType="fitCenter"
+                                                android:padding="4dp"
+                                                android:src="@drawable/ic_fat_fitness"
+                                                android:contentDescription="Grasa Corporal"
+                                                android:visibility="gone" />
+
+                                            <LinearLayout
+                                                android:layout_width="0dp"
+                                                android:layout_height="match_parent"
+                                                android:layout_weight="1"
+                                                android:orientation="vertical"
+                                                android:gravity="center">
+
+                                                <TextView
+                                                    android:id="@+id/tvResultFatRate"
+                                                    android:layout_width="wrap_content"
+                                                    android:layout_height="wrap_content"
+                                                    android:text=""
+                                                    android:textSize="22sp"
+                                                    android:textStyle="bold"
+                                                    android:textColor="#001B3A"
+                                                    android:visibility="gone" />
+
+                                                <TextView
+                                                    android:id="@+id/tvResultFatKg"
+                                                    android:layout_width="wrap_content"
+                                                    android:layout_height="wrap_content"
+                                                    android:text=""
+                                                    android:textSize="15sp"
+                                                    android:textStyle="bold"
+                                                    android:textColor="#001B3A"
+                                                    android:visibility="gone" />
+                                            </LinearLayout>
+                                        </LinearLayout>
+                                    </LinearLayout>
+
+                                    <!-- Card 2: Masa Muscular -->
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="match_parent"
+                                        android:layout_weight="1"
+                                        android:background="@drawable/bg_measurement_card"
+                                        android:orientation="vertical"
+                                        android:padding="8dp"
+                                        android:gravity="center"
+                                        android:layout_marginStart="3dp">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="MASA MUSCULAR"
+                                            android:textSize="13sp"
+                                            android:textStyle="bold"
+                                            android:textColor="#001B3A" />
+
+                                        <LinearLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="0dp"
+                                            android:layout_weight="1"
+                                            android:orientation="horizontal"
+                                            android:gravity="center">
+
+                                            <ImageView
+                                                android:id="@+id/ivMuscleIcon"
+                                                android:layout_width="0dp"
+                                                android:layout_height="match_parent"
+                                                android:layout_weight="1"
+                                                android:scaleType="fitCenter"
+                                                android:padding="4dp"
+                                                android:src="@drawable/ic_muscle_saludable"
+                                                android:contentDescription="Masa Muscular"
+                                                android:visibility="gone" />
+
+                                            <LinearLayout
+                                                android:layout_width="0dp"
+                                                android:layout_height="match_parent"
+                                                android:layout_weight="1"
+                                                android:orientation="vertical"
+                                                android:gravity="center">
+
+                                                <TextView
+                                                    android:id="@+id/tvResultMuscleRate"
+                                                    android:layout_width="wrap_content"
+                                                    android:layout_height="wrap_content"
+                                                    android:text=""
+                                                    android:textSize="22sp"
+                                                    android:textStyle="bold"
+                                                    android:textColor="#001B3A"
+                                                    android:visibility="gone" />
+
+                                                <TextView
+                                                    android:id="@+id/tvResultMuscleKg"
+                                                    android:layout_width="wrap_content"
+                                                    android:layout_height="wrap_content"
+                                                    android:text=""
+                                                    android:textSize="15sp"
+                                                    android:textStyle="bold"
+                                                    android:textColor="#001B3A"
+                                                    android:visibility="gone" />
+                                            </LinearLayout>
+                                        </LinearLayout>
+                                    </LinearLayout>
+                                </LinearLayout>
+
+                                <!-- Fila 2: Agua Corporal y Grasa Visceral -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
+                                    android:orientation="horizontal">
+
+                                    <!-- Card 3: Agua Corporal -->
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="match_parent"
+                                        android:layout_weight="1"
+                                        android:background="@drawable/bg_measurement_card"
+                                        android:orientation="vertical"
+                                        android:padding="8dp"
+                                        android:gravity="center"
+                                        android:layout_marginEnd="3dp">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="AGUA CORPORAL"
+                                            android:textSize="13sp"
+                                            android:textStyle="bold"
+                                            android:textColor="#001B3A" />
+
+                                        <LinearLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="0dp"
+                                            android:layout_weight="1"
+                                            android:orientation="horizontal"
+                                            android:gravity="center">
+
+                                            <ImageView
+                                                android:id="@+id/ivWaterIcon"
+                                                android:layout_width="0dp"
+                                                android:layout_height="match_parent"
+                                                android:layout_weight="1"
+                                                android:scaleType="fitCenter"
+                                                android:padding="4dp"
+                                                android:src="@drawable/ic_water_optima"
+                                                android:contentDescription="Agua Corporal"
+                                                android:visibility="gone" />
+
+                                            <LinearLayout
+                                                android:layout_width="0dp"
+                                                android:layout_height="match_parent"
+                                                android:layout_weight="1"
+                                                android:orientation="vertical"
+                                                android:gravity="center">
+
+                                                <TextView
+                                                    android:id="@+id/tvResultWaterRate"
+                                                    android:layout_width="wrap_content"
+                                                    android:layout_height="wrap_content"
+                                                    android:text=""
+                                                    android:textSize="22sp"
+                                                    android:textStyle="bold"
+                                                    android:textColor="#001B3A"
+                                                    android:visibility="gone" />
+
+                                                <TextView
+                                                    android:id="@+id/tvResultWaterKg"
+                                                    android:layout_width="wrap_content"
+                                                    android:layout_height="wrap_content"
+                                                    android:text=""
+                                                    android:textSize="15sp"
+                                                    android:textStyle="bold"
+                                                    android:textColor="#001B3A"
+                                                    android:visibility="gone" />
+                                            </LinearLayout>
+                                        </LinearLayout>
+                                    </LinearLayout>
+
+                                    <!-- Card 4: Grasa Visceral -->
+                                    <LinearLayout
+                                        android:layout_width="0dp"
+                                        android:layout_height="match_parent"
+                                        android:layout_weight="1"
+                                        android:background="@drawable/bg_measurement_card"
+                                        android:orientation="vertical"
+                                        android:padding="8dp"
+                                        android:gravity="center"
+                                        android:layout_marginStart="3dp">
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="GRASA VISCERAL"
+                                            android:textSize="13sp"
+                                            android:textStyle="bold"
+                                            android:textColor="#001B3A" />
+
+                                        <LinearLayout
+                                            android:layout_width="match_parent"
+                                            android:layout_height="0dp"
+                                            android:layout_weight="1"
+                                            android:orientation="horizontal"
+                                            android:gravity="center">
+
+                                            <ImageView
+                                                android:id="@+id/ivVisceralIcon"
+                                                android:layout_width="0dp"
+                                                android:layout_height="match_parent"
+                                                android:layout_weight="1"
+                                                android:scaleType="fitCenter"
+                                                android:padding="4dp"
+                                                android:src="@drawable/ic_visceral_normal"
+                                                android:contentDescription="Grasa Visceral"
+                                                android:visibility="gone" />
+
+                                            <TextView
+                                                android:id="@+id/tvResultVisceralFat"
+                                                android:layout_width="0dp"
+                                                android:layout_height="wrap_content"
+                                                android:layout_weight="1"
+                                                android:text=""
+                                                android:textSize="28sp"
+                                                android:textStyle="bold"
+                                                android:textColor="#001B3A"
+                                                android:gravity="center"
+                                                android:visibility="gone" />
+                                        </LinearLayout>
+                                    </LinearLayout>
+                                </LinearLayout>
                             </LinearLayout>
 
-                            <!-- Fila 2 -->
+                            <!-- Columna Derecha: 4 Tarjetas Secundarias Apiladas Verticalmente -->
                             <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="10dp">
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:gravity="center">
+
                                 <TextView
-                                    android:id="@+id/tvResultWaterKg"
-                                    style="@style/ComposicionCell"
-                                    android:text="Agua\n-- kg" />
+                                    android:id="@+id/tvPillProtein"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
+                                    android:background="@drawable/bg_measurement_pill"
+                                    android:text="Masa Protéica"
+                                    android:textSize="13sp"
+                                    android:textColor="#001B3A"
+                                    android:gravity="center"
+                                    android:padding="6dp"
+                                    android:layout_marginBottom="6dp" />
+
                                 <TextView
-                                    android:id="@+id/tvResultMuscle"
-                                    style="@style/ComposicionCell"
-                                    android:text="Músculo\n-- kg" />
+                                    android:id="@+id/tvPillMineral"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
+                                    android:background="@drawable/bg_measurement_pill"
+                                    android:text="Masa Mineral"
+                                    android:textSize="13sp"
+                                    android:textColor="#001B3A"
+                                    android:gravity="center"
+                                    android:padding="6dp"
+                                    android:layout_marginBottom="6dp" />
+
                                 <TextView
-                                    android:id="@+id/tvResultNotFat"
-                                    style="@style/ComposicionCell"
-                                    android:text="Masa Libre\n-- kg" />
+                                    android:id="@+id/tvPillMetabolism"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
+                                    android:background="@drawable/bg_measurement_pill"
+                                    android:text="Metabolísmo basal"
+                                    android:textSize="13sp"
+                                    android:textColor="#001B3A"
+                                    android:gravity="center"
+                                    android:padding="6dp"
+                                    android:layout_marginBottom="6dp" />
+
+                                <TextView
+                                    android:id="@+id/tvPillNotFat"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
+                                    android:background="@drawable/bg_measurement_pill"
+                                    android:text="Masa libre de grasa"
+                                    android:textSize="13sp"
+                                    android:textColor="#001B3A"
+                                    android:gravity="center"
+                                    android:padding="6dp" />
                             </LinearLayout>
 
-                            <!-- Fila 3 -->
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="10dp">
-                                <TextView
-                                    android:id="@+id/tvResultProtein"
-                                    style="@style/ComposicionCell"
-                                    android:text="Proteína\n-- kg" />
-                                <TextView
-                                    android:id="@+id/tvResultMineral"
-                                    style="@style/ComposicionCell"
-                                    android:text="Minerales\n-- kg" />
-                                <TextView
-                                    android:id="@+id/tvResultMetabolism"
-                                    style="@style/ComposicionCell"
-                                    android:text="Metabolismo\n-- kcal" />
-                            </LinearLayout>
-
-                            <!-- Fila 4 -->
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal">
-                                <TextView
-                                    android:id="@+id/tvResultVisceralFat"
-                                    style="@style/ComposicionCell"
-                                    android:text="Grasa Visc.\n--" />
-                                <TextView
-                                    android:id="@+id/tvResultIdealWeight"
-                                    style="@style/ComposicionCell"
-                                    android:text="Peso Ideal\n-- kg" />
-                                <TextView
-                                    android:id="@+id/tvResultFatType"
-                                    style="@style/ComposicionCell"
-                                    android:text="Tipo Grasa\n--" />
-                            </LinearLayout>
-
-                        </LinearLayout>
-
-                        <!-- Barra de progreso para composición (DEBAJO de resultados actuales) -->
-                        <LinearLayout
-                            android:id="@+id/layoutProgressComposicion"
-                            android:layout_width="300dp"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:layout_gravity="center"
-                            android:layout_marginTop="15dp"
-                            android:visibility="gone">
-
-                            <TextView
-                                android:id="@+id/tvProgressLabel"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Analizando composición..."
-                                android:textSize="14sp"
-                                android:textColor="#0F3E82"
-                                android:layout_marginBottom="5dp" />
-
-                            <ProgressBar
-                                android:id="@+id/pbComposicion"
-                                style="?android:attr/progressBarStyleHorizontal"
-                                android:layout_width="match_parent"
-                                android:layout_height="10dp"
-                                android:progressDrawable="@drawable/custom_progress_bar"
-                                android:max="100"
-                                android:progress="0" />
-
-                            <TextView
-                                android:id="@+id/tvProgressPercent"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="end"
-                                android:text="0%"
-                                android:textSize="12sp"
-                                android:textColor="#0F3E82" />
                         </LinearLayout>
 
                     </LinearLayout>
@@ -384,105 +828,281 @@
                     <LinearLayout
                         android:id="@+id/groupPresion"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
                         android:orientation="horizontal"
                         android:gravity="center"
+                        android:padding="4dp"
                         android:visibility="gone">
 
-                        <TextView
-                            android:id="@+id/tvResultSistolica"
+                        <!-- Columna Izquierda: Sistólica + Diastólica -->
+                        <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="match_parent"
                             android:layout_weight="1"
-                            android:text="Sistólica\n-- mmHg"
-                            android:textSize="18sp"
-                            android:textColor="#0F3E82"
-                            android:textStyle="bold"
-                            android:gravity="center"
-                            android:paddingLeft="6dp"
-                            android:paddingRight="6dp"
-                            android:layout_marginHorizontal="2dp" />
+                            android:orientation="vertical"
+                            android:layout_marginEnd="6dp">
 
-                        <TextView
-                            android:id="@+id/tvResultDiastolica"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="Diastólica\n-- mmHg"
-                            android:textSize="18sp"
-                            android:textColor="#0F3E82"
-                            android:textStyle="bold"
-                            android:gravity="center"
-                            android:paddingLeft="6dp"
-                            android:paddingRight="6dp"
-                            android:layout_marginHorizontal="2dp" />
+                            <!-- Card Sistólica -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1"
+                                android:background="@drawable/bg_measurement_card"
+                                android:orientation="vertical"
+                                android:padding="10dp"
+                                android:gravity="center"
+                                android:layout_marginBottom="6dp">
 
-                        <TextView
-                            android:id="@+id/tvResultPulso"
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="SISTÓLICA"
+                                    android:textSize="18sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#001B3A"
+                                    android:layout_marginBottom="6dp" />
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center">
+
+                                    <ImageView
+                                        android:id="@+id/ivSystolicIcon"
+                                        android:layout_width="44dp"
+                                        android:layout_height="44dp"
+                                        android:src="@drawable/ic_measurement_systolic"
+                                        android:contentDescription="Sistólica"
+                                        android:layout_marginEnd="10dp" />
+
+                                    <TextView
+                                        android:id="@+id/tvResultSystolicValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="--"
+                                        android:textSize="36sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#001B3A" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="mmHg"
+                                        android:textSize="16sp"
+                                        android:textColor="#001B3A"
+                                        android:layout_marginStart="6dp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <!-- Card Diastólica -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1"
+                                android:background="@drawable/bg_measurement_card"
+                                android:orientation="vertical"
+                                android:padding="10dp"
+                                android:gravity="center">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="DIASTÓLICA"
+                                    android:textSize="18sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#001B3A"
+                                    android:layout_marginBottom="6dp" />
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center">
+
+                                    <ImageView
+                                        android:id="@+id/ivDiastolicIcon"
+                                        android:layout_width="44dp"
+                                        android:layout_height="44dp"
+                                        android:src="@drawable/ic_measurement_diastolic"
+                                        android:contentDescription="Diastólica"
+                                        android:layout_marginEnd="10dp" />
+
+                                    <TextView
+                                        android:id="@+id/tvResultDiastolicValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="--"
+                                        android:textSize="36sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#001B3A" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="mmHg"
+                                        android:textSize="16sp"
+                                        android:textColor="#001B3A"
+                                        android:layout_marginStart="6dp" />
+                                </LinearLayout>
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- Columna Derecha: Pulso y Anillo de Progreso -->
+                        <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="match_parent"
                             android:layout_weight="1"
-                            android:text="Pulso\n-- bpm"
-                            android:textSize="18sp"
-                            android:textColor="#0F3E82"
-                            android:textStyle="bold"
-                            android:gravity="center"
-                            android:paddingLeft="6dp"
-                            android:paddingRight="6dp"
-                            android:layout_marginHorizontal="2dp" />
+                            android:background="@drawable/bg_measurement_card"
+                            android:orientation="vertical"
+                            android:padding="12dp"
+                            android:gravity="center_horizontal"
+                            android:layout_marginStart="6dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="PULSO"
+                                android:textSize="20sp"
+                                android:textStyle="bold"
+                                android:textColor="#001B3A" />
+
+                            <com.sybi.mosi.measurement.RingProgressView
+                                android:id="@+id/ringPresionPulse"
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1" />
+
+                            <ImageView
+                                android:id="@+id/ivPresionPulseRingIcon"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:src="@drawable/ic_measurement_heart_rate"
+                                android:contentDescription="Pulso"
+                                android:layout_marginBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/tvPresionStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textSize="17sp"
+                                android:textStyle="bold"
+                                android:textColor="#32A852" />
+                        </LinearLayout>
                     </LinearLayout>
 
                     <!-- GRUPO OXÍGENO -->
                     <LinearLayout
                         android:id="@+id/groupOxigeno"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
                         android:orientation="horizontal"
                         android:gravity="center"
+                        android:padding="4dp"
                         android:visibility="gone">
 
-                        <TextView
-                            android:id="@+id/tvResultSpO2"
+                        <!-- Card 1: Oxígeno en Sangre (SpO2) -->
+                        <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="match_parent"
                             android:layout_weight="1"
-                            android:text="SpO2\n-- %"
-                            android:textSize="20sp"
-                            android:textColor="#0F3E82"
-                            android:textStyle="bold"
-                            android:gravity="center"
-                            android:paddingLeft="6dp"
-                            android:paddingRight="6dp"
-                            android:layout_marginHorizontal="2dp" />
+                            android:background="@drawable/bg_measurement_card"
+                            android:orientation="vertical"
+                            android:padding="10dp"
+                            android:gravity="center_horizontal"
+                            android:layout_marginEnd="4dp">
 
-                        <TextView
-                            android:id="@+id/tvResultPulseRate"
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="OXÍGENO EN SANGRE"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="#001B3A" />
+
+                            <com.sybi.mosi.measurement.RingProgressView
+                                android:id="@+id/ringSpO2"
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1" />
+
+                            <ImageView
+                                android:id="@+id/ivSpO2RingIcon"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:src="@drawable/ic_measurement_spo2"
+                                android:contentDescription="SpO2"
+                                android:layout_marginBottom="4dp" />
+                        </LinearLayout>
+
+                        <!-- Card 2: Ritmo Cardíaco (BPM) -->
+                        <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="match_parent"
                             android:layout_weight="1"
-                            android:text="Pulso\n-- bpm"
-                            android:textSize="20sp"
-                            android:textColor="#0F3E82"
-                            android:textStyle="bold"
-                            android:gravity="center"
-                            android:paddingLeft="6dp"
-                            android:paddingRight="6dp"
-                            android:layout_marginHorizontal="2dp" />
+                            android:background="@drawable/bg_measurement_card"
+                            android:orientation="vertical"
+                            android:padding="10dp"
+                            android:gravity="center_horizontal"
+                            android:layout_marginHorizontal="3dp">
 
-                        <TextView
-                            android:id="@+id/tvResultPI"
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="RITMO CARDIACO"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="#001B3A" />
+
+                            <com.sybi.mosi.measurement.RingProgressView
+                                android:id="@+id/ringHeartRate"
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1" />
+
+                            <ImageView
+                                android:id="@+id/ivHeartRateRingIcon"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:src="@drawable/ic_measurement_heart_rate"
+                                android:contentDescription="Ritmo Cardíaco"
+                                android:layout_marginBottom="4dp" />
+                        </LinearLayout>
+
+                        <!-- Card 3: Índice de Perfusión (PI) -->
+                        <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="match_parent"
                             android:layout_weight="1"
-                            android:text="PI\n--"
-                            android:textSize="20sp"
-                            android:textColor="#0F3E82"
-                            android:textStyle="bold"
-                            android:gravity="center"
-                            android:paddingLeft="6dp"
-                            android:paddingRight="6dp"
-                            android:layout_marginHorizontal="2dp" />
+                            android:background="@drawable/bg_measurement_card"
+                            android:orientation="vertical"
+                            android:padding="10dp"
+                            android:gravity="center_horizontal"
+                            android:layout_marginStart="4dp">
 
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="ÍNDICE DE PERFUSIÓN"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="#001B3A" />
+
+                            <com.sybi.mosi.measurement.RingProgressView
+                                android:id="@+id/ringPI"
+                                android:layout_width="match_parent"
+                                android:layout_height="0dp"
+                                android:layout_weight="1" />
+
+                            <ImageView
+                                android:id="@+id/ivPIRingIcon"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:src="@drawable/ic_measurement_pi"
+                                android:contentDescription="Índice de Perfusión"
+                                android:layout_marginBottom="4dp" />
+                        </LinearLayout>
                     </LinearLayout>
 
                     <!-- GRUPO ECG -->
@@ -722,9 +1342,9 @@
                 <com.sybi.mosi.WaveformView
                     android:id="@+id/waveformView"
                     android:layout_width="match_parent"
-                    android:layout_height="120dp"
-                    android:layout_marginTop="10dp"
-                    android:layout_marginBottom="10dp"
+                    android:layout_height="75dp"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="6dp"
                     android:visibility="gone" />
 
                 <!-- 4. SECCIÓN INFERIOR: ÚLTIMOS RESULTADOS -->

@@ -15,16 +15,16 @@ class WaveformView @JvmOverloads constructor(
 ) : View(context, attrs, defStyleAttr) {
 
     private val wavePaint = Paint().apply {
-        color = Color.WHITE
+        color = Color.parseColor("#D32F2F") // Red pulse line
         style = Paint.Style.STROKE
-        strokeWidth = 5f
+        strokeWidth = 4f
         isAntiAlias = true
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
 
     private val bgPaint = Paint().apply {
-        color = Color.parseColor("#2B7DE9") // Azul similar a la foto
+        color = Color.WHITE // White background
         style = Paint.Style.FILL
     }
 
