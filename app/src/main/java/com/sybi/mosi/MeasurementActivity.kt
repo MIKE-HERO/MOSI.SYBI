@@ -469,7 +469,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         btnColesterol.setOnClickListener { showUnavailable("Colesterol Total", "colesterol") }
         btnRepeat.setOnClickListener { repeatCurrent() }
 
-        findViewById<TextView>(R.id.btnExitMeasurement).setOnClickListener { finish() }
+        findViewById<TextView>(R.id.btnExitMeasurement).setOnClickListener {
+            if (hayMedicionesTomadas()) mostrarDialogoSalirConInforme() else finish()
+        }
         btnConfirmMeasurements.setOnClickListener {
             btnConfirmMeasurements.isEnabled = false
             btnConfirmMeasurements.text = "Guardando..."
@@ -486,6 +488,36 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 }
             }.start()
         }
+    }
+
+    /** ¿El paciente alcanzó a tomar al menos una medición en esta sesión? */
+    private fun hayMedicionesTomadas(): Boolean =
+        state.hasHeightWeight() || state.hasComposition() || state.hasPressure() ||
+                state.hasTemperature() || state.hasOxygen() || state.hasEcg()
+
+    /** Al salir con mediciones tomadas: ofrecer ver el informe antes de irse. Si acepta, se
+     *  guardan en el historial (igual que al confirmar) y se abre el informe; si no, sale. */
+    private fun mostrarDialogoSalirConInforme() {
+        val dialog = android.app.AlertDialog.Builder(this)
+            .setTitle("Mediciones tomadas")
+            .setMessage("¿Deseas ver el informe de tus mediciones antes de salir?")
+            .setPositiveButton("Ver informe") { _, _ ->
+                Thread {
+                    guardarResultadosEnBD()
+                    saveAllResults()
+                    runOnUiThread {
+                        startActivity(
+                            Intent(this, InformeActivity::class.java)
+                                .putExtra(InformeActivity.EXTRA_ID_LOCAL, pacienteIdLocal)
+                        )
+                        finish()
+                    }
+                }.start()
+            }
+            .setNegativeButton("Salir sin ver") { _, _ -> finish() }
+            .create()
+        setupDialogKeyboardBehavior(dialog)
+        dialog.show()
     }
 
     // ── Flujos de medición ────────────────────────────────
@@ -1230,7 +1262,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             fecha_medicion = fecha
         )
 
-        Thread { runBlocking { dao.insertarResultado(r) } }.start()
+        // Insert síncrono: esta función siempre corre dentro de un Thread de fondo (al
+        // confirmar y al salir con informe), así garantizamos que el registro ya esté en BD
+        // antes de abrir la pantalla siguiente (el informe lo lee de la BD).
+        runBlocking { dao.insertarResultado(r) }
     }
 
     // ── Callbacks del Controller ──────────────────────────

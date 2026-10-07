@@ -104,9 +104,14 @@ class InformeActivity : BaseActivity() {
             runBlocking {
                 val db = AppDatabase.getInstance(this@InformeActivity)
                 paciente = if (idLocal != 0L) db.pacienteDao().obtenerPacientePorIdLocal(idLocal) else null
-                mediciones = if (idLocal != 0L)
+                mediciones = if (idLocal != 0L) {
                     db.resultadoDao().obtenerResultadosPorIdLocal(idLocal).take(MAX_MEDICIONES)
-                else emptyList()
+                } else {
+                    // Invitado (id_local=0): el historial de id_local=0 es compartido por todos
+                    // los invitados, así que solo mostramos la medición más reciente (la actual),
+                    // sin tendencias, para no mezclar datos de otras personas.
+                    db.resultadoDao().obtenerResultadosPorIdLocal(0L).take(1)
+                }
             }
             uiHandler.post {
                 container.removeAllViews()
@@ -418,7 +423,7 @@ class InformeActivity : BaseActivity() {
 
     private fun etiquetaFecha(raw: String): String {
         if (raw.isBlank()) return ""
-        val formatos = listOf("yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd", "dd/MM/yyyy HH:mm", "dd/MM/yyyy")
+        val formatos = listOf("dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm", "dd/MM/yyyy", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd")
         for (f in formatos) {
             runCatching {
                 val d = SimpleDateFormat(f, Locale.getDefault()).parse(raw)
