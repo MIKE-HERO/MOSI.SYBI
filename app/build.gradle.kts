@@ -96,6 +96,9 @@ dependencies {
     implementation("io.coil-kt:coil:2.6.0")
     implementation("io.coil-kt:coil-svg:2.6.0")
 
+    // Palette para extraer colores dominantes del logo (modo multicolor)
+    implementation("androidx.palette:palette-ktx:1.0.0")
+
     implementation("com.google.mediapipe:tasks-vision:0.10.18")
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")

@@ -27,10 +27,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import coil.ImageLoader
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
+import coil.target.Target
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -155,7 +157,42 @@ class LogoSettingsActivity : BaseActivity() {
     }
 
     private fun regenerateMulticolorColors() {
-        val colors = LogoColorTheme.generateRandomPalette()
+        val logoPath = prefs.getString("LogoPath", null)
+        if (logoPath.isNullOrBlank()) {
+            guardarYMostrarPaletaMulticolor(LogoColorTheme.generateRandomPalette())
+            return
+        }
+
+        try {
+            val imageLoader = ImageLoader.Builder(this)
+                .components { add(SvgDecoder.Factory()) }
+                .build()
+
+            val file = File(logoPath)
+            val data: Any = if (file.exists()) file else Uri.parse(logoPath)
+
+            val request = ImageRequest.Builder(this)
+                .data(data)
+                .allowHardware(false) // hace falta para poder leer los píxeles del bitmap
+                .target(object : Target {
+                    override fun onSuccess(result: android.graphics.drawable.Drawable) {
+                        val bitmap = (result as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                            ?: result.toBitmap()
+                        guardarYMostrarPaletaMulticolor(LogoColorTheme.generatePaletteFromBitmap(bitmap))
+                    }
+
+                    override fun onError(error: android.graphics.drawable.Drawable?) {
+                        guardarYMostrarPaletaMulticolor(LogoColorTheme.generateRandomPalette())
+                    }
+                })
+                .build()
+            imageLoader.enqueue(request)
+        } catch (e: Exception) {
+            guardarYMostrarPaletaMulticolor(LogoColorTheme.generateRandomPalette())
+        }
+    }
+
+    private fun guardarYMostrarPaletaMulticolor(colors: List<Int>) {
         val hexColors = colors.joinToString(",") { String.format("#%06X", 0xFFFFFF and it) }
         prefs.edit().putString("MulticolorColors", hexColors).apply()
         showMulticolorPreview(colors)
