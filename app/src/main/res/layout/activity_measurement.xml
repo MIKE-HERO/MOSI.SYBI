@@ -494,26 +494,46 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:background="@drawable/bg_measurement_banner"
-                            android:orientation="vertical"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
                             android:padding="8dp"
                             android:layout_marginBottom="6dp">
 
-                            <TextView
-                                android:id="@+id/tvComplexionTitle"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="COMPLEXIÓN: EN ANÁLISIS"
-                                android:textSize="15sp"
-                                android:textStyle="bold"
-                                android:textColor="#001B3A" />
+                            <!-- Icono de Complexión (Izquierda) -->
+                            <ImageView
+                                android:id="@+id/ivComplexionIcon"
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:src="@drawable/ic_complexion"
+                                android:contentDescription="Icono Complexión"
+                                android:scaleType="fitCenter"
+                                android:layout_marginEnd="10dp"
+                                app:tint="#068106" />
 
-                            <TextView
-                                android:id="@+id/tvComplexionSub"
-                                android:layout_width="wrap_content"
+                            <!-- Textos de Complexión (Derecha) -->
+                            <LinearLayout
+                                android:layout_width="0dp"
                                 android:layout_height="wrap_content"
-                                android:text="Esperando resultados de composición..."
-                                android:textSize="12sp"
-                                android:textColor="#4B5563" />
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvComplexionTitle"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="COMPLEXIÓN: EN ANÁLISIS"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#001B3A" />
+
+                                <TextView
+                                    android:id="@+id/tvComplexionSub"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Esperando resultados de composición..."
+                                    android:textSize="12sp"
+                                    android:textColor="#4B5563" />
+                            </LinearLayout>
                         </LinearLayout>
 
                         <!-- Contenedor Principal: 2 Columnas (Izquierda: Grid 2x2, Derecha: Columna 4 Píldoras) -->

@@ -42,7 +42,7 @@ class FaceLoginActivity : BaseActivity() {
     @Volatile private var isRunning = false
 
     private val handler = Handler(Looper.getMainLooper())
-    private val frameIntervalMs = 700L
+    private val frameIntervalMs = 100L
 
     // ============================================================
     // UMBRALES de similitud coseno CRUDA (rango -1..1)
@@ -54,7 +54,7 @@ class FaceLoginActivity : BaseActivity() {
     private val UMBRAL_RECHAZAR = 0.55f    // por debajo → seguro distinto
 
     // Voto por mayoría: acumula similitudes de N frames antes de decidir
-    private val FRAMES_PARA_CONFIRMAR = 5
+    private val FRAMES_PARA_CONFIRMAR = 3
     // Mapa: pacienteId → lista de similitudes recientes
     private val recentSimilarities = mutableMapOf<Long, MutableList<Float>>()
 
