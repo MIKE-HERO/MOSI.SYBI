@@ -45,79 +45,302 @@
     </LinearLayout>
 
     <!-- CONTENIDO -->
-    <LinearLayout
+    <ScrollView
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:fillViewport="true">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Configuración de informes"
-            android:textSize="22sp"
-            android:textColor="#333333"
-            android:textStyle="bold"
-            android:layout_marginBottom="20dp"/>
-
-        <!-- SECCIÓN: OPCIONES DE INFORMES -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#FFFFFF"
-            android:elevation="2dp"
-            android:padding="16dp"
-            android:layout_marginBottom="16dp">
+            android:padding="20dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Opciones de informes"
-                android:textSize="16sp"
-                android:textStyle="bold"
+                android:text="Configuración de informes"
+                android:textSize="22sp"
                 android:textColor="#333333"
-                android:layout_marginBottom="12dp"/>
+                android:textStyle="bold"
+                android:layout_marginBottom="20dp"/>
 
-            <!-- Imprimir resultados -->
+            <!-- SECCIÓN: OPCIONES DE INFORMES -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="8dp">
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:elevation="2dp"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
                 <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Permitir impresión de resultados"
-                    android:textSize="15sp"
-                    android:textColor="#333333"/>
-                <Switch
-                    android:id="@+id/switchEnablePrint"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content"
+                    android:text="Opciones de informes"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#333333"
+                    android:layout_marginBottom="12dp"/>
+
+                <!-- Imprimir resultados -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="8dp"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Permitir impresión de resultados"
+                        android:textSize="15sp"
+                        android:textColor="#333333"/>
+                    <Switch
+                        android:id="@+id/switchEnablePrint"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+                </LinearLayout>
+
+                <!-- Enviar por correo -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="8dp"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Permitir envío de resultados por correo"
+                        android:textSize="15sp"
+                        android:textColor="#333333"/>
+                    <Switch
+                        android:id="@+id/switchEnableEmail"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- Enviar por correo -->
+            <!-- SECCIÓN: PERSONALIZAR PDF -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="8dp">
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:elevation="2dp"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
                 <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Permitir envío de resultados por correo"
-                    android:textSize="15sp"
-                    android:textColor="#333333"/>
-                <Switch
-                    android:id="@+id/switchEnableEmail"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content"
+                    android:text="Personalizar PDF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#333333"
+                    android:layout_marginBottom="12dp"/>
+
+                <!-- Título del PDF -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Título del PDF"
+                    android:textSize="14sp"
+                    android:textColor="#555555"
+                    android:layout_marginBottom="4dp"/>
+
+                <EditText
+                    android:id="@+id/etPdfTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Título del PDF"
+                    android:inputType="text"
+                    android:textSize="16sp"
+                    android:padding="12dp"
+                    android:background="@android:drawable/editbox_background_normal"
+                    android:layout_marginBottom="12dp"/>
+
+                <!-- Subtítulo del PDF -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Subtítulo del PDF"
+                    android:textSize="14sp"
+                    android:textColor="#555555"
+                    android:layout_marginBottom="4dp"/>
+
+                <EditText
+                    android:id="@+id/etPdfSubtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Subtítulo del PDF (opcional)"
+                    android:inputType="text"
+                    android:textSize="16sp"
+                    android:padding="12dp"
+                    android:background="@android:drawable/editbox_background_normal"
+                    android:layout_marginBottom="16dp"/>
+
+                <!-- Espacio grande de previsualización -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Previsualización del PDF"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#333333"
+                    android:layout_marginBottom="8dp"/>
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="550dp"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="#FFFFFF"
+                    android:layout_marginBottom="8dp">
+
+                    <ScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:fillViewport="true"
+                        android:nestedScrollingEnabled="false"
+                        android:padding="28dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+
+                            <!-- Header: Logo a la izquierda, Título y Subtítulo a la derecha -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:layout_marginBottom="12dp">
+
+                                <ImageView
+                                    android:id="@+id/ivPreviewLogo"
+                                    android:layout_width="60dp"
+                                    android:layout_height="60dp"
+                                    android:scaleType="fitCenter"
+                                    android:src="@drawable/sybi_logo_blanco"
+                                    android:layout_marginRight="12dp"/>
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:id="@+id/tvPreviewTitle"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Título del PDF"
+                                        android:textSize="16sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#0F3E82"/>
+
+                                    <TextView
+                                        android:id="@+id/tvPreviewSubtitle"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Subtítulo del PDF"
+                                        android:textSize="12sp"
+                                        android:textColor="#666666"
+                                        android:visibility="gone"/>
+
+                                    <TextView
+                                        android:id="@+id/tvPreviewMeta"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Paciente: Juan Pérez   |   Fecha: 07/10/2026 13:43"
+                                        android:textSize="11sp"
+                                        android:textColor="#888888"
+                                        android:layout_marginTop="2dp"/>
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="#E0E0E0"
+                                android:layout_marginBottom="12dp"/>
+
+                            <!-- Datos random de resultados para previsualización -->
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Altura / Peso"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:textColor="#0F3E82"
+                                android:layout_marginBottom="4dp"/>
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="• Altura: 175.0 cm\n• Peso: 70.5 kg\n• IMC: 23.0 (Normal)"
+                                android:textSize="12sp"
+                                android:textColor="#333333"
+                                android:layout_marginBottom="10dp"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Composición Corporal"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:textColor="#0F3E82"
+                                android:layout_marginBottom="4dp"/>
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="• Tasa de Grasa Corporal: 18.5%\n• Masa Muscular: 32.0 kg\n• Metabolismo Basal: 1550 kcal"
+                                android:textSize="12sp"
+                                android:textColor="#333333"
+                                android:layout_marginBottom="10dp"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Presión Arterial"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:textColor="#0F3E82"
+                                android:layout_marginBottom="4dp"/>
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="• Sistólica: 120 mmHg\n• Diastólica: 80 mmHg\n• Pulso: 72 bpm"
+                                android:textSize="12sp"
+                                android:textColor="#333333"
+                                android:layout_marginBottom="10dp"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Oxígeno en Sangre"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:textColor="#0F3E82"
+                                android:layout_marginBottom="4dp"/>
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="• SpO2: 98%\n• Pulso: 72 bpm\n• PI: 2.1"
+                                android:textSize="12sp"
+                                android:textColor="#333333"/>
+
+                        </LinearLayout>
+                    </ScrollView>
+                </androidx.cardview.widget.CardView>
             </LinearLayout>
+
         </LinearLayout>
-
-    </LinearLayout>
+    </ScrollView>
 </LinearLayout>

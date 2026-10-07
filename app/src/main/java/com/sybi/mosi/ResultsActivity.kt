@@ -19,7 +19,10 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.net.Uri
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.graphics.drawable.toBitmap
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.database.AppDatabase
 import com.sybi.mosi.database.Paciente
@@ -724,6 +727,30 @@ class ResultsActivity : BaseActivity() {
     // ==========================================
     // GENERAR PDF EN MEMORIA
     // ==========================================
+    private fun loadLogoBitmap(context: Context, path: String?): android.graphics.Bitmap? {
+        return try {
+            if (!path.isNullOrBlank()) {
+                val file = File(path)
+                if (file.exists()) {
+                    BitmapFactory.decodeFile(file.absolutePath)
+                } else {
+                    val uri = Uri.parse(path)
+                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        BitmapFactory.decodeStream(inputStream)
+                    }
+                }
+            } else {
+                ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
+            }
+        } catch (_: Exception) {
+            try {
+                ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
+
     private fun generarPdfBytes(): ByteArray? {
         return try {
             val pdfDocument = android.graphics.pdf.PdfDocument()
@@ -742,17 +769,13 @@ class ResultsActivity : BaseActivity() {
             val marginLeft = 60f
             val lineHeight = 40f
 
-            // Título
-            paint.textSize = 42f
-            paint.isFakeBoldText = true
-            paint.color = Color.parseColor("#0F3E82")
-            canvas.drawText("Reporte de Resultados", marginLeft, y, paint)
-            y += 60f
+            val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+            val defaultAppTitle = appPrefs.getString("AppTitle", "MÓDULO DE SALUD INTEGRAL") ?: "MÓDULO DE SALUD INTEGRAL"
+            val pdfTitle = appPrefs.getString("PdfTitle", defaultAppTitle)?.takeIf { it.isNotBlank() } ?: defaultAppTitle
+            val pdfSubtitle = appPrefs.getString("PdfSubtitle", "") ?: ""
+            val logoPath = appPrefs.getString("LogoPath", null)
 
-            // Subtítulo
-            paint.textSize = 24f
-            paint.isFakeBoldText = false
-            paint.color = Color.parseColor("#666666")
+            val logoBitmap = loadLogoBitmap(this, logoPath)
             val fecha = java.text.SimpleDateFormat(
                 "dd/MM/yyyy HH:mm", java.util.Locale.getDefault()
             ).format(java.util.Date())
@@ -761,11 +784,59 @@ class ResultsActivity : BaseActivity() {
                 paciente?.apellido_paterno,
                 paciente?.apellido_materno
             ).joinToString(" ").trim().ifBlank { "Paciente" }
-            canvas.drawText(
-                "Paciente: $nombrePaciente   |   Fecha: $fecha",
-                marginLeft, y, paint
-            )
-            y += 70f
+
+            if (logoBitmap != null) {
+                val logoWidth = 100f
+                val logoHeight = (logoBitmap.height.toFloat() / logoBitmap.width.toFloat()) * logoWidth
+                canvas.drawBitmap(
+                    android.graphics.Bitmap.createScaledBitmap(logoBitmap, logoWidth.toInt(), logoHeight.toInt(), true),
+                    marginLeft, y, null
+                )
+
+                val textLeft = marginLeft + logoWidth + 30f
+                var currentY = y + 35f
+
+                paint.textSize = 42f
+                paint.isFakeBoldText = true
+                paint.color = Color.parseColor("#0F3E82")
+                canvas.drawText(pdfTitle, textLeft, currentY, paint)
+                currentY += 50f
+
+                if (pdfSubtitle.isNotBlank()) {
+                    paint.textSize = 24f
+                    paint.isFakeBoldText = false
+                    paint.color = Color.parseColor("#666666")
+                    canvas.drawText(pdfSubtitle, textLeft, currentY, paint)
+                    currentY += 35f
+                }
+
+                paint.textSize = 22f
+                paint.isFakeBoldText = false
+                paint.color = Color.parseColor("#888888")
+                canvas.drawText("Paciente: $nombrePaciente   |   Fecha: $fecha", textLeft, currentY, paint)
+
+                y = maxOf(y + logoHeight, currentY) + 50f
+            } else {
+                paint.textSize = 42f
+                paint.isFakeBoldText = true
+                paint.color = Color.parseColor("#0F3E82")
+                canvas.drawText(pdfTitle, marginLeft, y, paint)
+                y += 60f
+
+                if (pdfSubtitle.isNotBlank()) {
+                    paint.textSize = 24f
+                    paint.isFakeBoldText = false
+                    paint.color = Color.parseColor("#666666")
+                    canvas.drawText(pdfSubtitle, marginLeft, y, paint)
+                    y += 40f
+                }
+
+                paint.textSize = 24f
+                paint.isFakeBoldText = false
+                paint.color = Color.parseColor("#666666")
+                canvas.drawText("Paciente: $nombrePaciente   |   Fecha: $fecha", marginLeft, y, paint)
+                y += 70f
+            }
 
             val prefs = getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE)
 
