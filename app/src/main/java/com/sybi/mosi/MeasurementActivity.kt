@@ -352,6 +352,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         statusSweep.setSweepColor(themeColor)
 
         measurementResults.applyLoaderColor(themeColor)
+        waveformView.setLineColor(themeColor)
     }
 
     private fun getPatientAge(): Int {

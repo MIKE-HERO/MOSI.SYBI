@@ -1,6 +1,9 @@
 package com.sybi.mosi
 
+import android.graphics.Bitmap
 import android.graphics.Color
+import androidx.palette.graphics.Palette
+import kotlin.math.abs
 import kotlin.random.Random
 
 /**
@@ -32,6 +35,65 @@ object LogoColorTheme {
         18f..40f,   // naranja
         265f..292f, // violeta
     )
+
+    /**
+     * Genera la paleta de 5 colores a partir del logo cargado: toma las muestras que ya
+     * clasifica [Palette] (oscura/mate, vibrante oscura, mate, dominante, clara/mate...),
+     * atenúa las que resulten muy brillantes o muy saturadas, y descarta las que queden
+     * demasiado parecidas entre sí (para que al ciclar sí se note el cambio). Si el logo no
+     * da suficientes tonos distintos, completa el resto con [generateRandomPalette].
+     */
+    fun generatePaletteFromBitmap(bitmap: Bitmap): List<Int> {
+        val palette = runCatching {
+            Palette.from(bitmap).maximumColorCount(24).generate()
+        }.getOrNull() ?: return generateRandomPalette()
+
+        // De más útil (tonos oscuros/mate, fáciles de usar de fondo) a menos útil.
+        val candidatos = listOfNotNull(
+            palette.darkMutedSwatch,
+            palette.darkVibrantSwatch,
+            palette.mutedSwatch,
+            palette.dominantSwatch,
+            palette.lightMutedSwatch,
+            palette.vibrantSwatch,
+            palette.lightVibrantSwatch,
+        )
+
+        val elegidos = mutableListOf<Int>()
+        for (swatch in candidatos) {
+            if (elegidos.size >= 5) break
+            val color = atenuarSiEsMuyBrillante(swatch.rgb)
+            if (elegidos.none { seVeParecido(it, color) }) elegidos += color
+        }
+
+        if (elegidos.size < 5) {
+            for (extra in generateRandomPalette()) {
+                if (elegidos.size >= 5) break
+                if (elegidos.none { seVeParecido(it, extra) }) elegidos += extra
+            }
+        }
+
+        return elegidos.take(5)
+    }
+
+    /** Si el color es muy brillante o muy saturado, lo baja para que quede dentro del
+     *  mismo rango "mate" que usa [generateRandomPalette]. */
+    private fun atenuarSiEsMuyBrillante(color: Int): Int {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(color, hsv)
+        if (hsv[2] > VALUE_MAX) hsv[2] = VALUE_MAX
+        if (hsv[1] > SATURATION_MAX) hsv[1] = SATURATION_MAX
+        return Color.HSVToColor(hsv)
+    }
+
+    /** Dos colores "se ven parecidos" si su tono y su brillo están ambos muy cerca. */
+    private fun seVeParecido(a: Int, b: Int): Boolean {
+        val hsvA = FloatArray(3).also { Color.colorToHSV(a, it) }
+        val hsvB = FloatArray(3).also { Color.colorToHSV(b, it) }
+        val difHue = abs(hsvA[0] - hsvB[0]).let { if (it > 180f) 360f - it else it }
+        val difValue = abs(hsvA[2] - hsvB[2])
+        return difHue < 25f && difValue < 0.15f
+    }
 
     fun generateRandomPalette(): List<Int> {
         return listOf(

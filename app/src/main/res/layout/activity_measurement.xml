@@ -560,12 +560,56 @@
                                             android:textStyle="bold"
                                             android:textColor="#001B3A" />
 
-                                        <LinearLayout
+                                        <FrameLayout
                                             android:layout_width="match_parent"
                                             android:layout_height="0dp"
-                                            android:layout_weight="1"
-                                            android:orientation="horizontal"
-                                            android:gravity="center">
+                                            android:layout_weight="1">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:orientation="horizontal"
+                                                android:gravity="center">
+
+                                                <ImageView
+                                                    android:id="@+id/ivFatIcon"
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="match_parent"
+                                                    android:layout_weight="1"
+                                                    android:scaleType="fitCenter"
+                                                    android:padding="4dp"
+                                                    android:src="@drawable/ic_fat_fitness"
+                                                    android:contentDescription="Grasa Corporal"
+                                                    android:visibility="gone" />
+
+                                                <LinearLayout
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="match_parent"
+                                                    android:layout_weight="1"
+                                                    android:orientation="vertical"
+                                                    android:gravity="center">
+
+                                                    <TextView
+                                                        android:id="@+id/tvResultFatRate"
+                                                        android:layout_width="wrap_content"
+                                                        android:layout_height="wrap_content"
+                                                        android:text=""
+                                                        android:textSize="22sp"
+                                                        android:textStyle="bold"
+                                                        android:textColor="#001B3A"
+                                                        android:visibility="gone" />
+
+                                                    <TextView
+                                                        android:id="@+id/tvResultFatKg"
+                                                        android:layout_width="wrap_content"
+                                                        android:layout_height="wrap_content"
+                                                        android:text=""
+                                                        android:textSize="15sp"
+                                                        android:textStyle="bold"
+                                                        android:textColor="#001B3A"
+                                                        android:visibility="gone" />
+                                                </LinearLayout>
+                                            </LinearLayout>
 
                                             <com.sybi.mosi.measurement.EqualizerLoaderView
                                                 android:id="@+id/pbFatLoading"
@@ -573,46 +617,7 @@
                                                 android:layout_height="28dp"
                                                 android:layout_gravity="center"
                                                 android:visibility="visible" />
-
-                                            <ImageView
-                                                android:id="@+id/ivFatIcon"
-                                                android:layout_width="0dp"
-                                                android:layout_height="match_parent"
-                                                android:layout_weight="1"
-                                                android:scaleType="fitCenter"
-                                                android:padding="4dp"
-                                                android:src="@drawable/ic_fat_fitness"
-                                                android:contentDescription="Grasa Corporal"
-                                                android:visibility="gone" />
-
-                                            <LinearLayout
-                                                android:layout_width="0dp"
-                                                android:layout_height="match_parent"
-                                                android:layout_weight="1"
-                                                android:orientation="vertical"
-                                                android:gravity="center">
-
-                                                <TextView
-                                                    android:id="@+id/tvResultFatRate"
-                                                    android:layout_width="wrap_content"
-                                                    android:layout_height="wrap_content"
-                                                    android:text=""
-                                                    android:textSize="22sp"
-                                                    android:textStyle="bold"
-                                                    android:textColor="#001B3A"
-                                                    android:visibility="gone" />
-
-                                                <TextView
-                                                    android:id="@+id/tvResultFatKg"
-                                                    android:layout_width="wrap_content"
-                                                    android:layout_height="wrap_content"
-                                                    android:text=""
-                                                    android:textSize="15sp"
-                                                    android:textStyle="bold"
-                                                    android:textColor="#001B3A"
-                                                    android:visibility="gone" />
-                                            </LinearLayout>
-                                        </LinearLayout>
+                                        </FrameLayout>
                                     </LinearLayout>
 
                                     <!-- Card 2: Masa Muscular -->
@@ -634,12 +639,56 @@
                                             android:textStyle="bold"
                                             android:textColor="#001B3A" />
 
-                                        <LinearLayout
+                                        <FrameLayout
                                             android:layout_width="match_parent"
                                             android:layout_height="0dp"
-                                            android:layout_weight="1"
-                                            android:orientation="horizontal"
-                                            android:gravity="center">
+                                            android:layout_weight="1">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:orientation="horizontal"
+                                                android:gravity="center">
+
+                                                <ImageView
+                                                    android:id="@+id/ivMuscleIcon"
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="match_parent"
+                                                    android:layout_weight="1"
+                                                    android:scaleType="fitCenter"
+                                                    android:padding="4dp"
+                                                    android:src="@drawable/ic_muscle_saludable"
+                                                    android:contentDescription="Masa Muscular"
+                                                    android:visibility="gone" />
+
+                                                <LinearLayout
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="match_parent"
+                                                    android:layout_weight="1"
+                                                    android:orientation="vertical"
+                                                    android:gravity="center">
+
+                                                    <TextView
+                                                        android:id="@+id/tvResultMuscleRate"
+                                                        android:layout_width="wrap_content"
+                                                        android:layout_height="wrap_content"
+                                                        android:text=""
+                                                        android:textSize="22sp"
+                                                        android:textStyle="bold"
+                                                        android:textColor="#001B3A"
+                                                        android:visibility="gone" />
+
+                                                    <TextView
+                                                        android:id="@+id/tvResultMuscleKg"
+                                                        android:layout_width="wrap_content"
+                                                        android:layout_height="wrap_content"
+                                                        android:text=""
+                                                        android:textSize="15sp"
+                                                        android:textStyle="bold"
+                                                        android:textColor="#001B3A"
+                                                        android:visibility="gone" />
+                                                </LinearLayout>
+                                            </LinearLayout>
 
                                             <com.sybi.mosi.measurement.EqualizerLoaderView
                                                 android:id="@+id/pbMuscleLoading"
@@ -647,46 +696,7 @@
                                                 android:layout_height="28dp"
                                                 android:layout_gravity="center"
                                                 android:visibility="visible" />
-
-                                            <ImageView
-                                                android:id="@+id/ivMuscleIcon"
-                                                android:layout_width="0dp"
-                                                android:layout_height="match_parent"
-                                                android:layout_weight="1"
-                                                android:scaleType="fitCenter"
-                                                android:padding="4dp"
-                                                android:src="@drawable/ic_muscle_saludable"
-                                                android:contentDescription="Masa Muscular"
-                                                android:visibility="gone" />
-
-                                            <LinearLayout
-                                                android:layout_width="0dp"
-                                                android:layout_height="match_parent"
-                                                android:layout_weight="1"
-                                                android:orientation="vertical"
-                                                android:gravity="center">
-
-                                                <TextView
-                                                    android:id="@+id/tvResultMuscleRate"
-                                                    android:layout_width="wrap_content"
-                                                    android:layout_height="wrap_content"
-                                                    android:text=""
-                                                    android:textSize="22sp"
-                                                    android:textStyle="bold"
-                                                    android:textColor="#001B3A"
-                                                    android:visibility="gone" />
-
-                                                <TextView
-                                                    android:id="@+id/tvResultMuscleKg"
-                                                    android:layout_width="wrap_content"
-                                                    android:layout_height="wrap_content"
-                                                    android:text=""
-                                                    android:textSize="15sp"
-                                                    android:textStyle="bold"
-                                                    android:textColor="#001B3A"
-                                                    android:visibility="gone" />
-                                            </LinearLayout>
-                                        </LinearLayout>
+                                        </FrameLayout>
                                     </LinearLayout>
                                 </LinearLayout>
 
@@ -716,12 +726,56 @@
                                             android:textStyle="bold"
                                             android:textColor="#001B3A" />
 
-                                        <LinearLayout
+                                        <FrameLayout
                                             android:layout_width="match_parent"
                                             android:layout_height="0dp"
-                                            android:layout_weight="1"
-                                            android:orientation="horizontal"
-                                            android:gravity="center">
+                                            android:layout_weight="1">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:orientation="horizontal"
+                                                android:gravity="center">
+
+                                                <ImageView
+                                                    android:id="@+id/ivWaterIcon"
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="match_parent"
+                                                    android:layout_weight="1"
+                                                    android:scaleType="fitCenter"
+                                                    android:padding="4dp"
+                                                    android:src="@drawable/ic_water_optima"
+                                                    android:contentDescription="Agua Corporal"
+                                                    android:visibility="gone" />
+
+                                                <LinearLayout
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="match_parent"
+                                                    android:layout_weight="1"
+                                                    android:orientation="vertical"
+                                                    android:gravity="center">
+
+                                                    <TextView
+                                                        android:id="@+id/tvResultWaterRate"
+                                                        android:layout_width="wrap_content"
+                                                        android:layout_height="wrap_content"
+                                                        android:text=""
+                                                        android:textSize="22sp"
+                                                        android:textStyle="bold"
+                                                        android:textColor="#001B3A"
+                                                        android:visibility="gone" />
+
+                                                    <TextView
+                                                        android:id="@+id/tvResultWaterKg"
+                                                        android:layout_width="wrap_content"
+                                                        android:layout_height="wrap_content"
+                                                        android:text=""
+                                                        android:textSize="15sp"
+                                                        android:textStyle="bold"
+                                                        android:textColor="#001B3A"
+                                                        android:visibility="gone" />
+                                                </LinearLayout>
+                                            </LinearLayout>
 
                                             <com.sybi.mosi.measurement.EqualizerLoaderView
                                                 android:id="@+id/pbWaterLoading"
@@ -729,46 +783,7 @@
                                                 android:layout_height="28dp"
                                                 android:layout_gravity="center"
                                                 android:visibility="visible" />
-
-                                            <ImageView
-                                                android:id="@+id/ivWaterIcon"
-                                                android:layout_width="0dp"
-                                                android:layout_height="match_parent"
-                                                android:layout_weight="1"
-                                                android:scaleType="fitCenter"
-                                                android:padding="4dp"
-                                                android:src="@drawable/ic_water_optima"
-                                                android:contentDescription="Agua Corporal"
-                                                android:visibility="gone" />
-
-                                            <LinearLayout
-                                                android:layout_width="0dp"
-                                                android:layout_height="match_parent"
-                                                android:layout_weight="1"
-                                                android:orientation="vertical"
-                                                android:gravity="center">
-
-                                                <TextView
-                                                    android:id="@+id/tvResultWaterRate"
-                                                    android:layout_width="wrap_content"
-                                                    android:layout_height="wrap_content"
-                                                    android:text=""
-                                                    android:textSize="22sp"
-                                                    android:textStyle="bold"
-                                                    android:textColor="#001B3A"
-                                                    android:visibility="gone" />
-
-                                                <TextView
-                                                    android:id="@+id/tvResultWaterKg"
-                                                    android:layout_width="wrap_content"
-                                                    android:layout_height="wrap_content"
-                                                    android:text=""
-                                                    android:textSize="15sp"
-                                                    android:textStyle="bold"
-                                                    android:textColor="#001B3A"
-                                                    android:visibility="gone" />
-                                            </LinearLayout>
-                                        </LinearLayout>
+                                        </FrameLayout>
                                     </LinearLayout>
 
                                     <!-- Card 4: Grasa Visceral -->
@@ -790,12 +805,40 @@
                                             android:textStyle="bold"
                                             android:textColor="#001B3A" />
 
-                                        <LinearLayout
+                                        <FrameLayout
                                             android:layout_width="match_parent"
                                             android:layout_height="0dp"
-                                            android:layout_weight="1"
-                                            android:orientation="horizontal"
-                                            android:gravity="center">
+                                            android:layout_weight="1">
+
+                                            <LinearLayout
+                                                android:layout_width="match_parent"
+                                                android:layout_height="match_parent"
+                                                android:orientation="horizontal"
+                                                android:gravity="center">
+
+                                                <ImageView
+                                                    android:id="@+id/ivVisceralIcon"
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="match_parent"
+                                                    android:layout_weight="1"
+                                                    android:scaleType="fitCenter"
+                                                    android:padding="4dp"
+                                                    android:src="@drawable/ic_visceral_normal"
+                                                    android:contentDescription="Grasa Visceral"
+                                                    android:visibility="gone" />
+
+                                                <TextView
+                                                    android:id="@+id/tvResultVisceralFat"
+                                                    android:layout_width="0dp"
+                                                    android:layout_height="wrap_content"
+                                                    android:layout_weight="1"
+                                                    android:text=""
+                                                    android:textSize="28sp"
+                                                    android:textStyle="bold"
+                                                    android:textColor="#001B3A"
+                                                    android:gravity="center"
+                                                    android:visibility="gone" />
+                                            </LinearLayout>
 
                                             <com.sybi.mosi.measurement.EqualizerLoaderView
                                                 android:id="@+id/pbVisceralLoading"
@@ -803,30 +846,7 @@
                                                 android:layout_height="28dp"
                                                 android:layout_gravity="center"
                                                 android:visibility="visible" />
-
-                                            <ImageView
-                                                android:id="@+id/ivVisceralIcon"
-                                                android:layout_width="0dp"
-                                                android:layout_height="match_parent"
-                                                android:layout_weight="1"
-                                                android:scaleType="fitCenter"
-                                                android:padding="4dp"
-                                                android:src="@drawable/ic_visceral_normal"
-                                                android:contentDescription="Grasa Visceral"
-                                                android:visibility="gone" />
-
-                                            <TextView
-                                                android:id="@+id/tvResultVisceralFat"
-                                                android:layout_width="0dp"
-                                                android:layout_height="wrap_content"
-                                                android:layout_weight="1"
-                                                android:text=""
-                                                android:textSize="28sp"
-                                                android:textStyle="bold"
-                                                android:textColor="#001B3A"
-                                                android:gravity="center"
-                                                android:visibility="gone" />
-                                        </LinearLayout>
+                                        </FrameLayout>
                                     </LinearLayout>
                                 </LinearLayout>
                             </LinearLayout>

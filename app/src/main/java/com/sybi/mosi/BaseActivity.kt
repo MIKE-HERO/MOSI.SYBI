@@ -1,7 +1,5 @@
 package com.sybi.mosi
 
-import android.animation.ArgbEvaluator
-import android.animation.ValueAnimator
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -30,17 +28,20 @@ open class BaseActivity : AppCompatActivity() {
     // ahora también se repinta sola cuando el modo multicolor está activo: aquí mismo,
     // en la base de todas las Activities, se emite ese mismo aviso cada cierto tiempo
     // con el siguiente color de la paleta — cada pantalla no necesita saber nada de esto.
+    //
+    // El cambio de color es directo (sin transición animada): el índice del color actual
+    // se guarda en AppPrefs, así que si abres una pantalla nueva a la mitad del ciclo, toma
+    // de una vez el color que esté activo en ese momento, en vez de reiniciar su propia
+    // transición desde el color fijo.
     private val multicolorHandler = Handler(Looper.getMainLooper())
     private var multicolorRunnable: Runnable? = null
-    private var multicolorAnimator: ValueAnimator? = null
     private var multicolorColors: List<Int> = emptyList()
     private var multicolorIndex = 0
-    private var multicolorCurrentColor: Int = Color.parseColor("#0F3E82")
     private var multicolorSettingsReceiver: BroadcastReceiver? = null
 
     companion object {
         private const val MULTICOLOR_INTERVAL_MS = 150_000L // 2.5 minutos entre cada cambio
-        private const val MULTICOLOR_TRANSITION_MS = 5000L  // duración de la transición suave
+        private const val PREF_MULTICOLOR_INDEX = "MulticolorCurrentIndex"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,25 +105,10 @@ open class BaseActivity : AppCompatActivity() {
         } ?: emptyList()
         if (multicolorColors.size < 2) return
 
-        multicolorCurrentColor = runCatching {
-            Color.parseColor(prefs.getString("BackgroundColor", "#0F3E82"))
-        }.getOrDefault(multicolorColors[0])
-        multicolorIndex = 0
-
-        // Transición inmediata hacia el primer color de la paleta: si no, se quedaba
-        // "atorado" en el color fijo hasta 2.5 minutos (el primer tick programado),
-        // y parecía que el color por defecto le ganaba al modo multicolor.
-        val destinoInicial = multicolorColors[0]
-        multicolorAnimator?.cancel()
-        multicolorAnimator = ValueAnimator.ofObject(ArgbEvaluator(), multicolorCurrentColor, destinoInicial).apply {
-            duration = MULTICOLOR_TRANSITION_MS
-            addUpdateListener { anim ->
-                val color = anim.animatedValue as Int
-                multicolorCurrentColor = color
-                emitirCambioDeColor(color)
-            }
-            start()
-        }
+        // Tomar de una vez el color que esté activo ahora mismo en el ciclo compartido
+        // (guardado por la última pantalla que avanzó), sin transición.
+        multicolorIndex = prefs.getInt(PREF_MULTICOLOR_INDEX, 0).coerceIn(0, multicolorColors.size - 1)
+        emitirCambioDeColor(multicolorColors[multicolorIndex])
         programarSiguienteCambioMulticolor()
     }
 
@@ -135,19 +121,13 @@ open class BaseActivity : AppCompatActivity() {
     private fun avanzarCicloMulticolor() {
         if (multicolorColors.size < 2) return
         multicolorIndex = (multicolorIndex + 1) % multicolorColors.size
-        val destino = multicolorColors[multicolorIndex]
-        val origen = multicolorCurrentColor
 
-        multicolorAnimator?.cancel()
-        multicolorAnimator = ValueAnimator.ofObject(ArgbEvaluator(), origen, destino).apply {
-            duration = MULTICOLOR_TRANSITION_MS
-            addUpdateListener { anim ->
-                val color = anim.animatedValue as Int
-                multicolorCurrentColor = color
-                emitirCambioDeColor(color)
-            }
-            start()
-        }
+        // Guardamos el índice para que cualquier pantalla que abra después (o siga en pie)
+        // sepa cuál es el color "actual" del ciclo sin tener que calcular nada.
+        getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).edit()
+            .putInt(PREF_MULTICOLOR_INDEX, multicolorIndex).apply()
+
+        emitirCambioDeColor(multicolorColors[multicolorIndex])
         programarSiguienteCambioMulticolor()
     }
 
@@ -160,8 +140,6 @@ open class BaseActivity : AppCompatActivity() {
     private fun detenerCicloMulticolor() {
         multicolorRunnable?.let { multicolorHandler.removeCallbacks(it) }
         multicolorRunnable = null
-        multicolorAnimator?.cancel()
-        multicolorAnimator = null
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {

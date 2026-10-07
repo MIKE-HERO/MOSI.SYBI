@@ -30,6 +30,12 @@ class WaveformView @JvmOverloads constructor(
 
     private val path = Path()
 
+    /** Recolorea la línea según el color de marca del quiosco. */
+    fun setLineColor(color: Int) {
+        wavePaint.color = color
+        invalidate()
+    }
+
     // Guardamos los datos como enteros para no perder precisión
     private val points = mutableListOf<Int>()
     private val maxPoints = 300 // Número máximo de puntos en pantalla
