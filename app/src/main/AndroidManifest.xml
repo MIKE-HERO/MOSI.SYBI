@@ -97,6 +97,7 @@
         <activity android:name=".ProfileActivity" android:exported="false" />
         <activity android:name=".MeasurementActivity" android:exported="false" />
         <activity android:name=".ResultsActivity" android:exported="false" />
+        <activity android:name=".InformeActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".BasicSettingsActivity" android:exported="false" />
         <activity android:name=".TestElementsActivity" android:exported="false" />

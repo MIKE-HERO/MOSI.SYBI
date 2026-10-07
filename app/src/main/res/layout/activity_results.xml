@@ -118,6 +118,18 @@
             android:focusable="true"
             android:layout_marginEnd="5dp" />
 
+        <Button
+            android:id="@+id/btnVerInforme"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ver informe completo"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#4D000000"
+            android:textSize="20sp"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true" />
+
     </LinearLayout>
 
 </LinearLayout>

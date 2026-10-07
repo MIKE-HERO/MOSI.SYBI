@@ -40,6 +40,7 @@ class ResultsActivity : BaseActivity() {
     private lateinit var btnStartConsultation: Button
     private lateinit var btnPrintResults: Button
     private lateinit var btnEmailResults: Button
+    private lateinit var btnVerInforme: Button
     private lateinit var btnExitResults: View
 
     private var idLocal: Long = 0L
@@ -91,6 +92,7 @@ class ResultsActivity : BaseActivity() {
         btnStartConsultation = findViewById(R.id.btnStartConsultation)
         btnPrintResults = findViewById(R.id.btnPrintResults)
         btnEmailResults = findViewById(R.id.btnEmailResults)
+        btnVerInforme = findViewById(R.id.btnVerInforme)
         btnExitResults = findViewById(R.id.btnExitResults)
 
         idLocal = intent.getLongExtra("id_local", 0L)
@@ -183,6 +185,12 @@ class ResultsActivity : BaseActivity() {
                 return@setOnClickListener
             }
             enviarResultadosPorCorreo()
+        }
+
+        btnVerInforme.setOnClickListener {
+            val intent = Intent(this, InformeActivity::class.java)
+            intent.putExtra(InformeActivity.EXTRA_ID_LOCAL, idLocal)
+            startActivity(intent)
         }
 
         btnExitResults.setOnClickListener {
