@@ -1,5 +1,7 @@
 package com.sybi.mosi
 
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -22,26 +24,29 @@ open class BaseActivity : AppCompatActivity() {
     // campos de texto o el botón "Ocultar teclado" que aparece junto a él.
     private val keyboardHelper by lazy { KeyboardDismissHelper(window) { hideKeyboardAndClearFocus() } }
 
-    // ── Modo multicolor (ciclo compartido del color de marca) ──────────────────────────
-    // Cualquier pantalla que ya sabía repintarse sola al recibir "ACTION_UPDATE_THEME"
-    // (porque antes solo se usaba cuando el admin cambiaba el color a mano en Ajustes)
-    // ahora también se repinta sola cuando el modo multicolor está activo: aquí mismo,
-    // en la base de todas las Activities, se emite ese mismo aviso cada cierto tiempo
-    // con el siguiente color de la paleta — cada pantalla no necesita saber nada de esto.
-    //
-    // El cambio de color es directo (sin transición animada): el índice del color actual
-    // se guarda en AppPrefs, así que si abres una pantalla nueva a la mitad del ciclo, toma
-    // de una vez el color que esté activo en ese momento, en vez de reiniciar su propia
-    // transición desde el color fijo.
+    // ── Modo multicolor (ciclo del color de marca) ─────────────────────────────────────
+    // Solo la pantalla de inicio cicla los colores, con transición suave (MainActivity
+    // sobrescribe debeAnimarMulticolor() para activarlo). Mientras cicla, va guardando el
+    // color "vivo" actual en AppPrefs. Las demás pantallas NO ciclan: al abrir toman ese
+    // color vivo —el que la pantalla de inicio tenía al momento de salir— y se quedan ahí,
+    // sin transición. Todas se repintan vía el aviso "ACTION_UPDATE_THEME" que ya sabían
+    // escuchar, así que no hace falta tocar cada pantalla.
     private val multicolorHandler = Handler(Looper.getMainLooper())
     private var multicolorRunnable: Runnable? = null
+    private var multicolorAnimator: ValueAnimator? = null
     private var multicolorColors: List<Int> = emptyList()
     private var multicolorIndex = 0
+    private var multicolorColorVivo: Int = Color.parseColor("#0F3E82")
     private var multicolorSettingsReceiver: BroadcastReceiver? = null
+
+    /** La pantalla de inicio la sobrescribe a true para ser la única que cicla (animado). */
+    protected open fun debeAnimarMulticolor(): Boolean = false
 
     companion object {
         private const val MULTICOLOR_INTERVAL_MS = 150_000L // 2.5 minutos entre cada cambio
+        private const val MULTICOLOR_TRANSITION_MS = 5000L  // duración de la transición suave
         private const val PREF_MULTICOLOR_INDEX = "MulticolorCurrentIndex"
+        private const val PREF_MULTICOLOR_VIVO = "MulticolorColorVivo"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,6 +71,9 @@ open class BaseActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         keyboardHelper.detach()
+        // Al salir de la pantalla que cicla, dejamos guardado el color exacto en el que se
+        // quedó, para que la siguiente pantalla lo tome tal cual (sin transición).
+        if (debeAnimarMulticolor()) guardarColorVivo(multicolorColorVivo)
         detenerCicloMulticolor()
         desregistrarReceptorAjustesMulticolor()
     }
@@ -105,10 +113,20 @@ open class BaseActivity : AppCompatActivity() {
         } ?: emptyList()
         if (multicolorColors.size < 2) return
 
-        // Tomar de una vez el color que esté activo ahora mismo en el ciclo compartido
-        // (guardado por la última pantalla que avanzó), sin transición.
+        // El color del que partimos: el "vivo" que dejó la pantalla de inicio al salir.
+        multicolorColorVivo = runCatching {
+            Color.parseColor(prefs.getString(PREF_MULTICOLOR_VIVO, null))
+        }.getOrDefault(multicolorColors[0])
+
+        if (!debeAnimarMulticolor()) {
+            // Pantallas que no ciclan: toman el color vivo tal cual y se quedan ahí.
+            emitirCambioDeColor(multicolorColorVivo)
+            return
+        }
+
+        // Pantalla de inicio: cicla con transición suave, arrancando desde el color vivo.
         multicolorIndex = prefs.getInt(PREF_MULTICOLOR_INDEX, 0).coerceIn(0, multicolorColors.size - 1)
-        emitirCambioDeColor(multicolorColors[multicolorIndex])
+        emitirCambioDeColor(multicolorColorVivo)
         programarSiguienteCambioMulticolor()
     }
 
@@ -121,13 +139,21 @@ open class BaseActivity : AppCompatActivity() {
     private fun avanzarCicloMulticolor() {
         if (multicolorColors.size < 2) return
         multicolorIndex = (multicolorIndex + 1) % multicolorColors.size
+        val destino = multicolorColors[multicolorIndex]
+        val origen = multicolorColorVivo
 
-        // Guardamos el índice para que cualquier pantalla que abra después (o siga en pie)
-        // sepa cuál es el color "actual" del ciclo sin tener que calcular nada.
         getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).edit()
             .putInt(PREF_MULTICOLOR_INDEX, multicolorIndex).apply()
 
-        emitirCambioDeColor(multicolorColors[multicolorIndex])
+        multicolorAnimator?.cancel()
+        multicolorAnimator = ValueAnimator.ofObject(ArgbEvaluator(), origen, destino).apply {
+            duration = MULTICOLOR_TRANSITION_MS
+            addUpdateListener { anim ->
+                multicolorColorVivo = anim.animatedValue as Int
+                emitirCambioDeColor(multicolorColorVivo)
+            }
+            start()
+        }
         programarSiguienteCambioMulticolor()
     }
 
@@ -137,9 +163,17 @@ open class BaseActivity : AppCompatActivity() {
             .sendBroadcast(Intent("ACTION_UPDATE_THEME").putExtra("new_color", hex))
     }
 
+    private fun guardarColorVivo(color: Int) {
+        val hex = String.format("#%06X", 0xFFFFFF and color)
+        getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).edit()
+            .putString(PREF_MULTICOLOR_VIVO, hex).apply()
+    }
+
     private fun detenerCicloMulticolor() {
         multicolorRunnable?.let { multicolorHandler.removeCallbacks(it) }
         multicolorRunnable = null
+        multicolorAnimator?.cancel()
+        multicolorAnimator = null
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {

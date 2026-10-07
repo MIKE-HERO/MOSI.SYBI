@@ -38,6 +38,10 @@ import java.io.File
 
 class MainActivity : BaseActivity() {
 
+    // La pantalla de inicio es la única que cicla el modo multicolor (con transición suave);
+    // las demás pantallas se quedan en el color que ésta tenía al salir (ver BaseActivity).
+    override fun debeAnimarMulticolor(): Boolean = true
+
     private lateinit var gestureDetector: GestureDetector
     private var currentColor: String = "#0F3E82"
 
