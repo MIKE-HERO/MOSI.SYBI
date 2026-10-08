@@ -190,11 +190,9 @@ class ResultsActivity : BaseActivity() {
             enviarResultadosPorCorreo()
         }
 
-        btnVerInforme.setOnClickListener {
-            val intent = Intent(this, InformeActivity::class.java)
-            intent.putExtra(InformeActivity.EXTRA_ID_LOCAL, idLocal)
-            startActivity(intent)
-        }
+        // El informe ya es el contenido de esta pantalla, así que el botón que abría el
+        // informe aparte ya no hace falta.
+        btnVerInforme.visibility = View.GONE
 
         btnExitResults.setOnClickListener {
             if (impresionEnCurso) {
@@ -216,17 +214,37 @@ class ResultsActivity : BaseActivity() {
 
     private fun cargarPacienteYRenderizar() {
         Thread {
+            var mediciones: List<com.sybi.mosi.database.Resultado> = emptyList()
             runBlocking {
                 val db = AppDatabase.getInstance(this@ResultsActivity)
                 paciente = if (idLocal != 0L) {
                     db.pacienteDao().obtenerPacientePorIdLocal(idLocal)
                 } else null
 
+                // Mediciones para el informe (actual + hasta 20 anteriores). Para invitados
+                // (id_local=0, historial compartido) solo la actual.
+                mediciones = if (idLocal != 0L) {
+                    db.resultadoDao().obtenerResultadosPorIdLocal(idLocal).take(21)
+                } else {
+                    db.resultadoDao().obtenerResultadosPorIdLocal(0L).take(1)
+                }
+
                 val p = paciente
 
                 uiHandler.post {
                     tvPlaceholder.visibility = View.GONE
-                    renderResultadosSinEcg()
+                    // El contenido de la pantalla final es el informe visual (mismo que
+                    // InformeActivity), no la lista de texto.
+                    resultsContainer.removeAllViews()
+                    val colorTema = runCatching {
+                        Color.parseColor(getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("BackgroundColor", "#0F3E82"))
+                    }.getOrDefault(Color.parseColor("#0F3E82"))
+                    val builder = InformeBuilder(this@ResultsActivity, resultsContainer, colorTema)
+                    if (mediciones.isEmpty()) {
+                        builder.mensajeVacio("No hay mediciones registradas para este paciente.")
+                    } else {
+                        builder.construir(p, idLocal, mediciones)
+                    }
 
                     if (p?.correo.isNullOrBlank()) {
                         addEmailWarning()
@@ -249,8 +267,7 @@ class ResultsActivity : BaseActivity() {
                 } else {
                     Log.d(TAG, "⏭️ Sin id_usuario_web, no se envía")
                 }
-
-                cargarEcgEnBackground()
+                // El ECG ya lo muestra el informe (desde ruta_ecg), no hace falta cargarlo aparte.
             }
         }.start()
     }
