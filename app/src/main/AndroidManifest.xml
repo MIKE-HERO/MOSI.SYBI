@@ -116,6 +116,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".InformeActivity" android:exported="false" />
+        <activity android:name=".SmtpSettingsActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".BasicSettingsActivity" android:exported="false" />
         <activity android:name=".TestElementsActivity" android:exported="false" />

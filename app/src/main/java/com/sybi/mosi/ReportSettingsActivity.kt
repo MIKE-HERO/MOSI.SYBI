@@ -69,6 +69,10 @@ class ReportSettingsActivity : BaseActivity() {
 
         findViewById<View>(R.id.btnBackReportSettings).setOnClickListener { finish() }
 
+        findViewById<View>(R.id.btnConfigurarSmtp)?.setOnClickListener {
+            startActivity(Intent(this, SmtpSettingsActivity::class.java))
+        }
+
         // Switches
         val prefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         setupSwitch(R.id.switchEnablePrint, PREF_ALLOW_PRINT, prefs)
