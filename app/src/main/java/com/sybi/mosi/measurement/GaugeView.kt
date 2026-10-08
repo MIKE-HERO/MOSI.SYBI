@@ -138,10 +138,20 @@ class GaugeView @JvmOverloads constructor(
     fun setValue(value: Double, animated: Boolean = true) {
         currentValue = value
         val target = value.coerceIn(minGaugeVal, maxGaugeVal)
+        if (value <= 0.0) {
+            animator?.cancel()
+            this.animatedValue = 0.0
+            invalidate()
+            return
+        }
+
         if (animated && width > 0) {
+            if (animatedValue <= 0.0) {
+                animatedValue = 0.0
+            }
             animator?.cancel()
             animator = ValueAnimator.ofFloat(animatedValue.toFloat(), target.toFloat()).apply {
-                duration = 600
+                duration = 800
                 interpolator = DecelerateInterpolator()
                 addUpdateListener { anim ->
                     this@GaugeView.animatedValue = (anim.animatedValue as Float).toDouble()
@@ -150,6 +160,7 @@ class GaugeView @JvmOverloads constructor(
                 start()
             }
         } else {
+            animator?.cancel()
             this.animatedValue = target
             invalidate()
         }
@@ -252,23 +263,21 @@ class GaugeView @JvmOverloads constructor(
         canvas.drawLine(ex1, ey1, ex2, ey2, dividerPaint)
 
         // Draw Needle
-        if (animatedValue > 0) {
-            val needleRatio = ((animatedValue - minGaugeVal) / (maxGaugeVal - minGaugeVal)).coerceIn(0.0, 1.0)
-            val needleAngle = (startBaseAngle + needleRatio * totalSweep).toFloat()
-            val needleRad = Math.toRadians(needleAngle.toDouble())
+        val needleRatio = ((animatedValue - minGaugeVal) / (maxGaugeVal - minGaugeVal)).coerceIn(0.0, 1.0)
+        val needleAngle = (startBaseAngle + needleRatio * totalSweep).toFloat()
+        val needleRad = Math.toRadians(needleAngle.toDouble())
 
-            val needleLen = outerRadius * 0.95f
-            val nx = (cx + needleLen * cos(needleRad)).toFloat()
-            val ny = (cy + needleLen * sin(needleRad)).toFloat()
+        val needleLen = outerRadius * 0.95f
+        val nx = (cx + needleLen * cos(needleRad)).toFloat()
+        val ny = (cy + needleLen * sin(needleRad)).toFloat()
 
-            // Needle line & tip
-            canvas.drawLine(cx, cy, nx, ny, needlePaint)
+        // Needle line & tip
+        canvas.drawLine(cx, cy, nx, ny, needlePaint)
 
-            // Pivot circle
-            val pivotR = arcStrokeWidth * 0.32f
-            canvas.drawCircle(cx, cy, pivotR, pivotPaint)
-            canvas.drawCircle(cx, cy, pivotR * 0.45f, pivotInnerPaint)
-        }
+        // Pivot circle
+        val pivotR = arcStrokeWidth * 0.32f
+        canvas.drawCircle(cx, cy, pivotR, pivotPaint)
+        canvas.drawCircle(cx, cy, pivotR * 0.45f, pivotInnerPaint)
     }
 
     private fun drawCurvedText(
