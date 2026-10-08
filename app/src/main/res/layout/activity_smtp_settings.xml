@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F0F2F5">
+
+    <RelativeLayout
+        android:id="@+id/topSmtpBar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="#0F3E82"
+        android:paddingHorizontal="16dp">
+
+        <Button
+            android:id="@+id/btnBackSmtp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:text="Regresar"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#4D000000"
+            android:textAllCaps="false"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="Configuración de correo (SMTP)"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Estos datos se usan para enviar los informes por correo. La contraseña se guarda cifrada en el equipo."
+                android:textSize="13sp"
+                android:textColor="#6B7280"
+                android:layout_marginBottom="16dp" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Servidor saliente (SMTP)" android:textStyle="bold" android:textColor="#374151" android:textSize="13sp" />
+            <EditText android:id="@+id/etSmtpHost" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="mail.ejemplo.com" android:inputType="textUri" android:layout_marginBottom="12dp" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="12dp">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="8dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Puerto" android:textStyle="bold" android:textColor="#374151" android:textSize="13sp" />
+                    <EditText android:id="@+id/etSmtpPort" android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:hint="465" android:inputType="number" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center_vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Usar SSL/TLS" android:textStyle="bold" android:textColor="#374151" android:textSize="13sp" />
+                    <Switch android:id="@+id/swSmtpSsl" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checked="true" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Usuario (correo)" android:textStyle="bold" android:textColor="#374151" android:textSize="13sp" />
+            <EditText android:id="@+id/etSmtpUser" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="correo@ejemplo.com" android:inputType="textEmailAddress" android:layout_marginBottom="12dp" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Contraseña" android:textStyle="bold" android:textColor="#374151" android:textSize="13sp" />
+            <EditText android:id="@+id/etSmtpPass" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="Contraseña del correo" android:inputType="textPassword" android:layout_marginBottom="4dp" />
+            <CheckBox android:id="@+id/cbVerPass" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Mostrar contraseña" android:textSize="12sp" android:layout_marginBottom="12dp" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Remitente (opcional, por defecto el usuario)" android:textStyle="bold" android:textColor="#374151" android:textSize="13sp" />
+            <EditText android:id="@+id/etSmtpFrom" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="correo@ejemplo.com" android:inputType="textEmailAddress" android:layout_marginBottom="12dp" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Nombre del remitente (opcional)" android:textStyle="bold" android:textColor="#374151" android:textSize="13sp" />
+            <EditText android:id="@+id/etSmtpFromName" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="Teleconsulta" android:inputType="textPersonName" android:layout_marginBottom="20dp" />
+
+            <Button android:id="@+id/btnGuardarSmtp" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Guardar" android:textColor="#FFFFFF" android:backgroundTint="#0F3E82" android:textAllCaps="false" android:layout_marginBottom="10dp" />
+
+            <Button android:id="@+id/btnProbarSmtp" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Enviar correo de prueba" android:textColor="#0F3E82" android:backgroundTint="#E0E0E0" android:textAllCaps="false" />
+
+            <TextView android:id="@+id/tvSmtpEstado" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="13sp" android:textColor="#374151" android:layout_marginTop="14dp" android:gravity="center" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

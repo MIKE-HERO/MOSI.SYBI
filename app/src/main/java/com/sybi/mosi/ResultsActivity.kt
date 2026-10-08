@@ -659,18 +659,26 @@ class ResultsActivity : BaseActivity() {
     private fun enviarResultadosPorCorreo() {
         val destinatario = paciente?.correo
         if (destinatario.isNullOrBlank()) {
-            Toast.makeText(
-                this,
-                "El paciente no tiene correo registrado",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "El paciente no tiene correo registrado", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        if (!EmailSender.estaConfigurado(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("Correo no configurado")
+                .setMessage("Para enviar por correo, primero configura el servidor de envío (SMTP) en Ajustes → Configuración de informes.")
+                .setPositiveButton("Configurar ahora") { _, _ ->
+                    startActivity(Intent(this, SmtpSettingsActivity::class.java))
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
             return
         }
 
         btnEmailResults.isEnabled = false
         val textoOriginal = btnEmailResults.text
-        btnEmailResults.text = "Generando PDF..."
-        Toast.makeText(this, "Generando PDF de resultados...", Toast.LENGTH_SHORT).show()
+        btnEmailResults.text = "Enviando correo..."
+        Toast.makeText(this, "Enviando resultados a $destinatario...", Toast.LENGTH_SHORT).show()
 
         Thread {
             try {
@@ -679,59 +687,43 @@ class ResultsActivity : BaseActivity() {
                     uiHandler.post {
                         btnEmailResults.isEnabled = true
                         btnEmailResults.text = textoOriginal
-                        Toast.makeText(
-                            this,
-                            "No se pudo generar el PDF",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        Toast.makeText(this, "No se pudo generar el PDF", Toast.LENGTH_LONG).show()
                     }
                     return@Thread
                 }
 
-                val nombreArchivo = "Resultados_${paciente?.nombre?.replace(" ", "_") ?: "Paciente"}_${System.currentTimeMillis()}.pdf"
-                val archivo = File(getExternalFilesDir(null), nombreArchivo)
+                val nombrePaciente = paciente?.nombre?.replace(" ", "_") ?: "Paciente"
+                val archivo = File(getExternalFilesDir(null), "Resultados_${nombrePaciente}_${System.currentTimeMillis()}.pdf")
                 FileOutputStream(archivo).use { it.write(pdfBytes) }
 
-                Log.d(TAG, "📄 PDF generado: ${archivo.absolutePath} (${pdfBytes.size} bytes)")
+                val config = EmailSender.cargarConfig(this)
+                val nombreMostrar = listOfNotNull(
+                    paciente?.nombre, paciente?.apellido_paterno, paciente?.apellido_materno
+                ).joinToString(" ").trim().ifBlank { "Paciente" }
+                val cuerpo = "<p>Estimado/a $nombreMostrar,</p>" +
+                        "<p>Adjunto encontrará el informe de su medición realizada en el módulo de salud.</p>" +
+                        "<p>Saludos.</p>"
+
+                val resultado = EmailSender.enviar(
+                    config = config,
+                    destino = destinatario,
+                    asunto = "Informe de resultados - $nombreMostrar",
+                    cuerpoHtml = cuerpo,
+                    adjunto = archivo,
+                    nombreAdjunto = "Informe_$nombrePaciente.pdf"
+                )
 
                 uiHandler.post {
                     btnEmailResults.isEnabled = true
                     btnEmailResults.text = textoOriginal
-
-                    AlertDialog.Builder(this@ResultsActivity)
-                        .setTitle("PDF listo")
-                        .setMessage(
-                            "Se generó el PDF correctamente.\n\n" +
-                                    "Destinatario previsto: $destinatario\n\n" +
-                                    "Ruta: ${archivo.absolutePath}\n\n" +
-                                    "El envío por correo se activará cuando el servidor esté listo."
-                        )
-                        .setPositiveButton("Abrir PDF") { _, _ ->
-                            val uri = FileProvider.getUriForFile(
-                                this@ResultsActivity,
-                                "$packageName.fileprovider",
-                                archivo
-                            )
-                            val intent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(uri, "application/pdf")
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            try {
-                                startActivity(intent)
-                            } catch (e: ActivityNotFoundException) {
-                                Toast.makeText(
-                                    this,
-                                    "No hay app para ver PDFs",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        }
-                        .setNegativeButton("Cerrar", null)
-                        .show()
+                    if (resultado.isSuccess) {
+                        Toast.makeText(this, "✅ Resultados enviados a $destinatario", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(this, "❌ No se pudo enviar: ${resultado.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                    }
                 }
-
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Error generando PDF: ${e.message}", e)
+                Log.e(TAG, "❌ Error enviando correo: ${e.message}", e)
                 uiHandler.post {
                     btnEmailResults.isEnabled = true
                     btnEmailResults.text = textoOriginal

@@ -38,6 +38,28 @@ android {
         jniLibs {
             useLegacyPackaging = true
         }
+        resources {
+            // JavaMail (android-mail/android-activation) trae metadatos META-INF duplicados
+            // que chocan al empaquetar. Los de licencia no son funcionales -> se excluyen;
+            // los de registro de JavaMail (providers/mailcap) SÍ hacen falta en runtime, así
+            // que se toma uno de los duplicados (pickFirsts) en vez de excluirlos.
+            excludes += setOf(
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE.txt",
+                "META-INF/LICENSE.md",
+                "META-INF/NOTICE.md",
+                "META-INF/LICENSE",
+                "META-INF/NOTICE",
+                "META-INF/DEPENDENCIES"
+            )
+            pickFirsts += setOf(
+                "META-INF/javamail.providers",
+                "META-INF/javamail.address.map",
+                "META-INF/javamail.default.providers",
+                "META-INF/javamail.default.address.map",
+                "META-INF/mailcap"
+            )
+        }
     }
 
 
@@ -98,6 +120,13 @@ dependencies {
 
     // Palette para extraer colores dominantes del logo (modo multicolor)
     implementation("androidx.palette:palette-ktx:1.0.0")
+
+    // JavaMail (versión Android) para enviar el informe por correo vía SMTP directo
+    implementation("com.sun.mail:android-mail:1.6.7")
+    implementation("com.sun.mail:android-activation:1.6.7")
+
+    // Cifrado en reposo de la contraseña SMTP (llave en el Android Keystore del equipo)
+    implementation("androidx.security:security-crypto:1.0.0")
 
     implementation("com.google.mediapipe:tasks-vision:0.10.18")
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
