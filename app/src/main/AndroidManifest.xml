@@ -97,6 +97,24 @@
         <activity android:name=".ProfileActivity" android:exported="false" />
         <activity android:name=".MeasurementActivity" android:exported="false" />
         <activity android:name=".ResultsActivity" android:exported="false" />
+
+        <!-- Trampolín del deep link de fin de videollamada (mosi://consulta-finalizada):
+             la página de telemedicina redirige aquí al terminar la consulta para cerrar el
+             navegador y volver al menú principal. -->
+        <activity
+            android:name=".FinConsultaActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="mosi" android:host="consulta-finalizada" />
+            </intent-filter>
+        </activity>
         <activity android:name=".InformeActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".BasicSettingsActivity" android:exported="false" />
