@@ -103,6 +103,10 @@ class MeasurementResults(private val activity: Activity) {
         pbImcLoading = root.findViewById(R.id.pbImcLoading)
 
         gaugeIMC?.setGaugeType(GaugeView.GaugeType.IMC)
+        gaugeIMC?.setValue(0.0, animated = false)
+        gaugeIMC?.visibility = View.VISIBLE
+        pbImcLoading?.visibility = View.VISIBLE
+        tvResultIMCValue?.visibility = View.GONE
 
         // Composición
         tvComplexionTitle = root.findViewById(R.id.tvComplexionTitle)
@@ -160,6 +164,13 @@ class MeasurementResults(private val activity: Activity) {
             textClr = Color.parseColor("#2E7D32")
         )
 
+        ringSpO2?.setData("SpO2", "", "%", 0f, animated = false, showContent = false)
+        ringSpO2?.visibility = View.VISIBLE
+        ringHeartRate?.setData("BPM", "", "", 0f, animated = false, showContent = false)
+        ringHeartRate?.visibility = View.VISIBLE
+        ringPI?.setData("PI %", "", "", 0f, animated = false, showContent = false)
+        ringPI?.visibility = View.VISIBLE
+
         // Presión
         tvResultSystolicValue = root.findViewById(R.id.tvResultSystolicValue)
         tvResultDiastolicValue = root.findViewById(R.id.tvResultDiastolicValue)
@@ -177,6 +188,8 @@ class MeasurementResults(private val activity: Activity) {
             activeClr = Color.parseColor("#E53935"),
             textClr = Color.parseColor("#E53935")
         )
+        ringPresionPulse?.setData("BPM", "", "", 0f, animated = false, showContent = false)
+        ringPresionPulse?.visibility = View.VISIBLE
     }
 
     // ── Colores por rango de salud ──────────────────────────────────
@@ -222,7 +235,8 @@ class MeasurementResults(private val activity: Activity) {
             pbPesoLoading?.visibility = View.VISIBLE
 
             tvResultIMCValue?.visibility = View.GONE
-            gaugeIMC?.visibility = View.GONE
+            gaugeIMC?.setValue(0.0, animated = false)
+            gaugeIMC?.visibility = View.VISIBLE
             pbImcLoading?.visibility = View.VISIBLE
             tvImcStatus?.visibility = View.GONE
         }
@@ -388,7 +402,7 @@ class MeasurementResults(private val activity: Activity) {
             val spo2Color = spo2RangeColor(spo2)
             ringSpO2?.setColors(trackClr = lightenColor(spo2Color, 0.75f), activeClr = spo2Color, textClr = spo2Color)
             val spo2Ratio = (spo2 / 100f).coerceIn(0f, 1f)
-            ringSpO2?.setData("SpO2", "$spo2", "%", spo2Ratio, animated = true)
+            ringSpO2?.setData("SpO2", "$spo2", "%", spo2Ratio, animated = true, showContent = true)
             ringSpO2?.visibility = View.VISIBLE
             pbSpO2Loading?.visibility = View.GONE
 
@@ -398,26 +412,26 @@ class MeasurementResults(private val activity: Activity) {
                 val bpmColor = heartRateRangeColor(pulseRate)
                 ringHeartRate?.setColors(trackClr = lightenColor(bpmColor, 0.75f), activeClr = bpmColor, textClr = bpmColor)
             }
-            ringHeartRate?.setData("BPM", pulseValStr, "", pulseRatio, animated = true)
+            ringHeartRate?.setData("BPM", pulseValStr, "", pulseRatio, animated = true, showContent = true)
             ringHeartRate?.visibility = View.VISIBLE
             pbHeartRateLoading?.visibility = View.GONE
 
             val piRatio = if (pi > 0) (pi / 20.0).toFloat().coerceIn(0f, 1f) else 0f
             val piValStr = if (pi > 0) "%.1f".format(pi) else "--"
-            ringPI?.setData("PI %", piValStr, "", piRatio, animated = true)
+            ringPI?.setData("PI %", piValStr, "", piRatio, animated = true, showContent = true)
             ringPI?.visibility = View.VISIBLE
             pbPILoading?.visibility = View.GONE
         } else {
-            ringSpO2?.setData("SpO2", "", "%", 0f, animated = false)
-            ringSpO2?.visibility = View.GONE
+            ringSpO2?.setData("SpO2", "", "%", 0f, animated = false, showContent = false)
+            ringSpO2?.visibility = View.VISIBLE
             pbSpO2Loading?.visibility = View.VISIBLE
 
-            ringHeartRate?.setData("BPM", "", "", 0f, animated = false)
-            ringHeartRate?.visibility = View.GONE
+            ringHeartRate?.setData("BPM", "", "", 0f, animated = false, showContent = false)
+            ringHeartRate?.visibility = View.VISIBLE
             pbHeartRateLoading?.visibility = View.VISIBLE
 
-            ringPI?.setData("PI %", "", "", 0f, animated = false)
-            ringPI?.visibility = View.GONE
+            ringPI?.setData("PI %", "", "", 0f, animated = false, showContent = false)
+            ringPI?.visibility = View.VISIBLE
             pbPILoading?.visibility = View.VISIBLE
         }
     }
@@ -436,7 +450,7 @@ class MeasurementResults(private val activity: Activity) {
 
             val pulseRatio = if (pulse > 0) (pulse / 150f).coerceIn(0f, 1f) else 0f
             val pulseValStr = if (pulse > 0) "$pulse" else "--"
-            ringPresionPulse?.setData("BPM", pulseValStr, "", pulseRatio, animated = true)
+            ringPresionPulse?.setData("BPM", pulseValStr, "", pulseRatio, animated = true, showContent = true)
             ringPresionPulse?.visibility = View.VISIBLE
             pbPulsoLoading?.visibility = View.GONE
         } else {
@@ -448,8 +462,8 @@ class MeasurementResults(private val activity: Activity) {
             ivDiastolicIcon?.visibility = View.GONE
             pbDiastolicaLoading?.visibility = View.VISIBLE
 
-            ringPresionPulse?.setData("BPM", "", "", 0f, animated = false)
-            ringPresionPulse?.visibility = View.GONE
+            ringPresionPulse?.setData("BPM", "", "", 0f, animated = false, showContent = false)
+            ringPresionPulse?.visibility = View.VISIBLE
             pbPulsoLoading?.visibility = View.VISIBLE
             tvPresionStatus?.visibility = View.GONE
         }
