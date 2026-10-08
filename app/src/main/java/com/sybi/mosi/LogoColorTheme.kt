@@ -3,7 +3,6 @@ package com.sybi.mosi
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.palette.graphics.Palette
-import kotlin.math.abs
 import kotlin.random.Random
 
 /**
@@ -36,63 +35,44 @@ object LogoColorTheme {
         265f..292f, // violeta
     )
 
+    // Desfases de tono (en grados) respecto al color del logo. NINGUNO es 0°, así que ningún
+    // color de la paleta es el propio color del logo: los cuatro CONTRASTAN con él y entre sí,
+    // rotados por la rueda de color. Un gris neutro cierra la paleta. Así un logo verde da
+    // tonos distintos y contrastantes (y no un verde idéntico al logo como primer color).
+    private val DESFASES_TONO = listOf(270f, 150f, 210f, 90f)
+
     /**
-     * Genera la paleta de 5 colores a partir del logo cargado: toma las muestras que ya
-     * clasifica [Palette] (oscura/mate, vibrante oscura, mate, dominante, clara/mate...),
-     * atenúa las que resulten muy brillantes o muy saturadas, y descarta las que queden
-     * demasiado parecidas entre sí (para que al ciclar sí se note el cambio). Si el logo no
-     * da suficientes tonos distintos, completa el resto con [generateRandomPalette].
+     * Genera la paleta de 5 colores a partir del logo cargado, tomándolo como SEMILLA: usa el
+     * tono (hue) del color dominante del logo y genera cuatro colores que contrastan con él
+     * rotando ese tono en la rueda de color, todos en el mismo rango mate (ni brillantes ni muy
+     * saturados), más un gris neutro. Ninguno repite el color del logo. Si el logo no da un
+     * color utilizable, cae en [generateRandomPalette].
      */
     fun generatePaletteFromBitmap(bitmap: Bitmap): List<Int> {
         val palette = runCatching {
             Palette.from(bitmap).maximumColorCount(24).generate()
         }.getOrNull() ?: return generateRandomPalette()
 
-        // De más útil (tonos oscuros/mate, fáciles de usar de fondo) a menos útil.
-        val candidatos = listOfNotNull(
-            palette.darkMutedSwatch,
-            palette.darkVibrantSwatch,
-            palette.mutedSwatch,
-            palette.dominantSwatch,
-            palette.lightMutedSwatch,
-            palette.vibrantSwatch,
-            palette.lightVibrantSwatch,
-        )
+        val dominante = palette.dominantSwatch
+            ?: palette.vibrantSwatch
+            ?: palette.mutedSwatch
+            ?: palette.darkVibrantSwatch
+            ?: palette.lightVibrantSwatch
+            ?: return generateRandomPalette()
 
-        val elegidos = mutableListOf<Int>()
-        for (swatch in candidatos) {
-            if (elegidos.size >= 5) break
-            val color = atenuarSiEsMuyBrillante(swatch.rgb)
-            if (elegidos.none { seVeParecido(it, color) }) elegidos += color
-        }
+        val hueBase = FloatArray(3).also { Color.colorToHSV(dominante.rgb, it) }[0]
 
-        if (elegidos.size < 5) {
-            for (extra in generateRandomPalette()) {
-                if (elegidos.size >= 5) break
-                if (elegidos.none { seVeParecido(it, extra) }) elegidos += extra
-            }
-        }
+        val colores = DESFASES_TONO.map { desfase ->
+            val hue = (hueBase + desfase + 360f) % 360f
+            val sat = randomInRange(SATURATION_MIN, SATURATION_MAX)
+            val value = randomInRange(VALUE_MIN, VALUE_MAX)
+            Color.HSVToColor(floatArrayOf(hue, sat, value))
+        }.toMutableList()
 
-        return elegidos.take(5)
-    }
+        // Un gris neutro que siempre contrasta y descansa la vista.
+        colores += randomGray()
 
-    /** Si el color es muy brillante o muy saturado, lo baja para que quede dentro del
-     *  mismo rango "mate" que usa [generateRandomPalette]. */
-    private fun atenuarSiEsMuyBrillante(color: Int): Int {
-        val hsv = FloatArray(3)
-        Color.colorToHSV(color, hsv)
-        if (hsv[2] > VALUE_MAX) hsv[2] = VALUE_MAX
-        if (hsv[1] > SATURATION_MAX) hsv[1] = SATURATION_MAX
-        return Color.HSVToColor(hsv)
-    }
-
-    /** Dos colores "se ven parecidos" si su tono y su brillo están ambos muy cerca. */
-    private fun seVeParecido(a: Int, b: Int): Boolean {
-        val hsvA = FloatArray(3).also { Color.colorToHSV(a, it) }
-        val hsvB = FloatArray(3).also { Color.colorToHSV(b, it) }
-        val difHue = abs(hsvA[0] - hsvB[0]).let { if (it > 180f) 360f - it else it }
-        val difValue = abs(hsvA[2] - hsvB[2])
-        return difHue < 25f && difValue < 0.15f
+        return colores.take(5)
     }
 
     fun generateRandomPalette(): List<Int> {

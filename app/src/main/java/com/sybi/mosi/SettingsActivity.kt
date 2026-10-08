@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.graphics.Color
 import android.os.Bundle
 import android.view.View
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -14,6 +15,23 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class SettingsActivity : BaseActivity() {
+
+    // Las 12 tarjetas del menú: su icono debe tomar el color de marca (los iconos blancos de
+    // la barra lateral se quedan como están).
+    private val botonesMenu = listOf(
+        R.id.btnBasicSettings, R.id.btnElementsTest, R.id.btnReportSettings, R.id.btnMicTest,
+        R.id.btnPatientTable, R.id.btnLogoSettings, R.id.btnUserSettings, R.id.btnAdvertisingScreen,
+        R.id.btnResultTable, R.id.btnPasswordSettings, R.id.btnTelemedicineSettings, R.id.btnDeviceInfo
+    )
+
+    private fun tenirIconosMenu(color: Int) {
+        botonesMenu.forEach { id ->
+            val boton = findViewById<LinearLayout>(id) ?: return@forEach
+            for (i in 0 until boton.childCount) {
+                (boton.getChildAt(i) as? ImageView)?.setColorFilter(color)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,6 +53,8 @@ class SettingsActivity : BaseActivity() {
                     if (sideBar != null) {
                         sideBar.setBackgroundColor(Color.parseColor(newColor))
                     }
+                    // 3. Tiñe los iconos de las tarjetas del menú
+                    tenirIconosMenu(Color.parseColor(newColor))
                 }
             }
         }
@@ -47,6 +67,7 @@ class SettingsActivity : BaseActivity() {
         if (sideBar != null) {
             sideBar.setBackgroundColor(Color.parseColor(savedColor))
         }
+        tenirIconosMenu(Color.parseColor(savedColor))
         // ------------------------------------------------
 
         // 0.1 Botón: Reiniciar Equipo
