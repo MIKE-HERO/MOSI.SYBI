@@ -45,18 +45,28 @@ class FaceLoginActivity : BaseActivity() {
     private val frameIntervalMs = 100L
 
     // ============================================================
-    // UMBRALES de similitud coseno CRUDA (rango -1..1)
-    // Ajusta según tu modelo:
-    //   ArcFace / MobileFaceNet: mismo ≥ 0.60, distinto < 0.40
-    //   FaceNet original:        mismo ≥ 0.80, distinto < 0.55
+    // UMBRALES de similitud coseno para el pipeline de 3 frames:
+    // Frame 1: Descartar < 50% (conserva >= 50%)
+    // Frame 2: Descartar < 75% (conserva >= 75%)
+    // Frame 3: Seleccionar único/mejor >= 85%
     // ============================================================
-    private val UMBRAL_ACEPTAR = 0.90f     // para confirmar identidad
-    private val UMBRAL_RECHAZAR = 0.55f    // por debajo → seguro distinto
+    private val UMBRAL_FRAME1_DESCARTE = 0.50f
+    private val UMBRAL_FRAME2_DESCARTE = 0.75f
+    private val UMBRAL_FRAME3_ACEPTAR = 0.85f
 
-    // Voto por mayoría: acumula similitudes de N frames antes de decidir
-    private val FRAMES_PARA_CONFIRMAR = 3
-    // Mapa: pacienteId → lista de similitudes recientes
-    private val recentSimilarities = mutableMapOf<Long, MutableList<Float>>()
+    // Estructura para almacenamiento de biometría en memoria
+    private data class PacienteBiometria(
+        val paciente: com.sybi.mosi.database.Paciente,
+        val biometria: FaceBiometricsHelper.BiometricFaceData
+    )
+
+    // Cache de biometrias precargadas en memoria para evitar re-decodificar y re-extraer en cada frame
+    @Volatile private var cachedPatientsBiometrics: List<PacienteBiometria> = emptyList()
+    @Volatile private var isPreloadingBiometrics = false
+
+    // Estado del filtro progresivo entre frames
+    @Volatile private var currentFrameStage = 1
+    @Volatile private var currentCandidates: List<PacienteBiometria> = emptyList()
 
     // ============================================================
     // Control de estado del mensaje (anti-parpadeo)
@@ -120,6 +130,8 @@ class FaceLoginActivity : BaseActivity() {
         currentColor = savedColor
         applyColorTheme(savedColor)
 
+        preloadPatientsBiometrics()
+
         if (hasCameraPermission()) {
             startCamera()
         } else {
@@ -141,15 +153,53 @@ class FaceLoginActivity : BaseActivity() {
                 PackageManager.PERMISSION_GRANTED
     }
 
+    private fun preloadPatientsBiometrics() {
+        if (isPreloadingBiometrics) return
+        isPreloadingBiometrics = true
+        Thread {
+            try {
+                val database = AppDatabase.getInstance(this)
+                val pacientes = runBlocking { database.pacienteDao().obtenerTodosLosPacientes() }
+                val list = mutableListOf<PacienteBiometria>()
+                for (paciente in pacientes) {
+                    val fotoGuardada = paciente.foto
+                    if (!fotoGuardada.isNullOrEmpty()) {
+                        val storedBiometrics = obtenerBiometriaDeFotoGuardada(fotoGuardada)
+                        if (storedBiometrics != null) {
+                            list.add(PacienteBiometria(paciente, storedBiometrics))
+                        }
+                    }
+                }
+                cachedPatientsBiometrics = list
+                Log.d(TAG, "Biometrias precargadas: ${list.size} pacientes registrados.")
+                if (currentCandidates.isEmpty() && currentFrameStage == 1) {
+                    currentCandidates = list
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error precargando biometrias: ${e.message}", e)
+            } finally {
+                isPreloadingBiometrics = false
+            }
+        }.start()
+    }
+
+    private fun resetFramePipeline() {
+        currentFrameStage = 1
+        currentCandidates = cachedPatientsBiometrics
+    }
+
     private fun startCamera() {
         camera2Helper?.stopCamera()
         textureView.scaleX = -1f
         camera2Helper = Camera2Helper(this, textureView).also { it.startCamera() }
 
         isRunning = true
-        recentSimilarities.clear()
         currentUiState = UiState.NO_FACE
         lastUiStateChangeMs = 0L
+
+        preloadPatientsBiometrics()
+        resetFramePipeline()
+
         handler.postDelayed(frameRunnable, frameIntervalMs)
     }
 
@@ -213,6 +263,7 @@ class FaceLoginActivity : BaseActivity() {
                             "Acerque el rostro y mire de frente",
                             "#FF9800"
                         )
+                        resetFramePipeline()
                         isProcessing = false
                         return@Thread
                     }
@@ -232,6 +283,7 @@ class FaceLoginActivity : BaseActivity() {
                             "Mire fijamente a la cámara",
                             "#4CAF50"
                         )
+                        resetFramePipeline()
                         isProcessing = false
                     }
                 } else {
@@ -240,129 +292,182 @@ class FaceLoginActivity : BaseActivity() {
                         "Coloque su rostro frente a la cámara",
                         "#4CAF50"
                     )
+                    resetFramePipeline()
                     isProcessing = false
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error procesando frame: ${e.message}", e)
+                resetFramePipeline()
                 isProcessing = false
             }
         }.start()
     }
 
     private fun processFaceLogin(liveBiometrics: FaceBiometricsHelper.BiometricFaceData) {
-        val database = AppDatabase.getInstance(this)
-        val pacienteDao = database.pacienteDao()
-
         Thread {
-            runBlocking {
-                try {
-                    val pacientes = pacienteDao.obtenerTodosLosPacientes()
+            try {
+                if (cachedPatientsBiometrics.isEmpty()) {
+                    if (!isPreloadingBiometrics) {
+                        preloadPatientsBiometrics()
+                    }
+                    setUiState(
+                        UiState.PROCESSING,
+                        "Cargando datos de pacientes...",
+                        "#FF9800"
+                    )
+                    isProcessing = false
+                    return@Thread
+                }
 
-                    var mejorPaciente: com.sybi.mosi.database.Paciente? = null
-                    var mayorSimilitud = -1f
+                if (currentCandidates.isEmpty()) {
+                    resetFramePipeline()
+                }
 
-                    for (paciente in pacientes) {
-                        val fotoGuardada = paciente.foto
-                        if (!fotoGuardada.isNullOrEmpty()) {
-                            val storedBiometrics = obtenerBiometriaDeFotoGuardada(fotoGuardada)
-                            if (storedBiometrics != null) {
-                                val similitud = FaceBiometricsHelper.matchFaces(
-                                    liveBiometrics, storedBiometrics
-                                )
-                                Log.d(TAG, "Paciente ${paciente.nombre} - Sim: $similitud")
+                val candidatesToEvaluate = currentCandidates
+                val stage = currentFrameStage
 
-                                // Acumular en el mapa de votos
-                                val id = paciente.id_local
-                                val list = recentSimilarities.getOrPut(id) { mutableListOf() }
-                                list.add(similitud)
-                                if (list.size > FRAMES_PARA_CONFIRMAR) list.removeAt(0)
+                Log.d(TAG, "=== FRAME STAGE $stage: Evaluando ${candidatesToEvaluate.size} candidatos ===")
 
-                                if (similitud > mayorSimilitud) {
-                                    mayorSimilitud = similitud
-                                    mejorPaciente = paciente
-                                }
+                when (stage) {
+                    1 -> {
+                        // Frame 1: Comparar con todos y descartar < 50%
+                        val pasaronStage1 = mutableListOf<PacienteBiometria>()
+                        for (candidato in candidatesToEvaluate) {
+                            val similitud = FaceBiometricsHelper.matchFaces(
+                                liveBiometrics, candidato.biometria
+                            )
+                            Log.d(TAG, "[Frame 1] ${candidato.paciente.nombre} - Similitud: $similitud")
+                            if (similitud >= UMBRAL_FRAME1_DESCARTE) { // >= 0.50f (50%)
+                                pasaronStage1.add(candidato)
                             }
                         }
-                    }
 
-                    // === Decisión con voto por mayoría ===
-                    var pacienteConfirmado: com.sybi.mosi.database.Paciente? = null
+                        Log.d(TAG, "[Frame 1] Pasaron ${pasaronStage1.size} de ${candidatesToEvaluate.size} candidatos (>= 50%)")
 
-                    if (mejorPaciente != null && mayorSimilitud >= UMBRAL_ACEPTAR) {
-                        val id = mejorPaciente.id_local
-                        val historial = recentSimilarities[id] ?: mutableListOf()
-                        val promedio = if (historial.isNotEmpty()) historial.average().toFloat() else 0f
-
-                        Log.d(
-                            TAG,
-                            "Candidato: ${mejorPaciente.nombre}, sim actual: $mayorSimilitud, " +
-                                    "promedio: $promedio, frames: ${historial.size}"
-                        )
-
-                        // Confirmar si tenemos suficientes frames y el promedio también supera el umbral
-                        if (historial.size >= FRAMES_PARA_CONFIRMAR && promedio >= UMBRAL_ACEPTAR) {
-                            pacienteConfirmado = mejorPaciente
-                        }
-                    }
-
-                    if (pacienteConfirmado != null) {
-                        val paciente = pacienteConfirmado
-                        isRunning = false
-                        handler.removeCallbacks(frameRunnable)
-
-                        setUiState(
-                            UiState.WELCOME,
-                            "¡Bienvenido ${paciente.nombre}!",
-                            "#4CAF50"
-                        )
-
-                        runOnUiThread {
-                            Toast.makeText(
-                                this@FaceLoginActivity,
-                                "¡Bienvenido ${paciente.nombre}!",
-                                Toast.LENGTH_LONG
-                            ).show()
-
-                            val intent = Intent(this@FaceLoginActivity, ProfileActivity::class.java)
-                            intent.putExtra("id_local", paciente.id_local)
-                            intent.putExtra("nombre", paciente.nombre)
-                            intent.putExtra("apellido_paterno", paciente.apellido_paterno)
-                            intent.putExtra("apellido_materno", paciente.apellido_materno)
-                            intent.putExtra("fecha_nacimiento", paciente.fecha_nacimiento)
-                            intent.putExtra("genero", paciente.genero)
-                            intent.putExtra("curp", paciente.curp)
-                            intent.putExtra("telefono", paciente.telefono)
-                            intent.putExtra("correo", paciente.correo)
-                            intent.putExtra("direccion", paciente.direccion)
-
-                            val sessionType = this@FaceLoginActivity.intent
-                                .getStringExtra("session_type") ?: "measurement"
-                            intent.putExtra("session_type", sessionType)
-
-                            startActivity(intent)
-                            finish()
-                        }
-                    } else {
-                        // Si el match más alto es claramente bajo, avisar al usuario
-                        if (mayorSimilitud < UMBRAL_RECHAZAR) {
+                        if (pasaronStage1.isEmpty()) {
                             setUiState(
                                 UiState.NOT_RECOGNIZED,
                                 "Rostro no reconocido. Intente nuevamente",
                                 "#F44336"
                             )
+                            resetFramePipeline()
                         } else {
+                            currentCandidates = pasaronStage1
+                            currentFrameStage = 2
                             setUiState(
                                 UiState.PROCESSING,
-                                "Verificando... mantenga la posición",
+                                "Verificando... (Paso 1/3)",
                                 "#FF9800"
                             )
                         }
                         isProcessing = false
                     }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error en processFaceLogin: ${e.message}", e)
-                    isProcessing = false
+
+                    2 -> {
+                        // Frame 2: Comparar SOLO con usuarios con > 50% y descartar < 75%
+                        val pasaronStage2 = mutableListOf<PacienteBiometria>()
+                        for (candidato in candidatesToEvaluate) {
+                            val similitud = FaceBiometricsHelper.matchFaces(
+                                liveBiometrics, candidato.biometria
+                            )
+                            Log.d(TAG, "[Frame 2] ${candidato.paciente.nombre} - Similitud: $similitud")
+                            if (similitud >= UMBRAL_FRAME2_DESCARTE) { // >= 0.75f (75%)
+                                pasaronStage2.add(candidato)
+                            }
+                        }
+
+                        Log.d(TAG, "[Frame 2] Pasaron ${pasaronStage2.size} de ${candidatesToEvaluate.size} candidatos (>= 75%)")
+
+                        if (pasaronStage2.isEmpty()) {
+                            setUiState(
+                                UiState.NOT_RECOGNIZED,
+                                "Rostro no reconocido. Intente nuevamente",
+                                "#F44336"
+                            )
+                            resetFramePipeline()
+                        } else {
+                            currentCandidates = pasaronStage2
+                            currentFrameStage = 3
+                            setUiState(
+                                UiState.PROCESSING,
+                                "Verificando... (Paso 2/3)",
+                                "#FF9800"
+                            )
+                        }
+                        isProcessing = false
+                    }
+
+                    3 -> {
+                        // Frame 3: Comparar SOLO con usuarios con > 75% y seleccionar al unico/mejor con > 85%
+                        var mejorCandidato: PacienteBiometria? = null
+                        var mayorSimilitud = -1f
+
+                        for (candidato in candidatesToEvaluate) {
+                            val similitud = FaceBiometricsHelper.matchFaces(
+                                liveBiometrics, candidato.biometria
+                            )
+                            Log.d(TAG, "[Frame 3] ${candidato.paciente.nombre} - Similitud: $similitud")
+                            if (similitud >= UMBRAL_FRAME3_ACEPTAR && similitud > mayorSimilitud) { // >= 0.85f (85%)
+                                mayorSimilitud = similitud
+                                mejorCandidato = candidato
+                            }
+                        }
+
+                        if (mejorCandidato != null) {
+                            val paciente = mejorCandidato.paciente
+                            Log.d(TAG, "[Frame 3] MATCH FINAL: ${paciente.nombre} con sim $mayorSimilitud")
+
+                            isRunning = false
+                            handler.removeCallbacks(frameRunnable)
+
+                            setUiState(
+                                UiState.WELCOME,
+                                "¡Bienvenido ${paciente.nombre}!",
+                                "#4CAF50"
+                            )
+
+                            runOnUiThread {
+                                Toast.makeText(
+                                    this@FaceLoginActivity,
+                                    "¡Bienvenido ${paciente.nombre}!",
+                                    Toast.LENGTH_LONG
+                                ).show()
+
+                                val intent = Intent(this@FaceLoginActivity, ProfileActivity::class.java)
+                                intent.putExtra("id_local", paciente.id_local)
+                                intent.putExtra("nombre", paciente.nombre)
+                                intent.putExtra("apellido_paterno", paciente.apellido_paterno)
+                                intent.putExtra("apellido_materno", paciente.apellido_materno)
+                                intent.putExtra("fecha_nacimiento", paciente.fecha_nacimiento)
+                                intent.putExtra("genero", paciente.genero)
+                                intent.putExtra("curp", paciente.curp)
+                                intent.putExtra("telefono", paciente.telefono)
+                                intent.putExtra("correo", paciente.correo)
+                                intent.putExtra("direccion", paciente.direccion)
+
+                                val sessionType = this@FaceLoginActivity.intent
+                                    .getStringExtra("session_type") ?: "measurement"
+                                intent.putExtra("session_type", sessionType)
+
+                                startActivity(intent)
+                                finish()
+                            }
+                        } else {
+                            Log.d(TAG, "[Frame 3] Ningún candidato alcanzó el 85% final")
+                            setUiState(
+                                UiState.NOT_RECOGNIZED,
+                                "Rostro no reconocido. Intente nuevamente",
+                                "#F44336"
+                            )
+                            resetFramePipeline()
+                            isProcessing = false
+                        }
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error en processFaceLogin: ${e.message}", e)
+                resetFramePipeline()
+                isProcessing = false
             }
         }.start()
     }

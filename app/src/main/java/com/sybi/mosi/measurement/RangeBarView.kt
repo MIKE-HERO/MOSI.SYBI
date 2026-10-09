@@ -26,6 +26,7 @@ class RangeBarView @JvmOverloads constructor(
 
     private var segmentos: List<Segmento> = emptyList()
     private var valor: Double = 0.0
+    private var sufijo: String = ""
     private var minTotal = 0.0
     private var maxTotal = 1.0
 
@@ -59,8 +60,9 @@ class RangeBarView @JvmOverloads constructor(
         invalidate()
     }
 
-    fun setValor(v: Double) {
+    fun setValor(v: Double, sufijo: String = "") {
         valor = v
+        this.sufijo = sufijo
         invalidate()
     }
 
@@ -110,8 +112,9 @@ class RangeBarView @JvmOverloads constructor(
         // Pin / globo con el valor
         if (valor > 0.0) {
             val px = xDe(valor)
-            val texto = if (valor == valor.toLong().toDouble()) valor.toLong().toString()
+            val numStr = if (valor == valor.toLong().toDouble()) valor.toLong().toString()
             else "%.1f".format(valor)
+            val texto = if (sufijo.isNotBlank()) "$numStr$sufijo" else numStr
             val anchoTexto = pinTextPaint.measureText(texto)
             val pinW = max(28f * d, anchoTexto + 14f * d)
             val color = colorDelValor()

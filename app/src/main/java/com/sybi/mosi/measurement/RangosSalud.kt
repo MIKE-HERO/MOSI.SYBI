@@ -55,6 +55,26 @@ object RangosSalud {
         seg("Hipertensión 2", 139.0, 200.0, ROJO)
     )
 
+    fun presionDiastolica() = listOf(
+        seg("Baja", 40.0, 60.0, AMARILLO),
+        seg("Normal", 60.0, 80.0, VERDE),
+        seg("Elevada", 80.0, 89.0, NARANJA),
+        seg("Hipertensión 1", 89.0, 99.0, NARANJA),
+        seg("Hipertensión 2", 99.0, 140.0, ROJO)
+    )
+
+    fun pulso() = listOf(
+        seg("Lento", 30.0, 60.0, AMARILLO),
+        seg("Normal", 60.0, 100.0, VERDE),
+        seg("Rápido", 100.0, 160.0, ROJO)
+    )
+
+    fun indicePerfusion() = listOf(
+        seg("Bajo", 0.0, 0.5, AMARILLO),
+        seg("Normal", 0.5, 5.0, VERDE),
+        seg("Alto", 5.0, 20.0, VERDE_OSC)
+    )
+
     fun grasaVisceral() = listOf(
         seg("Normal", 0.0, 9.0, VERDE),
         seg("Alto", 9.0, 14.0, NARANJA),

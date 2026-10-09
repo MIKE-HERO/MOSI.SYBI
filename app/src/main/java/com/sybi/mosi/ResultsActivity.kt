@@ -48,6 +48,7 @@ class ResultsActivity : BaseActivity() {
 
     private var idLocal: Long = 0L
     private var paciente: Paciente? = null
+    private var medicionesCargadas: List<com.sybi.mosi.database.Resultado> = emptyList()
     private var envioExitoso = false
 
     private var idUsuarioWebCargado: Int = 0
@@ -228,6 +229,7 @@ class ResultsActivity : BaseActivity() {
                 } else {
                     db.resultadoDao().obtenerResultadosPorIdLocal(0L).take(1)
                 }
+                medicionesCargadas = mediciones
 
                 val p = paciente
 
@@ -736,226 +738,88 @@ class ResultsActivity : BaseActivity() {
     // ==========================================
     // GENERAR PDF EN MEMORIA
     // ==========================================
-    private fun loadLogoBitmap(context: Context, path: String?): android.graphics.Bitmap? {
-        return try {
-            if (!path.isNullOrBlank()) {
-                val file = File(path)
-                if (file.exists()) {
-                    BitmapFactory.decodeFile(file.absolutePath)
-                } else {
-                    val uri = Uri.parse(path)
-                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                        BitmapFactory.decodeStream(inputStream)
-                    }
-                }
-            } else {
-                ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
-            }
-        } catch (_: Exception) {
-            try {
-                ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
-            } catch (_: Exception) {
-                null
-            }
-        }
-    }
 
     private fun generarPdfBytes(): ByteArray? {
-        return try {
-            val pdfDocument = android.graphics.pdf.PdfDocument()
-            val pageInfo = android.graphics.pdf.PdfDocument.PageInfo
-                .Builder(1240, 1754, 1)
-                .create()
+        var pdfBytes: ByteArray? = null
+        val latch = java.util.concurrent.CountDownLatch(1)
 
-            val page = pdfDocument.startPage(pageInfo)
-            val canvas = page.canvas
-
-            val paint = android.graphics.Paint().apply {
-                isAntiAlias = true
-                color = Color.BLACK
-            }
-            var y = 80f
-            val marginLeft = 60f
-            val lineHeight = 40f
-
-            val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-            val defaultAppTitle = appPrefs.getString("AppTitle", "MÓDULO DE SALUD INTEGRAL") ?: "MÓDULO DE SALUD INTEGRAL"
-            val pdfTitle = appPrefs.getString("PdfTitle", defaultAppTitle)?.takeIf { it.isNotBlank() } ?: defaultAppTitle
-            val pdfSubtitle = appPrefs.getString("PdfSubtitle", "") ?: ""
-            val logoPath = appPrefs.getString("LogoPath", null)
-
-            val logoBitmap = loadLogoBitmap(this, logoPath)
-            val fecha = java.text.SimpleDateFormat(
-                "dd/MM/yyyy HH:mm", java.util.Locale.getDefault()
-            ).format(java.util.Date())
-            val nombrePaciente = listOfNotNull(
-                paciente?.nombre,
-                paciente?.apellido_paterno,
-                paciente?.apellido_materno
-            ).joinToString(" ").trim().ifBlank { "Paciente" }
-
-            if (logoBitmap != null) {
-                val logoWidth = 100f
-                val logoHeight = (logoBitmap.height.toFloat() / logoBitmap.width.toFloat()) * logoWidth
-                canvas.drawBitmap(
-                    android.graphics.Bitmap.createScaledBitmap(logoBitmap, logoWidth.toInt(), logoHeight.toInt(), true),
-                    marginLeft, y, null
-                )
-
-                val textLeft = marginLeft + logoWidth + 30f
-                var currentY = y + 35f
-
-                paint.textSize = 42f
-                paint.isFakeBoldText = true
-                paint.color = Color.parseColor("#0F3E82")
-                canvas.drawText(pdfTitle, textLeft, currentY, paint)
-                currentY += 50f
-
-                if (pdfSubtitle.isNotBlank()) {
-                    paint.textSize = 24f
-                    paint.isFakeBoldText = false
-                    paint.color = Color.parseColor("#666666")
-                    canvas.drawText(pdfSubtitle, textLeft, currentY, paint)
-                    currentY += 35f
+        uiHandler.post {
+            try {
+                val pdfContainer = LinearLayout(this@ResultsActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setBackgroundColor(Color.WHITE)
+                    setPadding(30, 30, 30, 30)
                 }
 
-                paint.textSize = 22f
-                paint.isFakeBoldText = false
-                paint.color = Color.parseColor("#888888")
-                canvas.drawText("Paciente: $nombrePaciente   |   Fecha: $fecha", textLeft, currentY, paint)
+                val colorTema = runCatching {
+                    Color.parseColor(getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("BackgroundColor", "#0F3E82"))
+                }.getOrDefault(Color.parseColor("#0F3E82"))
 
-                y = maxOf(y + logoHeight, currentY) + 50f
-            } else {
-                paint.textSize = 42f
-                paint.isFakeBoldText = true
-                paint.color = Color.parseColor("#0F3E82")
-                canvas.drawText(pdfTitle, marginLeft, y, paint)
-                y += 60f
+                val builder = InformeBuilder(this@ResultsActivity, pdfContainer, colorTema)
+                val meds = medicionesCargadas
+                val p = paciente
 
-                if (pdfSubtitle.isNotBlank()) {
-                    paint.textSize = 24f
-                    paint.isFakeBoldText = false
-                    paint.color = Color.parseColor("#666666")
-                    canvas.drawText(pdfSubtitle, marginLeft, y, paint)
-                    y += 40f
+                if (meds.isEmpty()) {
+                    builder.mensajeVacio("No hay mediciones registradas para este paciente.")
+                } else {
+                    builder.construir(p, idLocal, meds)
                 }
 
-                paint.textSize = 24f
-                paint.isFakeBoldText = false
-                paint.color = Color.parseColor("#666666")
-                canvas.drawText("Paciente: $nombrePaciente   |   Fecha: $fecha", marginLeft, y, paint)
-                y += 70f
+                // Ancho y alto A4 estándar (1240 x 1754 px a 150 DPI) con márgenes de impresión seguros
+                val pageWidth = 1240
+                val pageHeight = 1754
+                val marginLeft = 60f
+                val marginTop = 60f
+                val targetWidth = (pageWidth - (marginLeft * 2).toInt()) // 1120px ancho de contenido
+                val contentHeightPerPage = (pageHeight - (marginTop * 2).toInt()) // 1634px alto por página
+
+                val widthSpec = View.MeasureSpec.makeMeasureSpec(targetWidth, View.MeasureSpec.EXACTLY)
+                val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+
+                pdfContainer.measure(widthSpec, heightSpec)
+                val totalHeight = maxOf(pdfContainer.measuredHeight, 1)
+                pdfContainer.layout(0, 0, targetWidth, totalHeight)
+
+                val pdfDocument = android.graphics.pdf.PdfDocument()
+                val totalPages = maxOf(1, (totalHeight + contentHeightPerPage - 1) / contentHeightPerPage)
+
+                for (i in 0 until totalPages) {
+                    val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, i + 1).create()
+                    val page = pdfDocument.startPage(pageInfo)
+                    val canvas = page.canvas
+
+                    val yOffset = i * contentHeightPerPage
+
+                    canvas.save()
+                    // Clip y traslación con márgenes de impresión (evita cortes en PrintShare y fotocopiadoras)
+                    canvas.clipRect(marginLeft, marginTop, marginLeft + targetWidth, marginTop + contentHeightPerPage)
+                    canvas.translate(marginLeft, marginTop - yOffset.toFloat())
+                    pdfContainer.draw(canvas)
+                    canvas.restore()
+
+                    pdfDocument.finishPage(page)
+                }
+
+                val output = java.io.ByteArrayOutputStream()
+                pdfDocument.writeTo(output)
+                pdfDocument.close()
+
+                pdfBytes = output.toByteArray()
+                Log.d(TAG, "✅ PDF generado correctamente con el diseño visual del informe (${pdfBytes?.size ?: 0} bytes, $totalPages páginas)")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error generando PDF desde InformeBuilder: ${e.message}", e)
+            } finally {
+                latch.countDown()
             }
-
-            val prefs = getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE)
-
-            fun drawSection(title: String) {
-                paint.textSize = 32f
-                paint.isFakeBoldText = true
-                paint.color = Color.parseColor("#0F3E82")
-                canvas.drawText(title, marginLeft, y, paint)
-                y += 8f
-                canvas.drawLine(marginLeft, y, 1240f - marginLeft, y, paint.apply { strokeWidth = 2f })
-                y += 40f
-                paint.isFakeBoldText = false
-                paint.textSize = 26f
-                paint.color = Color.parseColor("#333333")
-            }
-
-            fun drawRow(label: String, value: String) {
-                canvas.drawText("$label: $value", marginLeft + 20f, y, paint)
-                y += lineHeight
-            }
-
-            val height = prefs.getFloat("height", 0f)
-            val weight = prefs.getFloat("weight", 0f)
-            val imc = prefs.getFloat("imc", 0f)
-            if (height > 0 && weight > 0) {
-                drawSection("Altura / Peso")
-                drawRow("Altura", "%.1f cm".format(height))
-                drawRow("Peso", "%.3f kg".format(weight))
-                drawRow("IMC", "%.1f".format(imc))
-                y += 20f
-            }
-
-            val fatRate = prefs.getFloat("fat_rate", 0f)
-            val waterRate = prefs.getFloat("water_rate", 0f)
-            val muscle = prefs.getFloat("muscle", 0f)
-            val metabolism = prefs.getInt("metabolism", 0)
-            val visceralFat = prefs.getFloat("visceral_fat", 0f)
-            val idealWeight = prefs.getFloat("ideal_weight", 0f)
-            val protein = prefs.getFloat("protein", 0f)
-            val mineral = prefs.getFloat("mineral", 0f)
-            val fatKg = prefs.getFloat("fat", 0f)
-            val waterKg = prefs.getFloat("water", 0f)
-            val notFat = prefs.getFloat("not_fat", 0f)
-            val fatType = prefs.getInt("fat_type", 0)
-
-            if (fatRate > 0 || waterRate > 0 || muscle > 0 || metabolism > 0) {
-                drawSection("Composición Corporal")
-                if (fatRate > 0)     drawRow("Tasa de Grasa Corporal", "%.1f%%".format(fatRate))
-                if (waterRate > 0)   drawRow("Tasa de Agua Corporal", "%.1f%%".format(waterRate))
-                if (fatKg > 0)       drawRow("Grasa Corporal", "%.1f kg".format(fatKg))
-                if (waterKg > 0)     drawRow("Agua Corporal", "%.1f kg".format(waterKg))
-                if (muscle > 0)      drawRow("Masa Muscular", "%.1f kg".format(muscle))
-                if (notFat > 0)      drawRow("Masa Libre de Grasa", "%.1f kg".format(notFat))
-                if (protein > 0)     drawRow("Proteína", "%.1f kg".format(protein))
-                if (mineral > 0)     drawRow("Minerales", "%.1f kg".format(mineral))
-                if (metabolism > 0)  drawRow("Metabolismo Basal", "%d kcal".format(metabolism))
-                if (visceralFat > 0) drawRow("Grasa Visceral", "%.1f".format(visceralFat))
-                if (idealWeight > 0) drawRow("Peso Ideal", "%.1f kg".format(idealWeight))
-                if (fatType > 0)     drawRow("Tipo de Grasa", "$fatType")
-                y += 20f
-            }
-
-            val systolic = prefs.getInt("systolic", 0)
-            val diastolic = prefs.getInt("diastolic", 0)
-            val pulse = prefs.getInt("pulse", 0)
-            if (systolic > 0) {
-                drawSection("Presión Arterial")
-                drawRow("Sistólica", "$systolic mmHg")
-                drawRow("Diastólica", "$diastolic mmHg")
-                drawRow("Pulso", "$pulse bpm")
-                y += 20f
-            }
-
-            val temperature = prefs.getFloat("temperature", 0f)
-            val temperatureF = prefs.getFloat("temperature_f", 0f)
-            if (temperature > 0) {
-                drawSection("Temperatura Corporal")
-                drawRow("Temperatura", "%.1f °C / %.1f °F".format(temperature, temperatureF))
-                y += 20f
-            }
-
-            val spo2 = prefs.getInt("spo2", 0)
-            val pulseRate = prefs.getInt("pulse_rate", 0)
-            val pi = prefs.getFloat("pi", 0f)
-            if (spo2 > 0) {
-                drawSection("Oxígeno en Sangre")
-                drawRow("SpO2", "$spo2%")
-                drawRow("Pulso", "$pulseRate bpm")
-                drawRow("PI", "%.1f".format(pi))
-                y += 20f
-            }
-
-            val heartRate = prefs.getInt("ecg_heart_rate", 0)
-            if (heartRate > 0) {
-                drawSection("ECG")
-                drawRow("Frecuencia Cardíaca", "$heartRate bpm")
-            }
-
-            pdfDocument.finishPage(page)
-
-            val output = java.io.ByteArrayOutputStream()
-            pdfDocument.writeTo(output)
-            pdfDocument.close()
-
-            output.toByteArray()
-
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error generando PDF: ${e.message}", e)
-            null
         }
+
+        try {
+            latch.await(10, java.util.concurrent.TimeUnit.SECONDS)
+        } catch (e: InterruptedException) {
+            Log.e(TAG, "⏰ Timeout al generar PDF", e)
+        }
+
+        return pdfBytes
     }
 
     // ==========================================

@@ -1,16 +1,26 @@
 package com.sybi.mosi
 
 import android.app.Activity
+import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.util.Base64
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
+import coil.ImageLoader
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
+import kotlinx.coroutines.runBlocking
 import com.sybi.mosi.database.Paciente
 import com.sybi.mosi.database.Resultado
 import com.sybi.mosi.measurement.LineChartView
@@ -52,12 +62,14 @@ class InformeBuilder(
         val muscleRate = if (pesoF != null && pesoF > 0 && masaMuscularF != null)
             (masaMuscularF / pesoF * 100f) else null
 
+        agregarEncabezadoApp()
         agregarCabecera(paciente, idLocal, actual)
 
-        agregarSeccion("IMC",
+        agregarSeccion("Altura y peso",
             columnaValores(
                 tarjetaDato("Altura", fmt(actual.altura, "cm")),
                 tarjetaDato("Peso", fmt(actual.peso, "kg")),
+                etiquetaBarra("IMC"),
                 rangeBar(RangosSalud.imc(), actual.imc.f())
             ),
             columnaGraficas(
@@ -67,20 +79,26 @@ class InformeBuilder(
 
         agregarSeccion("Composición corporal",
             columnaValores(
-                tarjetaDato("Masa muscular", fmt(actual.masa_muscular, "kg")),
-                tarjetaDato("Masa grasa", fmt(actual.grasa_corporal_kg, "kg")),
-                tarjetaDato("Agua corporal", fmt(actual.agua_corporal_kg, "kg")),
-                tarjetaDato("Proteína", fmt(actual.proteina, "kg")),
-                tarjetaDato("Sal inorgánica", fmt(actual.minerales, "kg")),
-                tarjetaDato("Metabólico basal", fmt(actual.metabolismo_basal, "Kcal")),
+                etiquetaBarra("Tasa de masa muscular"),
+                rangeBar(RangosSalud.masaMuscular(isMale, age), muscleRate, "%"),
                 etiquetaBarra("Tasa de grasa corporal"),
-                rangeBar(RangosSalud.grasaCorporal(isMale, age), actual.grasa_corporal.f()),
-                etiquetaBarra("Masa muscular"),
-                rangeBar(RangosSalud.masaMuscular(isMale, age), muscleRate),
+                rangeBar(RangosSalud.grasaCorporal(isMale, age), actual.grasa_corporal.f(), "%"),
                 etiquetaBarra("Tasa de agua corporal"),
-                rangeBar(RangosSalud.aguaCorporal(isMale, age), actual.agua_corporal.f()),
+                rangeBar(RangosSalud.aguaCorporal(isMale, age), actual.agua_corporal.f(), "%"),
                 etiquetaBarra("Grado de grasa visceral"),
-                rangeBar(RangosSalud.grasaVisceral(), actual.grasa_visceral.f())
+                rangeBar(RangosSalud.grasaVisceral(), actual.grasa_visceral.f()),
+                tablaTresColumnas(
+                    listOf(
+                        "Masa muscular" to fmt(actual.masa_muscular, "kg"),
+                        "Masa grasa" to fmt(actual.grasa_corporal_kg, "kg"),
+                        "Agua corporal" to fmt(actual.agua_corporal_kg, "kg")
+                    ),
+                    listOf(
+                        "Masa proteica" to fmt(actual.proteina, "kg"),
+                        "Masa mineral" to fmt(actual.minerales, "kg"),
+                        "Metabolismo basal" to fmt(actual.metabolismo_basal, "Kcal")
+                    )
+                )
             ),
             columnaGraficas(
                 grafica("Tendencia de masa muscular", tendencia(asc) { it.masa_muscular.f() }),
@@ -92,11 +110,12 @@ class InformeBuilder(
 
         agregarSeccion("Presión arterial",
             columnaValores(
-                tarjetaDato("Presión sistólica", fmt(actual.sistolica, "mmHg")),
-                tarjetaDato("Presión diastólica", fmt(actual.diastolica, "mmHg")),
-                tarjetaDato("Pulso", fmt(actual.pulso, "Veces / min")),
                 etiquetaBarra("Presión sistólica"),
-                rangeBar(RangosSalud.presionSistolica(), actual.sistolica.f())
+                rangeBar(RangosSalud.presionSistolica(), actual.sistolica.f(), " mmHg"),
+                etiquetaBarra("Presión diastólica"),
+                rangeBar(RangosSalud.presionDiastolica(), actual.diastolica.f(), " mmHg"),
+                etiquetaBarra("Pulso"),
+                rangeBar(RangosSalud.pulso(), actual.pulso.f(), " bpm")
             ),
             columnaGraficas(
                 grafica("Tendencia de la presión sistólica", tendencia(asc) { it.sistolica.f() }),
@@ -106,9 +125,12 @@ class InformeBuilder(
 
         agregarSeccion("Oxígeno en sangre",
             columnaValores(
-                tarjetaDato("Frecuencia del pulso", fmt(actual.frecuencia_pulso, "Veces / min")),
                 etiquetaBarra("Oxígeno en sangre"),
-                rangeBar(RangosSalud.spo2(), actual.spo2.f())
+                rangeBar(RangosSalud.spo2(), actual.spo2.f(), "%"),
+                etiquetaBarra("Frecuencia del pulso"),
+                rangeBar(RangosSalud.pulso(), actual.frecuencia_pulso.f(), " bpm"),
+                etiquetaBarra("Índice de perfusión"),
+                rangeBar(RangosSalud.indicePerfusion(), actual.indice_perfusion.f(), "%")
             ),
             columnaGraficas(
                 grafica("Tendencia de oxígeno en sangre", tendencia(asc) { it.spo2.f() })
@@ -117,9 +139,8 @@ class InformeBuilder(
 
         agregarSeccion("Temperatura corporal",
             columnaValores(
-                tarjetaDato("Temperatura corporal", fmt(actual.temperatura, "°C")),
                 etiquetaBarra("Temperatura corporal"),
-                rangeBar(RangosSalud.temperatura(), actual.temperatura.f())
+                rangeBar(RangosSalud.temperatura(), actual.temperatura.f(), " °C")
             ),
             columnaGraficas(
                 grafica("Tendencia de la temperatura corporal", tendencia(asc) { it.temperatura.f() })
@@ -140,6 +161,103 @@ class InformeBuilder(
     }
 
     // ── Secciones ──────────────────────────────────────────────────────────────
+
+    private fun agregarEncabezadoApp() {
+        val appPrefs = ctx.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val defaultAppTitle = appPrefs.getString("AppTitle", "MÓDULO DE SALUD INTEGRAL") ?: "MÓDULO DE SALUD INTEGRAL"
+        val pdfTitle = appPrefs.getString("PdfTitle", defaultAppTitle)?.takeIf { it.isNotBlank() } ?: defaultAppTitle
+        val pdfSubtitle = appPrefs.getString("PdfSubtitle", "") ?: ""
+        val logoPath = appPrefs.getString("LogoPath", null)
+
+        val headerLayout = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE)
+                cornerRadius = dp(10).toFloat()
+            }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                .apply { bottomMargin = dp(10) }
+            elevation = dp(2).toFloat()
+        }
+
+        val logoBmp = loadLogoBitmap(ctx, logoPath)
+        if (logoBmp != null) {
+            val logoBox = LinearLayout(ctx).apply {
+                gravity = Gravity.CENTER
+                setPadding(dp(8), dp(6), dp(8), dp(6))
+                background = GradientDrawable().apply {
+                    setColor(colorTema)
+                    cornerRadius = dp(8).toFloat()
+                }
+                layoutParams = LinearLayout.LayoutParams(dp(110), dp(55)).apply {
+                    marginEnd = dp(14)
+                }
+            }
+            val logoIv = ImageView(ctx).apply {
+                setImageBitmap(logoBmp)
+                adjustViewBounds = true
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            }
+            logoBox.addView(logoIv)
+            headerLayout.addView(logoBox)
+        }
+
+        val textCol = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        textCol.addView(TextView(ctx).apply {
+            text = pdfTitle
+            textSize = 20f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(colorTema)
+        })
+
+        if (pdfSubtitle.isNotBlank()) {
+            textCol.addView(TextView(ctx).apply {
+                text = pdfSubtitle
+                textSize = 14f
+                setTextColor(Color.parseColor("#6B7280"))
+                setPadding(0, dp(2), 0, 0)
+            })
+        }
+
+        headerLayout.addView(textCol)
+        container.addView(headerLayout)
+    }
+
+    private fun loadLogoBitmap(context: Context, path: String?): Bitmap? {
+        return try {
+            if (!path.isNullOrBlank()) {
+                val file = File(path)
+                val data: Any = if (file.exists()) file else Uri.parse(path)
+
+                val imageLoader = ImageLoader.Builder(context)
+                    .components { add(SvgDecoder.Factory()) }
+                    .build()
+
+                val request = ImageRequest.Builder(context)
+                    .data(data)
+                    .allowHardware(false)
+                    .build()
+
+                val result = runBlocking { imageLoader.execute(request) }
+                result.drawable?.toBitmap()
+            } else {
+                ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
+            }
+        } catch (_: Exception) {
+            try {
+                ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
 
     private fun agregarCabecera(paciente: Paciente?, idLocal: Long, actual: Resultado) {
         val nombre = listOfNotNull(paciente?.nombre, paciente?.apellido_paterno, paciente?.apellido_materno)
@@ -179,28 +297,83 @@ class InformeBuilder(
         container.addView(bandaTitulo("ECG"))
         val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
 
-        val datos = listOf(
+        val datosParam = listOf(
             "Frecuencia" to fmt(actual.frecuencia_cardiaca, "bpm"),
-            "Eje P" to actual.eje_p, "Eje QRS" to actual.eje_qrs, "Eje T" to actual.eje_t,
-            "Intervalo PR" to actual.intervalo_pr, "Duración QRS" to actual.duracion_qrs,
-            "Intervalo QT" to actual.intervalo_qt, "QT corregido" to actual.qt_corregido,
-            "Onda RV5" to actual.onda_rv5, "Onda SV1" to actual.onda_sv1,
-            "Resultado" to actual.resultado_ecg
+            "Eje P" to actual.eje_p,
+            "Eje QRS" to actual.eje_qrs,
+            "Eje T" to actual.eje_t,
+            "Intervalo PR" to actual.intervalo_pr,
+            "Duración QRS" to actual.duracion_qrs,
+            "Intervalo QT" to actual.intervalo_qt,
+            "QT corregido" to actual.qt_corregido,
+            "Onda RV5" to actual.onda_rv5,
+            "Onda SV1" to actual.onda_sv1
         ).filter { it.second.isNotBlank() && it.second != "0" }
 
-        var filaEcg: LinearLayout? = null
-        datos.forEachIndexed { i, (label, valor) ->
-            if (i % 3 == 0) {
-                filaEcg = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-                col.addView(filaEcg)
+        // Dividir parámetros numéricos en filas de 3 columnas bien alineadas
+        val filas = datosParam.chunked(3)
+        filas.forEach { filaItems ->
+            val fila = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
             }
-            filaEcg!!.addView(tarjetaDato(label, valor), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            for (colIndex in 0 until 3) {
+                if (colIndex < filaItems.size) {
+                    val (label, valor) = filaItems[colIndex]
+                    val padRight = if (colIndex < 2) 16 else 2
+                    fila.addView(
+                        tarjetaDato(label, valor, paddingEndDp = padRight),
+                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    )
+                } else {
+                    fila.addView(
+                        View(ctx),
+                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    )
+                }
+            }
+            col.addView(fila)
         }
 
+        // Fila para el Resultado general de ECG
+        if (actual.resultado_ecg.isNotBlank() && actual.resultado_ecg != "0") {
+            col.addView(
+                tarjetaDato("Resultado", actual.resultado_ecg, paddingEndDp = 2),
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(4) }
+            )
+        }
+
+        var ecgLoaded = false
         if (actual.ruta_ecg.isNotBlank()) {
             val f = File(actual.ruta_ecg)
             if (f.exists()) {
                 runCatching { BitmapFactory.decodeFile(f.absolutePath) }.getOrNull()?.let { bmp ->
+                    col.addView(ImageView(ctx).apply {
+                        setImageBitmap(bmp)
+                        adjustViewBounds = true
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                            .apply { topMargin = dp(8) }
+                    })
+                    ecgLoaded = true
+                }
+            }
+        }
+
+        if (!ecgLoaded) {
+            val prefs = ctx.getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE)
+            val ecgImageString = prefs.getString("ecg_image", null)
+            if (!ecgImageString.isNullOrBlank()) {
+                runCatching {
+                    val bytes = Base64.decode(ecgImageString, Base64.NO_WRAP)
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                }.getOrNull()?.let { bmp ->
                     col.addView(ImageView(ctx).apply {
                         setImageBitmap(bmp)
                         adjustViewBounds = true
@@ -229,25 +402,55 @@ class InformeBuilder(
         return tarjeta(col)
     }
 
-    private fun tarjetaDato(label: String, valor: String): View {
+    private fun tablaTresColumnas(
+        r1: List<Pair<String, String>>,
+        r2: List<Pair<String, String>>
+    ): View {
+        val col = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(8), 0, dp(4))
+        }
+
+        fun agregarFila(items: List<Pair<String, String>>) {
+            val fila = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+            items.forEachIndexed { index, (label, valStr) ->
+                val padRight = if (index < items.size - 1) 16 else 2
+                fila.addView(
+                    tarjetaDato(label, valStr, paddingEndDp = padRight),
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                )
+            }
+            col.addView(fila)
+        }
+
+        agregarFila(r1)
+        agregarFila(r2)
+        return col
+    }
+
+    private fun tarjetaDato(label: String, valor: String, paddingEndDp: Int = 2): View {
         val fila = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(4), dp(6), dp(4), dp(6))
+            setPadding(dp(2), dp(4), dp(paddingEndDp), dp(4))
         }
         fila.addView(TextView(ctx).apply {
             text = label
-            textSize = 13f
-            setTextColor(Color.parseColor("#6B7280"))
+            textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#374151"))
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         })
         fila.addView(TextView(ctx).apply {
             text = valor
-            textSize = 15f
+            textSize = 13f
             setTypeface(null, Typeface.BOLD)
             setTextColor(Color.parseColor("#111827"))
             gravity = Gravity.END
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         })
         return fila
     }
@@ -260,10 +463,10 @@ class InformeBuilder(
         setPadding(dp(4), dp(10), dp(4), dp(2))
     }
 
-    private fun rangeBar(segmentos: List<RangeBarView.Segmento>, valor: Float?): View {
+    private fun rangeBar(segmentos: List<RangeBarView.Segmento>, valor: Float?, sufijo: String = ""): View {
         return RangeBarView(ctx).apply {
             setSegmentos(segmentos)
-            if (valor != null) setValor(valor.toDouble())
+            if (valor != null) setValor(valor.toDouble(), sufijo)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56))
                 .apply { topMargin = dp(2); bottomMargin = dp(6) }
         }

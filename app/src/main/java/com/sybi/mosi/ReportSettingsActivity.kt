@@ -31,17 +31,12 @@ class ReportSettingsActivity : BaseActivity() {
     private val allSwitches = mutableListOf<Switch>()
     private lateinit var etPdfTitle: EditText
     private lateinit var etPdfSubtitle: EditText
-    private lateinit var ivPreviewLogo: ImageView
-    private lateinit var tvPreviewTitle: TextView
-    private lateinit var tvPreviewSubtitle: TextView
-    private lateinit var tvPreviewMeta: TextView
 
     private val appPrefs by lazy { getSharedPreferences("AppPrefs", Context.MODE_PRIVATE) }
 
     private val logoReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val logoPath = intent.getStringExtra("logo_path") ?: appPrefs.getString("LogoPath", null)
-            loadLogo(ivPreviewLogo, logoPath)
+            actualizarPrevisualizacion()
         }
     }
 
@@ -57,6 +52,7 @@ class ReportSettingsActivity : BaseActivity() {
                 val newColor = intent.getStringExtra("new_color") ?: return
                 sideBar.setBackgroundColor(Color.parseColor(newColor))
                 applySwitchTint(Color.parseColor(newColor))
+                actualizarPrevisualizacion()
             }
         }
         LocalBroadcastManager.getInstance(this)
@@ -83,10 +79,6 @@ class ReportSettingsActivity : BaseActivity() {
         // Personalización de PDF
         etPdfTitle = findViewById(R.id.etPdfTitle)
         etPdfSubtitle = findViewById(R.id.etPdfSubtitle)
-        ivPreviewLogo = findViewById(R.id.ivPreviewLogo)
-        tvPreviewTitle = findViewById(R.id.tvPreviewTitle)
-        tvPreviewSubtitle = findViewById(R.id.tvPreviewSubtitle)
-        tvPreviewMeta = findViewById(R.id.tvPreviewMeta)
 
         val defaultTitle = appPrefs.getString("AppTitle", "MÓDULO DE SALUD INTEGRAL") ?: "MÓDULO DE SALUD INTEGRAL"
         val savedPdfTitle = appPrefs.getString("PdfTitle", defaultTitle) ?: defaultTitle
@@ -95,12 +87,7 @@ class ReportSettingsActivity : BaseActivity() {
         etPdfTitle.setText(savedPdfTitle)
         etPdfSubtitle.setText(savedPdfSubtitle)
 
-        tvPreviewTitle.text = savedPdfTitle
-        tvPreviewSubtitle.text = savedPdfSubtitle
-        tvPreviewSubtitle.visibility = if (savedPdfSubtitle.isBlank()) View.GONE else View.VISIBLE
-
-        val logoPath = appPrefs.getString("LogoPath", null)
-        loadLogo(ivPreviewLogo, logoPath)
+        actualizarPrevisualizacion()
 
         etPdfTitle.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -108,7 +95,7 @@ class ReportSettingsActivity : BaseActivity() {
             override fun afterTextChanged(s: Editable?) {
                 val title = s.toString()
                 appPrefs.edit().putString("PdfTitle", title).apply()
-                tvPreviewTitle.text = if (title.isBlank()) defaultTitle else title
+                actualizarPrevisualizacion()
             }
         })
 
@@ -118,10 +105,112 @@ class ReportSettingsActivity : BaseActivity() {
             override fun afterTextChanged(s: Editable?) {
                 val subtitle = s.toString()
                 appPrefs.edit().putString("PdfSubtitle", subtitle).apply()
-                tvPreviewSubtitle.text = subtitle
-                tvPreviewSubtitle.visibility = if (subtitle.isBlank()) View.GONE else View.VISIBLE
+                actualizarPrevisualizacion()
             }
         })
+    }
+
+    private fun actualizarPrevisualizacion() {
+        val container = findViewById<android.widget.LinearLayout>(R.id.previewInformeContainer) ?: return
+        container.removeAllViews()
+
+        val colorTema = runCatching {
+            Color.parseColor(appPrefs.getString("BackgroundColor", "#0F3E82"))
+        }.getOrDefault(Color.parseColor("#0F3E82"))
+
+        val builder = InformeBuilder(this, container, colorTema)
+
+        val samplePaciente = com.sybi.mosi.database.Paciente(
+            id_local = 1L,
+            id_usuario_web = 1234,
+            nombre = "Juan",
+            apellido_paterno = "Pérez",
+            apellido_materno = "Gómez",
+            fecha_nacimiento = "15/05/1990",
+            genero = "M",
+            telefono = "5551234567"
+        )
+
+        val sampleMediciones = listOf(
+            com.sybi.mosi.database.Resultado(
+                id_local = 1L,
+                altura = "175.0",
+                peso = "70.5",
+                imc = "23.0",
+                grasa_corporal = "18.5",
+                grasa_corporal_kg = "13.0",
+                agua_corporal = "55.0",
+                agua_corporal_kg = "38.8",
+                masa_muscular = "32.0",
+                masa_libre_grasa = "57.5",
+                proteina = "12.5",
+                minerales = "3.2",
+                metabolismo_basal = "1550",
+                grasa_visceral = "4.0",
+                peso_ideal = "68.0",
+                tipo_grasa = "1",
+                sistolica = "120",
+                diastolica = "80",
+                pulso = "72",
+                temperatura = "36.6",
+                temperatura_f = "97.8",
+                spo2 = "98",
+                frecuencia_pulso = "72",
+                indice_perfusion = "2.1",
+                frecuencia_cardiaca = "72",
+                eje_p = "45",
+                eje_qrs = "60",
+                eje_t = "30",
+                intervalo_pr = "140",
+                duracion_qrs = "85",
+                intervalo_qt = "380",
+                qt_corregido = "410",
+                onda_rv5 = "1.5",
+                onda_sv1 = "0.8",
+                resultado_ecg = "Ritmo sinusal normal",
+                fecha_medicion = "07/10/2026 13:43"
+            ),
+            com.sybi.mosi.database.Resultado(
+                id_local = 1L,
+                altura = "175.0",
+                peso = "71.0",
+                imc = "23.5",
+                grasa_corporal = "19.0",
+                grasa_corporal_kg = "13.5",
+                agua_corporal = "54.5",
+                agua_corporal_kg = "38.5",
+                masa_muscular = "31.5",
+                masa_libre_grasa = "57.0",
+                proteina = "12.2",
+                minerales = "3.1",
+                metabolismo_basal = "1540",
+                grasa_visceral = "4.5",
+                peso_ideal = "68.0",
+                tipo_grasa = "1",
+                sistolica = "122",
+                diastolica = "82",
+                pulso = "74",
+                temperatura = "36.5",
+                temperatura_f = "97.7",
+                spo2 = "97",
+                frecuencia_pulso = "74",
+                indice_perfusion = "2.0",
+                frecuencia_cardiaca = "74",
+                eje_p = "45",
+                eje_qrs = "60",
+                eje_t = "30",
+                intervalo_pr = "142",
+                duracion_qrs = "86",
+                intervalo_qt = "382",
+                qt_corregido = "412",
+                onda_rv5 = "1.4",
+                onda_sv1 = "0.8",
+                resultado_ecg = "Ritmo sinusal normal",
+                fecha_medicion = "01/10/2026 10:15"
+            )
+        )
+
+        builder.construir(samplePaciente, 1L, sampleMediciones)
     }
 
     override fun onDestroy() {
