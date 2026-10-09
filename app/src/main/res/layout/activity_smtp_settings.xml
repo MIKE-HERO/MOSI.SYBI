@@ -96,7 +96,12 @@
                 android:hint="Teleconsulta" android:inputType="textPersonName" android:layout_marginBottom="20dp" />
 
             <Button android:id="@+id/btnGuardarSmtp" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="Guardar" android:textColor="#FFFFFF" android:backgroundTint="#0F3E82" android:textAllCaps="false" android:layout_marginBottom="10dp" />
+                android:text="Guardar" android:textColor="#FFFFFF" android:backgroundTint="#0F3E82" android:textAllCaps="false" android:layout_marginBottom="16dp" />
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Enviar prueba a" android:textStyle="bold" android:textColor="#374151" android:textSize="13sp" />
+            <EditText android:id="@+id/etSmtpTestTo" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:hint="correo-destino@ejemplo.com" android:inputType="textEmailAddress" android:layout_marginBottom="10dp" />
 
             <Button android:id="@+id/btnProbarSmtp" android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="Enviar correo de prueba" android:textColor="#0F3E82" android:backgroundTint="#E0E0E0" android:textAllCaps="false" />

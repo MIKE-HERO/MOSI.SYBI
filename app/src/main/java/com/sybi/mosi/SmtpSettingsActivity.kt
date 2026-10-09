@@ -75,6 +75,9 @@ class SmtpSettingsActivity : BaseActivity() {
         etFrom.setText(c.from)
         etFromName.setText(c.fromName)
         swSsl.isChecked = c.useSsl
+        // Por defecto la prueba va al propio remitente; el admin puede cambiarlo para probar
+        // envío a otros destinatarios.
+        findViewById<EditText>(R.id.etSmtpTestTo).setText(c.from.ifBlank { c.user })
     }
 
     private fun leerDeUi(): EmailSender.Config = EmailSender.Config(
@@ -100,7 +103,8 @@ class SmtpSettingsActivity : BaseActivity() {
 
     private fun enviarPrueba() {
         val c = guardar() ?: return
-        val destino = c.from.ifBlank { c.user }
+        val destino = findViewById<EditText>(R.id.etSmtpTestTo).text.toString().trim()
+            .ifBlank { c.from.ifBlank { c.user } }
         tvEstado.setTextColor(Color.parseColor("#6B7280"))
         tvEstado.text = "Enviando correo de prueba a $destino…"
 
@@ -118,8 +122,12 @@ class SmtpSettingsActivity : BaseActivity() {
                 tvEstado.setTextColor(Color.parseColor("#2E7D32"))
                 tvEstado.text = "✅ Correo de prueba enviado a $destino. Revisa la bandeja."
             } else {
+                val ex = resultado.exceptionOrNull()
+                val detalle = ex?.message ?: "error desconocido"
+                val causa = ex?.cause?.message
                 tvEstado.setTextColor(Color.parseColor("#D32F2F"))
-                tvEstado.text = "❌ No se pudo enviar: ${resultado.exceptionOrNull()?.message ?: "error desconocido"}"
+                tvEstado.text = "❌ No se pudo enviar a $destino:\n$detalle" +
+                        if (!causa.isNullOrBlank() && causa != detalle) "\nCausa: $causa" else ""
             }
         }
     }
