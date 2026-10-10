@@ -507,8 +507,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                     saveAllResults()
                     runOnUiThread {
                         startActivity(
-                            Intent(this, InformeActivity::class.java)
-                                .putExtra(InformeActivity.EXTRA_ID_LOCAL, pacienteIdLocal)
+                            Intent(this, ResultsActivity::class.java)
+                                .putExtra("id_local", pacienteIdLocal)
                         )
                         finish()
                     }

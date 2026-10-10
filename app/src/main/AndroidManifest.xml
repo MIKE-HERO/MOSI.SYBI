@@ -66,6 +66,7 @@
     </queries>
 
     <application
+        android:name=".MosiApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -115,7 +116,6 @@
                 <data android:scheme="mosi" android:host="consulta-finalizada" />
             </intent-filter>
         </activity>
-        <activity android:name=".InformeActivity" android:exported="false" />
         <activity android:name=".SmtpSettingsActivity" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".BasicSettingsActivity" android:exported="false" />

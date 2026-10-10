@@ -422,6 +422,9 @@ class FaceRegistrationActivity : BaseActivity() {
                         Log.d(TAG, "🔄 Paciente actualizado con datos de la API")
                         pacienteDao.actualizarPaciente(pacienteActualizado)
 
+                        // Actualizar la caché de biometría en memoria con el nuevo paciente
+                        com.sybi.mosi.helpers.FaceBiometricsCache.refresh(this@FaceRegistrationActivity)
+
                         runOnUiThread {
                             Toast.makeText(
                                 this@FaceRegistrationActivity,
@@ -431,6 +434,9 @@ class FaceRegistrationActivity : BaseActivity() {
                             irALogin()
                         }
                     } else {
+                        // Actualizar la caché de biometría en memoria con el nuevo paciente
+                        com.sybi.mosi.helpers.FaceBiometricsCache.refresh(this@FaceRegistrationActivity)
+
                         runOnUiThread {
                             Toast.makeText(
                                 this@FaceRegistrationActivity,

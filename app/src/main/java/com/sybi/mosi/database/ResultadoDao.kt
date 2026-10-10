@@ -16,6 +16,9 @@ interface ResultadoDao {
     @Query("SELECT * FROM resultados WHERE id_local = :idLocal ORDER BY id_resultado DESC")
     suspend fun obtenerResultadosPorIdLocal(idLocal: Long): List<Resultado>
 
+    @Query("SELECT * FROM resultados WHERE id_resultado = :idResultado LIMIT 1")
+    suspend fun obtenerResultadoPorId(idResultado: Long): Resultado?
+
     @Query("SELECT * FROM resultados ORDER BY id_resultado DESC")
     suspend fun obtenerTodosLosResultados(): List<Resultado>
 

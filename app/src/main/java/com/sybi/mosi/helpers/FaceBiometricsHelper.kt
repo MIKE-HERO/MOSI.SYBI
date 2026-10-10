@@ -94,51 +94,56 @@ object FaceBiometricsHelper {
      * 3. Extrae embedding con FaceNet
      */
     fun processFace(bitmap: Bitmap, mpResult: FaceLandmarkerResult): BiometricFaceData? {
-        val landmarks = mpResult.faceLandmarks().firstOrNull()
-        if (landmarks == null || landmarks.size < 468) {
-            Log.w(TAG, "Landmarks insuficientes: ${landmarks?.size}")
-            return null
+        return try {
+            val landmarks = mpResult.faceLandmarks().firstOrNull()
+            if (landmarks == null || landmarks.size < 468) {
+                Log.w(TAG, "Landmarks insuficientes: ${landmarks?.size}")
+                return null
+            }
+
+            val w = bitmap.width.toFloat()
+            val h = bitmap.height.toFloat()
+
+            fun lm(idx: Int): PointF = PointF(landmarks[idx].x() * w, landmarks[idx].y() * h)
+
+            // Usar pupilas si están disponibles (478 landmarks), sino fallback
+            val hasIris = landmarks.size >= 478
+            val leftEye = if (hasIris) lm(LM_LEFT_PUPIL) else lm(LM_LEFT_EYE_CENTER_FALLBACK)
+            val rightEye = if (hasIris) lm(LM_RIGHT_PUPIL) else lm(LM_RIGHT_EYE_CENTER_FALLBACK)
+            val nose = lm(LM_NOSE_TIP)
+            val mouthL = lm(LM_MOUTH_LEFT)
+            val mouthR = lm(LM_MOUTH_RIGHT)
+
+            // IPD
+            val ipd = hypot(
+                (rightEye.x - leftEye.x).toDouble(),
+                (rightEye.y - leftEye.y).toDouble()
+            ).toFloat()
+
+            if (ipd < 25f) {
+                Log.w(TAG, "IPD muy pequeña: $ipd")
+                return null
+            }
+
+            // Alineación afín → 160x160
+            val aligned = alignFace(bitmap, leftEye, rightEye, nose, mouthL, mouthR)
+                ?: return null
+
+            // Embedding
+            val embedding = FaceEmbeddingHelper.extractEmbedding(aligned)
+                ?: return null
+
+            BiometricFaceData(
+                originalBitmap = bitmap,
+                alignedFaceBitmap = aligned,
+                embedding = embedding,
+                ipd = ipd,
+                landmarks = landmarks
+            )
+        } catch (e: Throwable) {
+            Log.e(TAG, "Error en processFace: ${e.message}", e)
+            null
         }
-
-        val w = bitmap.width.toFloat()
-        val h = bitmap.height.toFloat()
-
-        fun lm(idx: Int): PointF = PointF(landmarks[idx].x() * w, landmarks[idx].y() * h)
-
-        // Usar pupilas si están disponibles (478 landmarks), sino fallback
-        val hasIris = landmarks.size >= 478
-        val leftEye = if (hasIris) lm(LM_LEFT_PUPIL) else lm(LM_LEFT_EYE_CENTER_FALLBACK)
-        val rightEye = if (hasIris) lm(LM_RIGHT_PUPIL) else lm(LM_RIGHT_EYE_CENTER_FALLBACK)
-        val nose = lm(LM_NOSE_TIP)
-        val mouthL = lm(LM_MOUTH_LEFT)
-        val mouthR = lm(LM_MOUTH_RIGHT)
-
-        // IPD
-        val ipd = hypot(
-            (rightEye.x - leftEye.x).toDouble(),
-            (rightEye.y - leftEye.y).toDouble()
-        ).toFloat()
-
-        if (ipd < 25f) {
-            Log.w(TAG, "IPD muy pequeña: $ipd")
-            return null
-        }
-
-        // Alineación afín → 160x160
-        val aligned = alignFace(bitmap, leftEye, rightEye, nose, mouthL, mouthR)
-            ?: return null
-
-        // Embedding
-        val embedding = FaceEmbeddingHelper.extractEmbedding(aligned)
-            ?: return null
-
-        return BiometricFaceData(
-            originalBitmap = bitmap,
-            alignedFaceBitmap = aligned,
-            embedding = embedding,
-            ipd = ipd,
-            landmarks = landmarks
-        )
     }
 
     /**

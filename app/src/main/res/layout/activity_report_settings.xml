@@ -210,7 +210,7 @@
                     android:layout_height="550dp"
                     app:cardCornerRadius="8dp"
                     app:cardElevation="2dp"
-                    app:cardBackgroundColor="#FFFFFF"
+                    app:cardBackgroundColor="#F0F2F5"
                     android:layout_marginBottom="8dp">
 
                     <ScrollView
@@ -218,13 +218,17 @@
                         android:layout_height="match_parent"
                         android:fillViewport="true"
                         android:nestedScrollingEnabled="true"
-                        android:padding="16dp">
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
+                        android:padding="12dp">
 
                         <LinearLayout
                             android:id="@+id/previewInformeContainer"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical" />
+                            android:orientation="vertical"
+                            android:clipChildren="false"
+                            android:clipToPadding="false" />
 
                     </ScrollView>
                 </androidx.cardview.widget.CardView>

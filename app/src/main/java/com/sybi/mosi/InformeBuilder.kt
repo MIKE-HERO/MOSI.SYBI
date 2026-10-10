@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.PorterDuff
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -20,7 +21,6 @@ import androidx.core.graphics.drawable.toBitmap
 import coil.ImageLoader
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
-import kotlinx.coroutines.runBlocking
 import com.sybi.mosi.database.Paciente
 import com.sybi.mosi.database.Resultado
 import com.sybi.mosi.measurement.LineChartView
@@ -47,10 +47,20 @@ class InformeBuilder(
 ) {
     private val d = ctx.resources.displayMetrics.density
 
+    init {
+        container.clipChildren = false
+        container.clipToPadding = false
+    }
+
     /**
-     * Agrega el informe al contenedor. [mediciones] viene en orden DESC ([0] = más reciente).
+     * Agrega el informe completo en flujo continuo (usado para pantallas).
      */
     fun construir(paciente: Paciente?, idLocal: Long, mediciones: List<Resultado>) {
+        if (mediciones.isEmpty()) {
+            mensajeVacio("No hay mediciones registradas para este paciente.")
+            return
+        }
+
         val actual = mediciones.first()
         val asc = mediciones.reversed() // cronológico: antiguo -> reciente
 
@@ -62,9 +72,100 @@ class InformeBuilder(
         val muscleRate = if (pesoF != null && pesoF > 0 && masaMuscularF != null)
             (masaMuscularF / pesoF * 100f) else null
 
-        agregarEncabezadoApp()
-        agregarCabecera(paciente, idLocal, actual)
+        val devicePrefs = ctx.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val showAlturaPeso = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ALTURA_PESO, true)
+        val showComposicion = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_COMPOSICION, true)
+        val showPresion = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_PRESION, true)
+        val showOxigeno = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_OXIGENO, true)
+        val showTemperatura = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_TEMPERATURA, true)
+        val showEcg = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ECG, true)
 
+        agregarEncabezadoApp()
+        agregarCabecera(paciente, actual)
+
+        if (showAlturaPeso) agregarSeccionAlturaPeso(actual, asc)
+        if (showComposicion) agregarSeccionComposicion(actual, asc, isMale, age, muscleRate)
+        if (showPresion) agregarSeccionPresion(actual, asc)
+        if (showOxigeno) agregarSeccionOxigeno(actual, asc)
+        if (showTemperatura) agregarSeccionTemperatura(actual, asc)
+        if (showEcg) agregarSeccionEcg(actual)
+    }
+
+    /** Página 1 del PDF: Altura y peso + Composición corporal */
+    fun construirPagina1(paciente: Paciente?, idLocal: Long, mediciones: List<Resultado>) {
+        if (mediciones.isEmpty()) return
+        val actual = mediciones.first()
+        val asc = mediciones.reversed()
+        val isMale = (paciente?.genero ?: "").uppercase().let { it == "M" || it == "MASCULINO" || it == "H" }
+        val age = paciente?.calcularEdad()?.takeIf { it > 0 } ?: 30
+        val pesoF = actual.peso.f()
+        val masaMuscularF = actual.masa_muscular.f()
+        val muscleRate = if (pesoF != null && pesoF > 0 && masaMuscularF != null) (masaMuscularF / pesoF * 100f) else null
+
+        val devicePrefs = ctx.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val showAlturaPeso = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ALTURA_PESO, true)
+        val showComposicion = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_COMPOSICION, true)
+
+        // Margen superior para que el header no quede cortado
+        agregarEspaciadorSuperior()
+
+        agregarEncabezadoApp()
+        agregarCabecera(paciente, actual)
+
+        if (showAlturaPeso) agregarSeccionAlturaPeso(actual, asc)
+        if (showComposicion) agregarSeccionComposicion(actual, asc, isMale, age, muscleRate)
+    }
+
+    /** Página 2 del PDF: Presión arterial + Oxígeno + Temperatura corporal */
+    fun construirPagina2(paciente: Paciente?, idLocal: Long, mediciones: List<Resultado>) {
+        if (mediciones.isEmpty()) return
+        val actual = mediciones.first()
+        val asc = mediciones.reversed()
+
+        val devicePrefs = ctx.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val showPresion = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_PRESION, true)
+        val showOxigeno = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_OXIGENO, true)
+        val showTemperatura = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_TEMPERATURA, true)
+
+        // Margen superior para que el header no quede cortado en páginas 2 y 3
+        agregarEspaciadorSuperior()
+
+        agregarCabecera(paciente, actual)
+
+        if (showPresion) agregarSeccionPresion(actual, asc)
+        if (showOxigeno) agregarSeccionOxigeno(actual, asc)
+        if (showTemperatura) agregarSeccionTemperatura(actual, asc)
+    }
+
+    /** Página 3 del PDF: Electrocardiograma */
+    fun construirPagina3(paciente: Paciente?, idLocal: Long, mediciones: List<Resultado>) {
+        if (mediciones.isEmpty()) return
+        val actual = mediciones.first()
+
+        val devicePrefs = ctx.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val showEcg = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ECG, true)
+
+        // Margen superior para que el header no quede cortado
+        agregarEspaciadorSuperior()
+
+        agregarCabecera(paciente, actual)
+
+        if (showEcg) agregarSeccionEcg(actual)
+    }
+
+    fun mensajeVacio(texto: String) {
+        container.addView(TextView(ctx).apply {
+            text = texto
+            textSize = 16f
+            setTextColor(Color.parseColor("#757575"))
+            gravity = Gravity.CENTER
+            setPadding(0, dp(60), 0, 0)
+        })
+    }
+
+    // ── Secciones individuales ──────────────────────────────────────────────────
+
+    private fun agregarSeccionAlturaPeso(actual: Resultado, asc: List<Resultado>) {
         agregarSeccion("Altura y peso",
             columnaValores(
                 tarjetaDato("Altura", fmt(actual.altura, "cm")),
@@ -76,7 +177,9 @@ class InformeBuilder(
                 grafica("Tendencia de cambio de IMC", tendencia(asc) { it.imc.f() })
             )
         )
+    }
 
+    private fun agregarSeccionComposicion(actual: Resultado, asc: List<Resultado>, isMale: Boolean, age: Int, muscleRate: Float?) {
         agregarSeccion("Composición corporal",
             columnaValores(
                 etiquetaBarra("Tasa de masa muscular"),
@@ -107,7 +210,9 @@ class InformeBuilder(
                 grafica("Tendencia de grado de grasa visceral", tendencia(asc) { it.grasa_visceral.f() })
             )
         )
+    }
 
+    private fun agregarSeccionPresion(actual: Resultado, asc: List<Resultado>) {
         agregarSeccion("Presión arterial",
             columnaValores(
                 etiquetaBarra("Presión sistólica"),
@@ -122,7 +227,9 @@ class InformeBuilder(
                 grafica("Tendencia de la presión diastólica", tendencia(asc) { it.diastolica.f() })
             )
         )
+    }
 
+    private fun agregarSeccionOxigeno(actual: Resultado, asc: List<Resultado>) {
         agregarSeccion("Oxígeno en sangre",
             columnaValores(
                 etiquetaBarra("Oxígeno en sangre"),
@@ -136,7 +243,9 @@ class InformeBuilder(
                 grafica("Tendencia de oxígeno en sangre", tendencia(asc) { it.spo2.f() })
             )
         )
+    }
 
+    private fun agregarSeccionTemperatura(actual: Resultado, asc: List<Resultado>) {
         agregarSeccion("Temperatura corporal",
             columnaValores(
                 etiquetaBarra("Temperatura corporal"),
@@ -146,21 +255,21 @@ class InformeBuilder(
                 grafica("Tendencia de la temperatura corporal", tendencia(asc) { it.temperatura.f() })
             )
         )
-
-        agregarSeccionEcg(actual)
-    }
-
-    fun mensajeVacio(texto: String) {
-        container.addView(TextView(ctx).apply {
-            text = texto
-            textSize = 16f
-            setTextColor(Color.parseColor("#757575"))
-            gravity = Gravity.CENTER
-            setPadding(0, dp(60), 0, 0)
-        })
     }
 
     // ── Secciones ──────────────────────────────────────────────────────────────
+
+    /**
+     * Agrega un pequeño espacio al inicio de cada página del PDF para evitar que el
+     * encabezado quede cortado por el borde superior de la página.
+     */
+    private fun agregarEspaciadorSuperior() {
+        container.addView(View(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(16)
+            )
+        })
+    }
 
     private fun agregarEncabezadoApp() {
         val appPrefs = ctx.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
@@ -172,37 +281,45 @@ class InformeBuilder(
         val headerLayout = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(12))
+            // Padding generoso para que el logo no quede pegado al borde
+            setPadding(dp(16), dp(20), dp(16), dp(20))
             background = GradientDrawable().apply {
                 setColor(Color.WHITE)
                 cornerRadius = dp(10).toFloat()
             }
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { bottomMargin = dp(10) }
-            elevation = dp(2).toFloat()
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(16)
+                bottomMargin = dp(10)
+            }
+            // NO usar elevation: el Canvas del PDF no dibuja sombras y recorta el contenido
         }
 
-        val logoBmp = loadLogoBitmap(ctx, logoPath)
-        if (logoBmp != null) {
-            val logoBox = LinearLayout(ctx).apply {
-                gravity = Gravity.CENTER
-                setPadding(dp(8), dp(6), dp(8), dp(6))
-                background = GradientDrawable().apply {
-                    setColor(colorTema)
-                    cornerRadius = dp(8).toFloat()
-                }
-                layoutParams = LinearLayout.LayoutParams(dp(110), dp(55)).apply {
-                    marginEnd = dp(14)
-                }
+        val logoIv = ImageView(ctx).apply {
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            layoutParams = LinearLayout.LayoutParams(dp(140), dp(70)).apply {
+                marginEnd = dp(16)
             }
-            val logoIv = ImageView(ctx).apply {
-                setImageBitmap(logoBmp)
-                adjustViewBounds = true
-                scaleType = ImageView.ScaleType.FIT_CENTER
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            }
-            logoBox.addView(logoIv)
-            headerLayout.addView(logoBox)
+        }
+
+        // Carga del logotipo puro sobre el encabezado sin recuadros de fondo
+        val directBmp = loadLogoBitmapDirect(ctx, logoPath)
+        if (directBmp != null) {
+            logoIv.clearColorFilter()
+            logoIv.setImageBitmap(directBmp)
+            headerLayout.addView(logoIv)
+        } else if (!logoPath.isNullOrBlank()) {
+            logoIv.clearColorFilter()
+            cargarLogoAsincrono(ctx, logoIv, logoPath)
+            headerLayout.addView(logoIv)
+        } else {
+            // Logotipo por defecto: aplicar tinte con el color del tema para que resalte sobre el fondo blanco
+            logoIv.setImageResource(R.drawable.sybi_logo_blanco)
+            logoIv.setColorFilter(colorTema, PorterDuff.Mode.SRC_IN)
+            headerLayout.addView(logoIv)
         }
 
         val textCol = LinearLayout(ctx).apply {
@@ -230,23 +347,18 @@ class InformeBuilder(
         container.addView(headerLayout)
     }
 
-    private fun loadLogoBitmap(context: Context, path: String?): Bitmap? {
+    private fun loadLogoBitmapDirect(context: Context, path: String?): Bitmap? {
         return try {
             if (!path.isNullOrBlank()) {
                 val file = File(path)
-                val data: Any = if (file.exists()) file else Uri.parse(path)
-
-                val imageLoader = ImageLoader.Builder(context)
-                    .components { add(SvgDecoder.Factory()) }
-                    .build()
-
-                val request = ImageRequest.Builder(context)
-                    .data(data)
-                    .allowHardware(false)
-                    .build()
-
-                val result = runBlocking { imageLoader.execute(request) }
-                result.drawable?.toBitmap()
+                if (file.exists()) {
+                    BitmapFactory.decodeFile(file.absolutePath)
+                } else {
+                    val uri = Uri.parse(path)
+                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        BitmapFactory.decodeStream(inputStream)
+                    }
+                }
             } else {
                 ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
             }
@@ -259,10 +371,36 @@ class InformeBuilder(
         }
     }
 
-    private fun agregarCabecera(paciente: Paciente?, idLocal: Long, actual: Resultado) {
+    private fun cargarLogoAsincrono(context: Context, imageView: ImageView, path: String?) {
+        try {
+            if (!path.isNullOrBlank()) {
+                val imageLoader = ImageLoader.Builder(context)
+                    .components { add(SvgDecoder.Factory()) }
+                    .build()
+
+                val file = File(path)
+                val data: Any = if (file.exists()) file else Uri.parse(path)
+
+                val request = ImageRequest.Builder(context)
+                    .data(data)
+                    .target(imageView)
+                    .error(R.drawable.sybi_logo_blanco)
+                    .placeholder(R.drawable.sybi_logo_blanco)
+                    .build()
+
+                imageLoader.enqueue(request)
+            } else {
+                imageView.setImageResource(R.drawable.sybi_logo_blanco)
+            }
+        } catch (_: Exception) {
+            imageView.setImageResource(R.drawable.sybi_logo_blanco)
+        }
+    }
+
+    private fun agregarCabecera(paciente: Paciente?, actual: Resultado) {
         val nombre = listOfNotNull(paciente?.nombre, paciente?.apellido_paterno, paciente?.apellido_materno)
             .joinToString(" ").trim().ifBlank { "Paciente" }
-        val id = (paciente?.id_usuario_web?.takeIf { it > 0 } ?: idLocal).toString().padStart(10, '0')
+        val edad = paciente?.calcularEdad()?.takeIf { it > 0 }?.let { "$it años" } ?: "-"
         val genero = when ((paciente?.genero ?: "").uppercase()) {
             "M", "MASCULINO", "H" -> "Masculino"
             "F", "FEMENINO" -> "Femenino"
@@ -271,12 +409,13 @@ class InformeBuilder(
 
         val fila = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(16), dp(12), dp(16), dp(12))
+            setPadding(dp(16), dp(14), dp(16), dp(14))
         }
-        fila.addView(textoCabecera("ID: $id"), pesoParam())
+        // Se eliminó el ID a propósito: solo nombre, edad, género y fecha
         fila.addView(textoCabecera("Nombre: $nombre"), pesoParam(2f))
+        fila.addView(textoCabecera("Edad: $edad"), pesoParam())
         fila.addView(textoCabecera("Género: $genero"), pesoParam())
-        fila.addView(textoCabecera("Medir el tiempo: ${actual.fecha_medicion.ifBlank { "-" }}"), pesoParam(1.5f))
+        fila.addView(textoCabecera("Fecha y hora: ${actual.fecha_medicion.ifBlank { "-" }}"), pesoParam(1.5f))
 
         container.addView(tarjeta(fila))
     }
@@ -285,69 +424,62 @@ class InformeBuilder(
         container.addView(bandaTitulo(titulo))
         val fila = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
+            clipChildren = false
+            clipToPadding = false
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { bottomMargin = dp(10) }
         }
-        fila.addView(columnaIzq, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(8) })
-        fila.addView(columnaDer, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        fila.addView(columnaIzq, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(6) })
+        fila.addView(columnaDer, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(6) })
         container.addView(fila)
     }
 
     private fun agregarSeccionEcg(actual: Resultado) {
-        container.addView(bandaTitulo("ECG"))
+        container.addView(bandaTitulo("Electrocardiograma de 6 derivaciones"))
         val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
 
-        val datosParam = listOf(
-            "Frecuencia" to fmt(actual.frecuencia_cardiaca, "bpm"),
-            "Eje P" to actual.eje_p,
-            "Eje QRS" to actual.eje_qrs,
-            "Eje T" to actual.eje_t,
-            "Intervalo PR" to actual.intervalo_pr,
-            "Duración QRS" to actual.duracion_qrs,
-            "Intervalo QT" to actual.intervalo_qt,
-            "QT corregido" to actual.qt_corregido,
-            "Onda RV5" to actual.onda_rv5,
-            "Onda SV1" to actual.onda_sv1
-        ).filter { it.second.isNotBlank() && it.second != "0" }
-
-        // Dividir parámetros numéricos en filas de 3 columnas bien alineadas
-        val filas = datosParam.chunked(3)
-        filas.forEach { filaItems ->
-            val fila = LinearLayout(ctx).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-            }
-            for (colIndex in 0 until 3) {
-                if (colIndex < filaItems.size) {
-                    val (label, valor) = filaItems[colIndex]
-                    val padRight = if (colIndex < 2) 16 else 2
-                    fila.addView(
-                        tarjetaDato(label, valor, paddingEndDp = padRight),
-                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    )
-                } else {
-                    fila.addView(
-                        View(ctx),
-                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    )
-                }
-            }
-            col.addView(fila)
-        }
-
-        // Fila para el Resultado general de ECG
+        // Texto del resultado general de ECG en renglón solo (alineado a la izquierda)
         if (actual.resultado_ecg.isNotBlank() && actual.resultado_ecg != "0") {
             col.addView(
-                tarjetaDato("Resultado", actual.resultado_ecg, paddingEndDp = 2),
+                TextView(ctx).apply {
+                    text = actual.resultado_ecg
+                    textSize = 13f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(Color.parseColor("#111827"))
+                    setPadding(dp(2), dp(2), dp(2), dp(8))
+                },
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = dp(4) }
+                )
             )
         }
+
+        // Fila 1: Frecuencia, Eje P, Eje QRS, Eje T
+        val fila1 = listOf(
+            "Frecuencia" to fmtUnidad(actual.frecuencia_cardiaca, "bpm"),
+            "Eje P" to fmtUnidad(actual.eje_p, "°"),
+            "Eje QRS" to fmtUnidad(actual.eje_qrs, "°"),
+            "Eje T" to fmtUnidad(actual.eje_t, "°")
+        )
+
+        // Fila 2: Intervalo PR, Intervalo QT, QT corregido, Duración QRS
+        val fila2 = listOf(
+            "Intervalo PR" to fmtUnidad(actual.intervalo_pr, "ms"),
+            "Intervalo QT" to fmtUnidad(actual.intervalo_qt, "ms"),
+            "QT corregido" to fmtUnidad(actual.qt_corregido, "ms"),
+            "Duración QRS" to fmtUnidad(actual.duracion_qrs, "ms")
+        )
+
+        // Fila 3: Onda RV5, Onda SV1 (en las primeras 2 columnas de las 4)
+        val fila3 = listOf(
+            "Onda RV5" to fmtUnidad(actual.onda_rv5, "mV"),
+            "Onda SV1" to fmtUnidad(actual.onda_sv1, "mV")
+        )
+
+        col.addView(crearFilaConDivisores(fila1, 4))
+        col.addView(crearFilaConDivisores(fila2, 4))
+        col.addView(crearFilaConDivisores(fila3, 4))
 
         var ecgLoaded = false
         if (actual.ruta_ecg.isNotBlank()) {
@@ -359,7 +491,7 @@ class InformeBuilder(
                         adjustViewBounds = true
                         scaleType = ImageView.ScaleType.FIT_CENTER
                         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                            .apply { topMargin = dp(8) }
+                            .apply { topMargin = dp(10) }
                     })
                     ecgLoaded = true
                 }
@@ -379,7 +511,7 @@ class InformeBuilder(
                         adjustViewBounds = true
                         scaleType = ImageView.ScaleType.FIT_CENTER
                         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                            .apply { topMargin = dp(8) }
+                            .apply { topMargin = dp(10) }
                     })
                 }
             }
@@ -402,6 +534,47 @@ class InformeBuilder(
         return tarjeta(col)
     }
 
+    private fun crearFilaConDivisores(
+        items: List<Pair<String, String>>,
+        numCols: Int
+    ): View {
+        val fila = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setPadding(0, dp(4), 0, dp(4))
+        }
+
+        for (colIndex in 0 until numCols) {
+            if (colIndex > 0) {
+                val divider = View(ctx).apply {
+                    setBackgroundColor(Color.parseColor("#E0E0E0"))
+                    layoutParams = LinearLayout.LayoutParams(dp(1), ViewGroup.LayoutParams.MATCH_PARENT).apply {
+                        setMargins(dp(4), dp(2), dp(4), dp(2))
+                    }
+                }
+                fila.addView(divider)
+            }
+
+            if (colIndex < items.size) {
+                val (label, valStr) = items[colIndex]
+                fila.addView(
+                    tarjetaDato(label, valStr, paddingEndDp = 2),
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                )
+            } else {
+                fila.addView(
+                    View(ctx),
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                )
+            }
+        }
+        return fila
+    }
+
     private fun tablaTresColumnas(
         r1: List<Pair<String, String>>,
         r2: List<Pair<String, String>>
@@ -410,24 +583,8 @@ class InformeBuilder(
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(8), 0, dp(4))
         }
-
-        fun agregarFila(items: List<Pair<String, String>>) {
-            val fila = LinearLayout(ctx).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            }
-            items.forEachIndexed { index, (label, valStr) ->
-                val padRight = if (index < items.size - 1) 16 else 2
-                fila.addView(
-                    tarjetaDato(label, valStr, paddingEndDp = padRight),
-                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                )
-            }
-            col.addView(fila)
-        }
-
-        agregarFila(r1)
-        agregarFila(r2)
+        col.addView(crearFilaConDivisores(r1, 3))
+        col.addView(crearFilaConDivisores(r2, 3))
         return col
     }
 
@@ -503,14 +660,18 @@ class InformeBuilder(
     private fun tarjeta(contenido: View): View {
         val wrap = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
+            clipChildren = false
+            clipToPadding = false
             setPadding(dp(14), dp(12), dp(14), dp(12))
             background = GradientDrawable().apply {
                 setColor(Color.WHITE)
                 cornerRadius = dp(10).toFloat()
+                // Borde sutil en lugar de sombra: el PDF (Canvas) no dibuja elevation
+                setStroke(dp(1), Color.parseColor("#E5E7EB"))
             }
+            // Se elimina elevation y outlineProvider: no se renderizan en Canvas del PDF
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                .apply { bottomMargin = dp(10) }
-            elevation = dp(2).toFloat()
+                .apply { setMargins(dp(2), dp(2), dp(2), dp(10)) }
         }
         wrap.addView(contenido)
         return wrap
@@ -558,6 +719,13 @@ class InformeBuilder(
         val limpio = valor.trim()
         if (limpio.isBlank() || limpio == "0" || limpio == "0.0") return "-"
         return "$limpio $unidad"
+    }
+
+    private fun fmtUnidad(valor: String, unidad: String): String {
+        val limpio = valor.trim()
+        if (limpio.isBlank() || limpio == "0" || limpio == "0.0") return "-"
+        if (limpio.endsWith(unidad) || (unidad == "°" && limpio.endsWith("°"))) return limpio
+        return if (unidad == "°") "$limpio°" else "$limpio $unidad"
     }
 
     private fun dp(v: Int): Int = (v * d).toInt()

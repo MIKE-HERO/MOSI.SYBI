@@ -69,6 +69,7 @@ object FaceEmbeddingHelper {
      * @param alignedFace Bitmap alineado (idealmente 160x160, se reescala si no lo es)
      * @return embedding normalizado L2, o null si falla
      */
+    @Synchronized
     fun extractEmbedding(alignedFace: Bitmap): FloatArray? {
         val interp = interpreter ?: run {
             Log.e(TAG, "Interpreter nulo. ¿Llamaste a init()?")
@@ -132,7 +133,7 @@ object FaceEmbeddingHelper {
                 return null
             }
             emb
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Error extrayendo embedding: ${e.message}", e)
             null
         }

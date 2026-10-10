@@ -39,7 +39,7 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_centerInParent="true"
-            android:text="Resultados"
+            android:text="Informe de resultados"
             android:textColor="#FFFFFF"
             android:textSize="22sp"
             android:textStyle="bold"
@@ -52,16 +52,17 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="15dp">
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:padding="12dp">
 
         <LinearLayout
             android:id="@+id/resultsContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#FFFFFF"
-            android:elevation="4dp"
-            android:padding="15dp" />
+            android:clipChildren="false"
+            android:clipToPadding="false" />
 
     </ScrollView>
 
@@ -110,19 +111,6 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Enviar por correo"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#4D000000"
-            android:textSize="20sp"
-            android:gravity="center_vertical"
-            android:clickable="true"
-            android:focusable="true"
-            android:layout_marginEnd="5dp" />
-
-        <Button
-            android:id="@+id/btnVerInforme"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Ver informe completo"
             android:textColor="#FFFFFF"
             android:backgroundTint="#4D000000"
             android:textSize="20sp"

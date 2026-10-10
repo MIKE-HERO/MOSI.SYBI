@@ -21,8 +21,8 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.sybi.mosi.database.AppDatabase
 import com.sybi.mosi.helpers.Camera2Helper
+import com.sybi.mosi.helpers.FaceBiometricsCache
 import com.sybi.mosi.helpers.FaceBiometricsHelper
 import com.sybi.mosi.helpers.MediaPipeFaceHelper
 import kotlinx.coroutines.runBlocking
@@ -42,7 +42,7 @@ class FaceLoginActivity : BaseActivity() {
     @Volatile private var isRunning = false
 
     private val handler = Handler(Looper.getMainLooper())
-    private val frameIntervalMs = 100L
+    private val frameIntervalMs = 500L
 
     // ============================================================
     // UMBRALES de similitud coseno para el pipeline de 3 frames:
@@ -54,19 +54,9 @@ class FaceLoginActivity : BaseActivity() {
     private val UMBRAL_FRAME2_DESCARTE = 0.75f
     private val UMBRAL_FRAME3_ACEPTAR = 0.85f
 
-    // Estructura para almacenamiento de biometría en memoria
-    private data class PacienteBiometria(
-        val paciente: com.sybi.mosi.database.Paciente,
-        val biometria: FaceBiometricsHelper.BiometricFaceData
-    )
-
-    // Cache de biometrias precargadas en memoria para evitar re-decodificar y re-extraer en cada frame
-    @Volatile private var cachedPatientsBiometrics: List<PacienteBiometria> = emptyList()
-    @Volatile private var isPreloadingBiometrics = false
-
     // Estado del filtro progresivo entre frames
     @Volatile private var currentFrameStage = 1
-    @Volatile private var currentCandidates: List<PacienteBiometria> = emptyList()
+    @Volatile private var currentCandidates: List<FaceBiometricsCache.PacienteBiometria> = emptyList()
 
     // ============================================================
     // Control de estado del mensaje (anti-parpadeo)
@@ -130,7 +120,7 @@ class FaceLoginActivity : BaseActivity() {
         currentColor = savedColor
         applyColorTheme(savedColor)
 
-        preloadPatientsBiometrics()
+        checkAndPreloadBiometrics()
 
         if (hasCameraPermission()) {
             startCamera()
@@ -153,39 +143,23 @@ class FaceLoginActivity : BaseActivity() {
                 PackageManager.PERMISSION_GRANTED
     }
 
-    private fun preloadPatientsBiometrics() {
-        if (isPreloadingBiometrics) return
-        isPreloadingBiometrics = true
-        Thread {
-            try {
-                val database = AppDatabase.getInstance(this)
-                val pacientes = runBlocking { database.pacienteDao().obtenerTodosLosPacientes() }
-                val list = mutableListOf<PacienteBiometria>()
-                for (paciente in pacientes) {
-                    val fotoGuardada = paciente.foto
-                    if (!fotoGuardada.isNullOrEmpty()) {
-                        val storedBiometrics = obtenerBiometriaDeFotoGuardada(fotoGuardada)
-                        if (storedBiometrics != null) {
-                            list.add(PacienteBiometria(paciente, storedBiometrics))
-                        }
+    private fun checkAndPreloadBiometrics() {
+        if (!FaceBiometricsCache.isLoaded()) {
+            FaceBiometricsCache.preload(this) {
+                runOnUiThread {
+                    if (currentCandidates.isEmpty() && currentFrameStage == 1) {
+                        resetFramePipeline()
                     }
                 }
-                cachedPatientsBiometrics = list
-                Log.d(TAG, "Biometrias precargadas: ${list.size} pacientes registrados.")
-                if (currentCandidates.isEmpty() && currentFrameStage == 1) {
-                    currentCandidates = list
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error precargando biometrias: ${e.message}", e)
-            } finally {
-                isPreloadingBiometrics = false
             }
-        }.start()
+        } else {
+            resetFramePipeline()
+        }
     }
 
     private fun resetFramePipeline() {
         currentFrameStage = 1
-        currentCandidates = cachedPatientsBiometrics
+        currentCandidates = FaceBiometricsCache.getCachedCandidates()
     }
 
     private fun startCamera() {
@@ -197,8 +171,7 @@ class FaceLoginActivity : BaseActivity() {
         currentUiState = UiState.NO_FACE
         lastUiStateChangeMs = 0L
 
-        preloadPatientsBiometrics()
-        resetFramePipeline()
+        checkAndPreloadBiometrics()
 
         handler.postDelayed(frameRunnable, frameIntervalMs)
     }
@@ -241,6 +214,14 @@ class FaceLoginActivity : BaseActivity() {
 
     private fun captureAndAnalyzeFrame() {
         if (isProcessing) return
+        if (!FaceBiometricsCache.isLoaded() || FaceBiometricsCache.isPreloading()) {
+            setUiState(
+                UiState.PROCESSING,
+                "Cargando datos de pacientes...",
+                "#FF9800"
+            )
+            return
+        }
         val bitmap = camera2Helper?.takePhoto() ?: return
         if (bitmap.width == 0 || bitmap.height == 0) return
 
@@ -295,7 +276,7 @@ class FaceLoginActivity : BaseActivity() {
                     resetFramePipeline()
                     isProcessing = false
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e(TAG, "Error procesando frame: ${e.message}", e)
                 resetFramePipeline()
                 isProcessing = false
@@ -306,10 +287,8 @@ class FaceLoginActivity : BaseActivity() {
     private fun processFaceLogin(liveBiometrics: FaceBiometricsHelper.BiometricFaceData) {
         Thread {
             try {
-                if (cachedPatientsBiometrics.isEmpty()) {
-                    if (!isPreloadingBiometrics) {
-                        preloadPatientsBiometrics()
-                    }
+                if (!FaceBiometricsCache.isLoaded()) {
+                    checkAndPreloadBiometrics()
                     setUiState(
                         UiState.PROCESSING,
                         "Cargando datos de pacientes...",
@@ -331,7 +310,7 @@ class FaceLoginActivity : BaseActivity() {
                 when (stage) {
                     1 -> {
                         // Frame 1: Comparar con todos y descartar < 50%
-                        val pasaronStage1 = mutableListOf<PacienteBiometria>()
+                        val pasaronStage1 = mutableListOf<FaceBiometricsCache.PacienteBiometria>()
                         for (candidato in candidatesToEvaluate) {
                             val similitud = FaceBiometricsHelper.matchFaces(
                                 liveBiometrics, candidato.biometria
@@ -365,7 +344,7 @@ class FaceLoginActivity : BaseActivity() {
 
                     2 -> {
                         // Frame 2: Comparar SOLO con usuarios con > 50% y descartar < 75%
-                        val pasaronStage2 = mutableListOf<PacienteBiometria>()
+                        val pasaronStage2 = mutableListOf<FaceBiometricsCache.PacienteBiometria>()
                         for (candidato in candidatesToEvaluate) {
                             val similitud = FaceBiometricsHelper.matchFaces(
                                 liveBiometrics, candidato.biometria
@@ -399,7 +378,7 @@ class FaceLoginActivity : BaseActivity() {
 
                     3 -> {
                         // Frame 3: Comparar SOLO con usuarios con > 75% y seleccionar al unico/mejor con > 85%
-                        var mejorCandidato: PacienteBiometria? = null
+                        var mejorCandidato: FaceBiometricsCache.PacienteBiometria? = null
                         var mayorSimilitud = -1f
 
                         for (candidato in candidatesToEvaluate) {
@@ -464,25 +443,12 @@ class FaceLoginActivity : BaseActivity() {
                         }
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e(TAG, "Error en processFaceLogin: ${e.message}", e)
                 resetFramePipeline()
                 isProcessing = false
             }
         }.start()
-    }
-
-    private fun obtenerBiometriaDeFotoGuardada(base64Foto: String): FaceBiometricsHelper.BiometricFaceData? {
-        return try {
-            val bytes = Base64.decode(base64Foto, Base64.DEFAULT)
-            val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
-            val mpResult = MediaPipeFaceHelper.detect(bmp) ?: return null
-            if (mpResult.faceLandmarks().isEmpty()) return null
-            FaceBiometricsHelper.processFace(bmp, mpResult)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error extrayendo biometría guardada: ${e.message}", e)
-            null
-        }
     }
 
     private fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {

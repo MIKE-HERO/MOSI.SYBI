@@ -49,12 +49,13 @@ object MediaPipeFaceHelper {
      * Detecta el rostro y devuelve sus landmarks.
      * Devuelve null si no hay rostro o si MediaPipe falla.
      */
+    @Synchronized
     fun detect(bitmap: Bitmap): FaceLandmarkerResult? {
         val landmarker = faceLandmarker ?: return null
         return try {
             val mpImage = BitmapImageBuilder(bitmap).build()
             landmarker.detect(mpImage)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Error detectando rostro: ${e.message}", e)
             null
         }

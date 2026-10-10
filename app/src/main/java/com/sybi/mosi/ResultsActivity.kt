@@ -15,6 +15,7 @@ import android.util.Base64
 import android.util.Log
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -43,7 +44,6 @@ class ResultsActivity : BaseActivity() {
     private lateinit var btnStartConsultation: Button
     private lateinit var btnPrintResults: Button
     private lateinit var btnEmailResults: Button
-    private lateinit var btnVerInforme: Button
     private lateinit var btnExitResults: View
 
     private var idLocal: Long = 0L
@@ -96,7 +96,6 @@ class ResultsActivity : BaseActivity() {
         btnStartConsultation = findViewById(R.id.btnStartConsultation)
         btnPrintResults = findViewById(R.id.btnPrintResults)
         btnEmailResults = findViewById(R.id.btnEmailResults)
-        btnVerInforme = findViewById(R.id.btnVerInforme)
         btnExitResults = findViewById(R.id.btnExitResults)
 
         idLocal = intent.getLongExtra("id_local", 0L)
@@ -176,24 +175,12 @@ class ResultsActivity : BaseActivity() {
         btnEmailResults.visibility = if (allowEmail) View.VISIBLE else View.GONE
 
         btnPrintResults.setOnClickListener {
-            if (htmlReporte == null) {
-                Toast.makeText(this, "Esperando datos del paciente...", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
             imprimirResultados()
         }
 
         btnEmailResults.setOnClickListener {
-            if (htmlReporte == null) {
-                Toast.makeText(this, "Esperando datos del paciente...", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            enviarResultadosPorCorreo()
+            mostrarDialogoEnviarCorreo()
         }
-
-        // El informe ya es el contenido de esta pantalla, así que el botón que abría el
-        // informe aparte ya no hace falta.
-        btnVerInforme.visibility = View.GONE
 
         btnExitResults.setOnClickListener {
             if (impresionEnCurso) {
@@ -214,21 +201,39 @@ class ResultsActivity : BaseActivity() {
     }
 
     private fun cargarPacienteYRenderizar() {
+        val idResultadoIntent = intent.getLongExtra("id_resultado", 0L)
+
         Thread {
             var mediciones: List<com.sybi.mosi.database.Resultado> = emptyList()
             runBlocking {
                 val db = AppDatabase.getInstance(this@ResultsActivity)
-                paciente = if (idLocal != 0L) {
-                    db.pacienteDao().obtenerPacientePorIdLocal(idLocal)
-                } else null
 
-                // Mediciones para el informe (actual + hasta 20 anteriores). Para invitados
-                // (id_local=0, historial compartido) solo la actual.
-                mediciones = if (idLocal != 0L) {
-                    db.resultadoDao().obtenerResultadosPorIdLocal(idLocal).take(21)
-                } else {
-                    db.resultadoDao().obtenerResultadosPorIdLocal(0L).take(1)
+                if (idResultadoIntent != 0L) {
+                    val rSeleccionado = db.resultadoDao().obtenerResultadoPorId(idResultadoIntent)
+                    if (rSeleccionado != null) {
+                        idLocal = rSeleccionado.id_local
+                        paciente = if (idLocal != 0L) db.pacienteDao().obtenerPacientePorIdLocal(idLocal) else null
+                        val historial = if (idLocal != 0L) {
+                            db.resultadoDao().obtenerResultadosPorIdLocal(idLocal).take(21)
+                        } else {
+                            listOf(rSeleccionado)
+                        }
+                        mediciones = listOf(rSeleccionado) + historial.filter { it.id_resultado != rSeleccionado.id_resultado }
+                    }
                 }
+
+                if (mediciones.isEmpty()) {
+                    paciente = if (idLocal != 0L) {
+                        db.pacienteDao().obtenerPacientePorIdLocal(idLocal)
+                    } else null
+
+                    mediciones = if (idLocal != 0L) {
+                        db.resultadoDao().obtenerResultadosPorIdLocal(idLocal).take(21)
+                    } else {
+                        db.resultadoDao().obtenerResultadosPorIdLocal(0L).take(1)
+                    }
+                }
+
                 medicionesCargadas = mediciones
 
                 val p = paciente
@@ -656,15 +661,90 @@ class ResultsActivity : BaseActivity() {
     }
 
     // ==========================================
-    // ENVÍO POR CORREO (temporal: genera PDF y guarda copia)
+    // ENVÍO POR CORREO DE RESULTADOS
     // ==========================================
-    private fun enviarResultadosPorCorreo() {
-        val destinatario = paciente?.correo
-        if (destinatario.isNullOrBlank()) {
-            Toast.makeText(this, "El paciente no tiene correo registrado", Toast.LENGTH_LONG).show()
-            return
+    private fun mostrarDialogoEnviarCorreo() {
+        val p = paciente
+        val correoActual = p?.correo ?: ""
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(16), dp(20), dp(10))
         }
 
+        val tvWarning = TextView(this).apply {
+            text = "⚠️ El paciente no tiene un correo electrónico registrado, por favor agregue un correo electrónico."
+            textSize = 14f
+            setTextColor(Color.parseColor("#D32F2F"))
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            visibility = if (correoActual.isBlank()) View.VISIBLE else View.GONE
+            setPadding(0, 0, 0, dp(12))
+        }
+        container.addView(tvWarning)
+
+        val label = TextView(this).apply {
+            text = "Correo electrónico del paciente:"
+            textSize = 14f
+            setTextColor(Color.parseColor("#333333"))
+            setPadding(0, 0, 0, dp(6))
+        }
+        container.addView(label)
+
+        val etCorreo = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            hint = "ejemplo@correo.com"
+            setText(correoActual)
+            textSize = 16f
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = ContextCompat.getDrawable(this@ResultsActivity, android.R.drawable.editbox_background_normal)
+        }
+        container.addView(etCorreo)
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Enviar resultados por correo")
+            .setView(container)
+            .setPositiveButton("Enviar", null)
+            .setNegativeButton("Cancelar", null)
+            .create()
+
+        setupDialogKeyboardBehavior(dialog)
+        dialog.show()
+
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val nuevoCorreo = etCorreo.text.toString().trim()
+
+            if (nuevoCorreo.isBlank()) {
+                Toast.makeText(this, "Por favor ingrese un correo electrónico", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(nuevoCorreo).matches()) {
+                Toast.makeText(this, "Por favor ingrese un correo electrónico válido", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Guardar en BD si cambió o si el paciente no tenía correo
+            Thread {
+                if (p != null && (p.correo != nuevoCorreo)) {
+                    val pacienteActualizado = p.copy(correo = nuevoCorreo)
+                    runBlocking {
+                        AppDatabase.getInstance(this@ResultsActivity)
+                            .pacienteDao()
+                            .actualizarPaciente(pacienteActualizado)
+                    }
+                    this@ResultsActivity.paciente = pacienteActualizado
+                    Log.d(TAG, "✅ Correo guardado en BD para paciente local ${p.id_local}: $nuevoCorreo")
+                }
+
+                uiHandler.post {
+                    dialog.dismiss()
+                    enviarResultadosPorCorreoA(nuevoCorreo)
+                }
+            }.start()
+        }
+    }
+
+    private fun enviarResultadosPorCorreoA(destinatario: String) {
         if (!EmailSender.estaConfigurado(this)) {
             AlertDialog.Builder(this)
                 .setTitle("Correo no configurado")
@@ -745,59 +825,87 @@ class ResultsActivity : BaseActivity() {
 
         uiHandler.post {
             try {
-                val pdfContainer = LinearLayout(this@ResultsActivity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setBackgroundColor(Color.WHITE)
-                    setPadding(30, 30, 30, 30)
-                }
-
                 val colorTema = runCatching {
                     Color.parseColor(getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("BackgroundColor", "#0F3E82"))
                 }.getOrDefault(Color.parseColor("#0F3E82"))
 
-                val builder = InformeBuilder(this@ResultsActivity, pdfContainer, colorTema)
+                val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+                val showAlturaPeso = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ALTURA_PESO, true)
+                val showComposicion = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_COMPOSICION, true)
+                val showPresion = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_PRESION, true)
+                val showOxigeno = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_OXIGENO, true)
+                val showTemperatura = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_TEMPERATURA, true)
+                val showEcg = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ECG, true)
+
                 val meds = medicionesCargadas
                 val p = paciente
 
-                if (meds.isEmpty()) {
-                    builder.mensajeVacio("No hay mediciones registradas para este paciente.")
-                } else {
-                    builder.construir(p, idLocal, meds)
-                }
-
-                // Ancho y alto A4 estándar (1240 x 1754 px a 150 DPI) con márgenes de impresión seguros
                 val pageWidth = 1240
                 val pageHeight = 1754
                 val marginLeft = 60f
                 val marginTop = 60f
-                val targetWidth = (pageWidth - (marginLeft * 2).toInt()) // 1120px ancho de contenido
-                val contentHeightPerPage = (pageHeight - (marginTop * 2).toInt()) // 1634px alto por página
-
-                val widthSpec = View.MeasureSpec.makeMeasureSpec(targetWidth, View.MeasureSpec.EXACTLY)
-                val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-
-                pdfContainer.measure(widthSpec, heightSpec)
-                val totalHeight = maxOf(pdfContainer.measuredHeight, 1)
-                pdfContainer.layout(0, 0, targetWidth, totalHeight)
+                val targetWidth = (pageWidth - (marginLeft * 2).toInt()) // 1120px
 
                 val pdfDocument = android.graphics.pdf.PdfDocument()
-                val totalPages = maxOf(1, (totalHeight + contentHeightPerPage - 1) / contentHeightPerPage)
+                var pageNumber = 1
 
-                for (i in 0 until totalPages) {
-                    val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, i + 1).create()
+                fun agregarPaginaAlPdf(crearContenido: (LinearLayout) -> Unit) {
+                    val pageContainer = LinearLayout(this@ResultsActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setBackgroundColor(Color.WHITE)
+                        clipChildren = false
+                        clipToPadding = false
+                    }
+                    crearContenido(pageContainer)
+
+                    val widthSpec = View.MeasureSpec.makeMeasureSpec(targetWidth, View.MeasureSpec.EXACTLY)
+                    val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+
+                    pageContainer.measure(widthSpec, heightSpec)
+                    pageContainer.layout(0, 0, targetWidth, pageContainer.measuredHeight)
+
+                    val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber++).create()
                     val page = pdfDocument.startPage(pageInfo)
                     val canvas = page.canvas
 
-                    val yOffset = i * contentHeightPerPage
-
                     canvas.save()
-                    // Clip y traslación con márgenes de impresión (evita cortes en PrintShare y fotocopiadoras)
-                    canvas.clipRect(marginLeft, marginTop, marginLeft + targetWidth, marginTop + contentHeightPerPage)
-                    canvas.translate(marginLeft, marginTop - yOffset.toFloat())
-                    pdfContainer.draw(canvas)
+                    canvas.clipRect(marginLeft, marginTop, marginLeft + targetWidth, pageHeight - marginTop)
+                    canvas.translate(marginLeft, marginTop)
+                    pageContainer.draw(canvas)
                     canvas.restore()
 
                     pdfDocument.finishPage(page)
+                }
+
+                if (meds.isNotEmpty()) {
+                    // Página 1: Altura y peso + Composición corporal
+                    if (showAlturaPeso || showComposicion) {
+                        agregarPaginaAlPdf { container ->
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema)
+                            builder.construirPagina1(p, idLocal, meds)
+                        }
+                    }
+
+                    // Página 2: Presión arterial + Oxígeno + Temperatura corporal
+                    if (showPresion || showOxigeno || showTemperatura) {
+                        agregarPaginaAlPdf { container ->
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema)
+                            builder.construirPagina2(p, idLocal, meds)
+                        }
+                    }
+
+                    // Página 3: Electrocardiograma
+                    if (showEcg) {
+                        agregarPaginaAlPdf { container ->
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema)
+                            builder.construirPagina3(p, idLocal, meds)
+                        }
+                    }
+                } else {
+                    agregarPaginaAlPdf { container ->
+                        val builder = InformeBuilder(this@ResultsActivity, container, container.id)
+                        builder.mensajeVacio("No hay mediciones registradas para este paciente.")
+                    }
                 }
 
                 val output = java.io.ByteArrayOutputStream()
@@ -805,9 +913,9 @@ class ResultsActivity : BaseActivity() {
                 pdfDocument.close()
 
                 pdfBytes = output.toByteArray()
-                Log.d(TAG, "✅ PDF generado correctamente con el diseño visual del informe (${pdfBytes?.size ?: 0} bytes, $totalPages páginas)")
+                Log.d(TAG, "✅ PDF generado correctamente (${pdfBytes?.size ?: 0} bytes, ${pageNumber - 1} páginas)")
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Error generando PDF desde InformeBuilder: ${e.message}", e)
+                Log.e(TAG, "❌ Error generando PDF por páginas: ${e.message}", e)
             } finally {
                 latch.countDown()
             }

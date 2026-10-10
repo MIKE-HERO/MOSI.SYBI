@@ -64,7 +64,7 @@
                 android:id="@+id/btnConfirmMeasurements"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Confirmar mediciones"
+                android:text="Ver informe"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#4D000000"
                 android:textSize="14sp"

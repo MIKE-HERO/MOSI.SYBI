@@ -266,13 +266,7 @@ class ResultTableActivity : BaseActivity() {
             ).show()
         }
 
-        val unico = if (exactamenteUno) {
-            resultadosCache.firstOrNull { it.id_resultado == seleccionados.first() }
-        } else null
-        val tieneEcg = unico != null &&
-                unico.ruta_ecg.isNotEmpty() &&
-                File(unico.ruta_ecg).exists()
-        btnViewEcg.isEnabled = tieneEcg
+        btnViewEcg.isEnabled = exactamenteUno
 
         btnDelete.isEnabled = haySeleccion
 
@@ -329,7 +323,7 @@ class ResultTableActivity : BaseActivity() {
         }.start()
     }
 
-    // ── Ver ECG (solo uno) ───────────────────────────────
+    // ── Ver informe (solo uno) ───────────────────────────────
 
     private fun verEcgSeleccionado() {
         if (seleccionados.size != 1) {
@@ -340,36 +334,11 @@ class ResultTableActivity : BaseActivity() {
         val id = seleccionados.first()
         val r = resultadosCache.firstOrNull { it.id_resultado == id } ?: return
 
-        if (r.ruta_ecg.isEmpty()) {
-            Toast.makeText(this, "Esta medición no tiene ECG", Toast.LENGTH_SHORT).show()
-            return
+        val intent = Intent(this, ResultsActivity::class.java).apply {
+            putExtra("id_local", r.id_local)
+            putExtra("id_resultado", r.id_resultado)
         }
-        val file = File(r.ruta_ecg)
-        if (!file.exists()) {
-            Toast.makeText(this, "Archivo no encontrado", Toast.LENGTH_LONG).show()
-            return
-        }
-        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-        if (bitmap == null) {
-            Toast.makeText(this, "No se pudo leer la imagen", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val dialog = Dialog(this)
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.setContentView(R.layout.dialog_fullscreen_image)
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.window?.setLayout(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT
-        )
-        dialog.findViewById<ImageView>(R.id.fullscreenImageView).apply {
-            setImageBitmap(bitmap)
-            setOnClickListener { dialog.dismiss() }
-        }
-        dialog.findViewById<ImageView>(R.id.btnCloseFullscreen)
-            .setOnClickListener { dialog.dismiss() }
-        dialog.show()
+        startActivity(intent)
     }
 
     // ── Eliminar (multi) ─────────────────────────────────

@@ -66,7 +66,8 @@ class MainActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ✅ PRECARGAR CAMERAX EN SEGUNDO PLANO
+        // ✅ PRECARGAR BIOMETRÍA DE PACIENTES Y CAMERAX EN SEGUNDO PLANO
+        com.sybi.mosi.helpers.FaceBiometricsCache.preload(this)
         precargarCameraX()
 
         // Solicitar permisos al iniciar la app
