@@ -539,6 +539,7 @@ class RegisterActivity : BaseActivity() {
                     val existente: Paciente? =
                         (if (tel.isNotEmpty()) dao.obtenerPacientePorTelefono(tel) else null)
                             ?: (if (tarjetaIc.isNotEmpty()) dao.obtenerPacientePorTarjetaIc(tarjetaIc) else null)
+                            ?: (if (curp.isNotEmpty()) dao.obtenerPacientePorCurp(curp) else null)
 
                     val idLocal: Long = if (existente != null) {
                         // Reusamos su id_local para no acumular filas viejas.
