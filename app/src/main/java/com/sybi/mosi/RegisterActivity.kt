@@ -532,21 +532,32 @@ class RegisterActivity : BaseActivity() {
         Thread {
             runBlocking {
                 try {
-                    // Verificar duplicado por teléfono (si hay)
-                    if (tel.isNotEmpty()) {
-                        val existenteTel = dao.obtenerPacientePorTelefono(tel)
-                        if (existenteTel != null) {
-                            runOnUiThread {
-                                toast("El teléfono $tel ya está registrado")
-                                btnGuardar.isEnabled = true
-                                btnGuardar.text = "Registrar paciente"
-                            }
-                            return@runBlocking
-                        }
-                    }
+                    // Si el paciente ya existe localmente (por teléfono o tarjeta IC),
+                    // NO bloqueamos ni creamos un duplicado: sobrescribimos ese registro
+                    // con los datos nuevos. La verdad viene del servidor, así que lo que
+                    // esté guardado localmente se reemplaza y luego se refresca contra la API.
+                    val existente: Paciente? =
+                        (if (tel.isNotEmpty()) dao.obtenerPacientePorTelefono(tel) else null)
+                            ?: (if (tarjetaIc.isNotEmpty()) dao.obtenerPacientePorTarjetaIc(tarjetaIc) else null)
 
-                    val idLocal = dao.insertarPaciente(nuevoPaciente)
-                    Log.d(TAG, "✅ Paciente insertado: id_local=$idLocal")
+                    val idLocal: Long = if (existente != null) {
+                        // Reusamos su id_local para no acumular filas viejas.
+                        // Conservamos id_usuario_web y foto para no perderlos; la búsqueda
+                        // posterior en la API los refresca con los datos reales del servidor.
+                        val sobrescrito = nuevoPaciente.copy(
+                            id_local = existente.id_local,
+                            id_usuario_web = existente.id_usuario_web,
+                            foto = existente.foto,
+                            sincronizado = false
+                        )
+                        dao.actualizarPaciente(sobrescrito)
+                        Log.d(TAG, "♻️ Paciente existente sobrescrito: id_local=${existente.id_local}")
+                        existente.id_local
+                    } else {
+                        val nuevoId = dao.insertarPaciente(nuevoPaciente)
+                        Log.d(TAG, "✅ Paciente insertado: id_local=$nuevoId")
+                        nuevoId
+                    }
 
                     val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
                     val faceLoginEnabled = userPrefs.getBoolean("login_face", true)
