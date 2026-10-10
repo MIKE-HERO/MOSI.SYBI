@@ -398,8 +398,11 @@ class InformeBuilder(
     }
 
     private fun agregarCabecera(paciente: Paciente?, actual: Resultado) {
-        val nombre = listOfNotNull(paciente?.nombre, paciente?.apellido_paterno, paciente?.apellido_materno)
-            .joinToString(" ").trim().ifBlank { "Paciente" }
+        // ── Datos descompuestos ──────────────────────────────────────────────
+        val nombres = paciente?.nombre?.trim().orEmpty().ifBlank { "-" }
+        val apellidos = listOfNotNull(paciente?.apellido_paterno, paciente?.apellido_materno)
+            .joinToString(" ").trim().ifBlank { "-" }
+
         val edad = paciente?.calcularEdad()?.takeIf { it > 0 }?.let { "$it años" } ?: "-"
         val genero = when ((paciente?.genero ?: "").uppercase()) {
             "M", "MASCULINO", "H" -> "Masculino"
@@ -407,17 +410,106 @@ class InformeBuilder(
             else -> "-"
         }
 
-        val fila = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-        }
-        // Se eliminó el ID a propósito: solo nombre, edad, género y fecha
-        fila.addView(textoCabecera("Nombre: $nombre"), pesoParam(2f))
-        fila.addView(textoCabecera("Edad: $edad"), pesoParam())
-        fila.addView(textoCabecera("Género: $genero"), pesoParam())
-        fila.addView(textoCabecera("Fecha y hora: ${actual.fecha_medicion.ifBlank { "-" }}"), pesoParam(1.5f))
+        // Separar fecha y hora del campo fecha_medicion
+        val (fecha, hora) = separarFechaHora(actual.fecha_medicion)
 
-        container.addView(tarjeta(fila))
+        // ── Construcción de la tabla 2x3 ─────────────────────────────────────
+        val tabla = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+        }
+
+        // Fila 1: Nombre(s) | Edad | Fecha
+        val fila1 = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        fila1.addView(celdaCabecera("Nombre(s)", nombres), pesoParam(2f))
+        fila1.addView(celdaCabecera("Edad", edad), pesoParam())
+        fila1.addView(celdaCabecera("Fecha", fecha), pesoParam(1.5f))
+
+        // Fila 2: Apellidos | Género | Hora
+        val fila2 = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(8) }
+        }
+        fila2.addView(celdaCabecera("Apellidos", apellidos), pesoParam(2f))
+        fila2.addView(celdaCabecera("Género", genero), pesoParam())
+        fila2.addView(celdaCabecera("Hora", hora), pesoParam(1.5f))
+
+        tabla.addView(fila1)
+        tabla.addView(fila2)
+
+        container.addView(tarjeta(tabla))
+    }
+
+    /**
+     * Crea una celda de la cabecera con el estilo: etiqueta en gris pequeña arriba,
+     * valor en negrita debajo.
+     */
+    private fun celdaCabecera(label: String, valor: String): View {
+        val col = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(2), dp(2), dp(8), dp(2))
+        }
+        col.addView(TextView(ctx).apply {
+            text = label
+            textSize = 11f
+            setTextColor(Color.parseColor("#6B7280"))
+            setTypeface(null, Typeface.NORMAL)
+        })
+        col.addView(TextView(ctx).apply {
+            text = valor
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#111827"))
+            setPadding(0, dp(2), 0, 0)
+        })
+        return col
+    }
+
+    /**
+     * Separa el campo fecha_medicion en (fecha, hora).
+     * Acepta formatos:
+     *  - "dd/MM/yyyy HH:mm:ss"  -> ("dd/MM/yyyy", "HH:mm:ss")
+     *  - "dd/MM/yyyy HH:mm"     -> ("dd/MM/yyyy", "HH:mm")
+     *  - "dd/MM/yyyy"           -> ("dd/MM/yyyy", "-")
+     *  - "yyyy-MM-dd HH:mm:ss"  -> ("dd/MM/yyyy", "HH:mm:ss")  (reformateado)
+     *  - "yyyy-MM-dd HH:mm"     -> ("dd/MM/yyyy", "HH:mm")
+     *  - "yyyy-MM-dd"           -> ("dd/MM/yyyy", "-")
+     * Si no se puede parsear, se devuelve el string original como fecha y "-" como hora.
+     */
+    private fun separarFechaHora(raw: String): Pair<String, String> {
+        if (raw.isBlank()) return "-" to "-"
+
+        val formatos = listOf(
+            "dd/MM/yyyy HH:mm:ss" to "dd/MM/yyyy",
+            "dd/MM/yyyy HH:mm"    to "dd/MM/yyyy",
+            "dd/MM/yyyy"          to "dd/MM/yyyy",
+            "yyyy-MM-dd HH:mm:ss" to "dd/MM/yyyy",
+            "yyyy-MM-dd HH:mm"    to "dd/MM/yyyy",
+            "yyyy-MM-dd"          to "dd/MM/yyyy"
+        )
+        for ((patron, salidaFecha) in formatos) {
+            runCatching {
+                val dt = SimpleDateFormat(patron, Locale.getDefault()).parse(raw)
+                if (dt != null) {
+                    val fecha = SimpleDateFormat(salidaFecha, Locale.getDefault()).format(dt)
+                    val tieneHora = patron.contains("HH")
+                    val hora = if (tieneHora)
+                        SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(dt)
+                    else "-"
+                    return fecha to hora
+                }
+            }
+        }
+        return raw to "-"
     }
 
     private fun agregarSeccion(titulo: String, columnaIzq: View, columnaDer: View) {
