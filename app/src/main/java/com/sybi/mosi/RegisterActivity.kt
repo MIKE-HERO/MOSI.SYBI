@@ -532,13 +532,14 @@ class RegisterActivity : BaseActivity() {
         Thread {
             runBlocking {
                 try {
-                    // Si el paciente ya existe localmente (por teléfono o tarjeta IC),
+                    // Si el paciente ya existe localmente (por teléfono, tarjeta IC o CURP),
                     // NO bloqueamos ni creamos un duplicado: sobrescribimos ese registro
                     // con los datos nuevos. La verdad viene del servidor, así que lo que
                     // esté guardado localmente se reemplaza y luego se refresca contra la API.
                     val existente: Paciente? =
                         (if (tel.isNotEmpty()) dao.obtenerPacientePorTelefono(tel) else null)
                             ?: (if (tarjetaIc.isNotEmpty()) dao.obtenerPacientePorTarjetaIc(tarjetaIc) else null)
+                            ?: (if (curp.isNotEmpty()) dao.obtenerPacientePorCurp(curp) else null)
 
                     val idLocal: Long = if (existente != null) {
                         // Reusamos su id_local para no acumular filas viejas.
