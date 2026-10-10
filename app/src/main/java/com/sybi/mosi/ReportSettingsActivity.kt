@@ -26,6 +26,7 @@ class ReportSettingsActivity : BaseActivity() {
     companion object {
         const val PREF_ALLOW_PRINT = "allow_print_results"
         const val PREF_ALLOW_EMAIL = "allow_email_results"
+        const val PREF_PRINTER_IP = "printer_ip"
     }
 
     private val allSwitches = mutableListOf<Switch>()
@@ -73,6 +74,17 @@ class ReportSettingsActivity : BaseActivity() {
         val prefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         setupSwitch(R.id.switchEnablePrint, PREF_ALLOW_PRINT, prefs)
         setupSwitch(R.id.switchEnableEmail, PREF_ALLOW_EMAIL, prefs)
+
+        // IP de la impresora de red (impresión directa por IPP)
+        val etPrinterIp = findViewById<EditText>(R.id.etPrinterIp)
+        etPrinterIp.setText(prefs.getString(PREF_PRINTER_IP, "") ?: "")
+        etPrinterIp.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                prefs.edit().putString(PREF_PRINTER_IP, s.toString().trim()).apply()
+            }
+        })
 
         applySwitchTint(Color.parseColor(savedColor))
 

@@ -613,6 +613,33 @@ class ResultsActivity : BaseActivity() {
                     return@Thread
                 }
 
+                // Impresión directa a la impresora de red (IPP), sin diálogo ni visor.
+                // Si no hay IP configurada en Ajustes, cae al comportamiento previo (abrir visor de PDF).
+                val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+                val printerIp = devicePrefs.getString("printer_ip", "")?.trim() ?: ""
+                if (printerIp.isNotEmpty()) {
+                    val port = devicePrefs.getInt("printer_port", 631)
+                    val path = devicePrefs.getString("printer_path", "/ipp/print") ?: "/ipp/print"
+                    val jobName = "Resultados ${paciente?.nombre ?: "Paciente"}"
+                    val res = IppPrinter.imprimirPdf(
+                        host = printerIp,
+                        port = port,
+                        path = path,
+                        jobName = jobName,
+                        pdf = pdfBytes
+                    )
+                    uiHandler.post {
+                        impresionEnCurso = false
+                        Toast.makeText(
+                            this,
+                            if (res.ok) "🖨️ ${res.mensaje}" else "Error de impresión: ${res.mensaje}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        if (res.ok) mostrarBotonFlotanteRegreso()
+                    }
+                    return@Thread
+                }
+
                 val nombreArchivo = "Resultados_${paciente?.nombre?.replace(" ", "_") ?: "Paciente"}_${System.currentTimeMillis()}.pdf"
                 val carpetaDescargas = File(
                     android.os.Environment.getExternalStoragePublicDirectory(
