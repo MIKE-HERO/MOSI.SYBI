@@ -134,6 +134,35 @@
                     android:textColor="#FFFFFF"
                     android:backgroundTint="#0F3E82"
                     android:textAllCaps="false" />
+
+                <!-- Impresora de red (impresión directa por IPP) -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="IP de la impresora de red"
+                    android:textSize="14sp"
+                    android:textColor="#555555"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="4dp"/>
+
+                <EditText
+                    android:id="@+id/etPrinterIp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Ej. 192.168.1.50 (vacío = usar visor de PDF)"
+                    android:inputType="text"
+                    android:digits="0123456789."
+                    android:textSize="16sp"
+                    android:padding="12dp"
+                    android:background="@android:drawable/editbox_background_normal"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Impresión directa, sin diálogo. La impresora debe admitir IPP (puerto 631)."
+                    android:textSize="12sp"
+                    android:textColor="#888888"
+                    android:layout_marginTop="4dp"/>
             </LinearLayout>
 
             <!-- SECCIÓN: PERSONALIZAR PDF -->
