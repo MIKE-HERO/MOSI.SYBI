@@ -348,7 +348,7 @@ class InformeBuilder(
     }
 
     private fun loadLogoBitmapDirect(context: Context, path: String?): Bitmap? {
-        return try {
+        val original: Bitmap? = try {
             if (!path.isNullOrBlank()) {
                 val file = File(path)
                 if (file.exists()) {
@@ -369,6 +369,22 @@ class InformeBuilder(
                 null
             }
         }
+
+        // Aplanar el PNG transparente sobre fondo blanco para que el PDF
+        // no muestre el canal alfa como negro.
+        return original?.let { aplanarSobreBlanco(it) }
+    }
+
+    /**
+     * Dibuja [src] sobre un Bitmap blanco del mismo tamaño, eliminando la transparencia.
+     * Así el PDF (que no compone alfa contra el padre) muestra fondo blanco.
+     */
+    private fun aplanarSobreBlanco(src: Bitmap): Bitmap {
+        val out = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(out)
+        canvas.drawColor(Color.WHITE)
+        canvas.drawBitmap(src, 0f, 0f, null)
+        return out
     }
 
     private fun cargarLogoAsincrono(context: Context, imageView: ImageView, path: String?) {

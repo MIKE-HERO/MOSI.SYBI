@@ -67,7 +67,7 @@
                 android:text="Ver informe"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#4D000000"
-                android:textSize="14sp"
+                android:textSize="20sp"
                 android:paddingHorizontal="15dp"
                 android:clickable="true"
                 android:focusable="true"
