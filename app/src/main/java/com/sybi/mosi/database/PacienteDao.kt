@@ -20,6 +20,9 @@ interface PacienteDao {
     @Query("SELECT * FROM pacientes WHERE tarjetaIc = :tarjetaIc LIMIT 1")
     suspend fun obtenerPacientePorTarjetaIc(tarjetaIc: String): Paciente?
 
+    @Query("SELECT * FROM pacientes WHERE curp = :curp LIMIT 1")
+    suspend fun obtenerPacientePorCurp(curp: String): Paciente?
+
     @Query("SELECT * FROM pacientes WHERE id_usuario_web = :idUsuarioWeb LIMIT 1")
     suspend fun obtenerPacientePorIdUsuarioWeb(idUsuarioWeb: Int): Paciente?
 
