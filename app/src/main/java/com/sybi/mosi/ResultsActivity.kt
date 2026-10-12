@@ -944,12 +944,52 @@ class ResultsActivity : BaseActivity() {
         var pdfBytes: ByteArray? = null
         val latch = java.util.concurrent.CountDownLatch(1)
 
-        // Red/descarga de logos del cliente ANTES de entrar al hilo principal
+        // Red/descarga de logos y datos de sucursal ANTES de entrar al hilo principal
         // (este método siempre se llama desde un hilo en segundo plano).
-        val idCliente = TelemedicineSettingsActivity.getCliente(this)
-        val clienteLogo = runCatching { ClienteLogoCache.obtener(this, idCliente) }
+        //
+        // El pie de página debe mostrar la dirección de la SUCURSAL (no la del
+        // cliente pagante) + el nombre del proyecto. En este sistema cada
+        // "cliente" representa en realidad un proyecto/programa (ej. "Tarjeta
+        // Rosa"), así que los logos siguen pidiéndose por idCliente, pero usando
+        // el idCliente que trae la sucursal activa (más confiable que el guardado
+        // por separado en ajustes, que podría haber quedado desincronizado).
+        val idSucursal = TelemedicineSettingsActivity.getSucursal(this)
+        val datosSucursal = runCatching { SucursalDatosCache.obtener(this, idSucursal) }
+            .onFailure { Log.w(TAG, "No se pudieron resolver datos de sucursal: ${it.message}") }
+            .getOrNull()
+
+        val idClienteEfectivo = datosSucursal?.idCliente?.takeIf { it > 0 }?.toString()
+            ?: TelemedicineSettingsActivity.getCliente(this)
+
+        val clienteLogoBase = runCatching { ClienteLogoCache.obtener(this, idClienteEfectivo) }
             .onFailure { Log.w(TAG, "No se pudieron resolver logos de cliente: ${it.message}") }
             .getOrNull()
+
+        // Dirección combinada de la sucursal (domicilio + colonia + municipio),
+        // reemplazando la "dirección del cliente pagante" en el pie de página.
+        // El nombre del proyecto (nombreProyecto) reemplaza la razón social ahí mismo.
+        val direccionSucursal = datosSucursal?.let { s ->
+            listOfNotNull(
+                s.domicilio?.trim()?.ifBlank { null },
+                s.colonia?.trim()?.ifBlank { null },
+                s.municipio?.trim()?.ifBlank { null }
+            ).joinToString(", ").ifBlank { null }
+        }
+
+        val clienteLogo = when {
+            datosSucursal != null -> (clienteLogoBase ?: ClienteLogoCache.Logos(
+                idCliente = datosSucursal.idCliente,
+                razonSocial = null, direccion = null, codigoPostal = null, estado = null, rfc = null,
+                logoIzquierdoPath = null, logoDerechoPath = null, firmaPath = null,
+                nombreFirma = null, puesto = null
+            )).copy(
+                razonSocial = datosSucursal.nombreProyecto?.trim()?.ifBlank { null },
+                direccion = direccionSucursal,
+                codigoPostal = datosSucursal.codigoPostal,
+                estado = datosSucursal.estado
+            )
+            else -> clienteLogoBase
+        }
 
         uiHandler.post {
             try {
