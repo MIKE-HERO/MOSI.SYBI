@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.graphics.Color
 import android.os.Bundle
 import android.text.TextUtils
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -14,9 +15,15 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.database.AppDatabase
+import com.sybi.mosi.repository.PacienteRemoteRepository
+import com.sybi.mosi.repository.PacienteSyncHelper
 import kotlinx.coroutines.runBlocking
 
 class PhoneLoginActivity : BaseActivity() {
+
+    companion object {
+        private const val TAG = "PhoneLoginActivity"
+    }
 
     private lateinit var sideBar: View
     private lateinit var btnLogin: Button
@@ -69,7 +76,26 @@ class PhoneLoginActivity : BaseActivity() {
 
             Thread {
                 runBlocking {
-                    val paciente = pacienteDao.obtenerPacientePorTelefono(telefono)
+                    var paciente = pacienteDao.obtenerPacientePorTelefono(telefono)
+
+                    // La verdad siempre viene del servidor: antes de mostrar el perfil,
+                    // se intenta refrescar el paciente con los datos de la API. Si falla
+                    // (sin red, no encontrado, etc.) se sigue con lo que hay localmente.
+                    if (paciente != null) {
+                        try {
+                            val sincronizado = PacienteSyncHelper.sincronizarPaciente(
+                                paciente = paciente,
+                                pacienteDao = pacienteDao,
+                                resultadoDao = database.resultadoDao(),
+                                repo = PacienteRemoteRepository(this@PhoneLoginActivity)
+                            )
+                            if (sincronizado) {
+                                paciente = pacienteDao.obtenerPacientePorIdLocal(paciente.id_local) ?: paciente
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "No se pudo sincronizar con el servidor, se usan datos locales: ${e.message}")
+                        }
+                    }
 
                     runOnUiThread {
                         if (paciente != null) {

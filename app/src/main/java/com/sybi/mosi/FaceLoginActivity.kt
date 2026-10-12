@@ -21,10 +21,13 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.sybi.mosi.database.AppDatabase
 import com.sybi.mosi.helpers.Camera2Helper
 import com.sybi.mosi.helpers.FaceBiometricsCache
 import com.sybi.mosi.helpers.FaceBiometricsHelper
 import com.sybi.mosi.helpers.MediaPipeFaceHelper
+import com.sybi.mosi.repository.PacienteRemoteRepository
+import com.sybi.mosi.repository.PacienteSyncHelper
 import kotlinx.coroutines.runBlocking
 
 class FaceLoginActivity : BaseActivity() {
@@ -393,7 +396,7 @@ class FaceLoginActivity : BaseActivity() {
                         }
 
                         if (mejorCandidato != null) {
-                            val paciente = mejorCandidato.paciente
+                            var paciente = mejorCandidato.paciente
                             Log.d(TAG, "[Frame 3] MATCH FINAL: ${paciente.nombre} con sim $mayorSimilitud")
 
                             isRunning = false
@@ -404,6 +407,29 @@ class FaceLoginActivity : BaseActivity() {
                                 "¡Bienvenido ${paciente.nombre}!",
                                 "#4CAF50"
                             )
+
+                            // La verdad siempre viene del servidor: antes de mostrar el
+                            // perfil, se intenta refrescar el paciente con los datos de la
+                            // API (seguimos en un hilo de fondo). Si falla, se sigue con lo
+                            // que hay localmente/en caché de biometría.
+                            try {
+                                val db = AppDatabase.getInstance(this@FaceLoginActivity)
+                                val sincronizado = runBlocking {
+                                    PacienteSyncHelper.sincronizarPaciente(
+                                        paciente = paciente,
+                                        pacienteDao = db.pacienteDao(),
+                                        resultadoDao = db.resultadoDao(),
+                                        repo = PacienteRemoteRepository(this@FaceLoginActivity)
+                                    )
+                                }
+                                if (sincronizado) {
+                                    paciente = runBlocking {
+                                        db.pacienteDao().obtenerPacientePorIdLocal(paciente.id_local)
+                                    } ?: paciente
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "No se pudo sincronizar con el servidor, se usan datos locales: ${e.message}")
+                            }
 
                             runOnUiThread {
                                 Toast.makeText(
