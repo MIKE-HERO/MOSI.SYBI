@@ -171,11 +171,11 @@ object ThermalPrinterHelper {
             val showTemperatura = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_TEMPERATURA, true)
             val showEcg = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_ECG, true)
 
-            writeLine("RESULTADOS DE MEDICIÓN", bold = true, alignCenter = false)
+            writeLine("RESULTADOS DE MEDICIÓN", bold = true, alignCenter = true)
 
             if (showAlturaPeso && (r.altura.isNotBlank() || r.peso.isNotBlank())) {
                 writeLine("")   // ✅ Espacio antes de la sección
-                writeLine("--- ALTURA Y PESO ---", bold = true, alignCenter = false)
+                writeLine("--- ALTURA Y PESO ---", bold = true, alignCenter = true)
                 if (r.altura.isNotBlank()) writeLine("Altura: ${r.altura} cm")
                 if (r.peso.isNotBlank()) writeLine("Peso: ${r.peso} kg")
                 if (r.imc.isNotBlank()) writeLine("IMC: ${r.imc}")
@@ -183,7 +183,7 @@ object ThermalPrinterHelper {
 
             if (showComposicion && (r.grasa_corporal.isNotBlank() || r.agua_corporal.isNotBlank() || r.masa_muscular.isNotBlank() || r.metabolismo_basal.isNotBlank())) {
                 writeLine("")   // ✅ Espacio antes de la sección
-                writeLine("--- COMPOSICIÓN CORPORAL ---", bold = true, alignCenter = false)
+                writeLine("--- COMPOSICIÓN CORPORAL ---", bold = true, alignCenter = true)
                 if (r.grasa_corporal.isNotBlank()) writeLine("Grasa Corporal: ${r.grasa_corporal}% (${r.grasa_corporal_kg} kg)")
                 if (r.agua_corporal.isNotBlank()) writeLine("Agua Corporal: ${r.agua_corporal}% (${r.agua_corporal_kg} kg)")
                 if (r.masa_muscular.isNotBlank()) writeLine("Masa Muscular: ${r.masa_muscular} kg")
@@ -198,14 +198,14 @@ object ThermalPrinterHelper {
 
             if (showPresion && r.sistolica.isNotBlank() && r.diastolica.isNotBlank()) {
                 writeLine("")   // ✅ Espacio antes de la sección
-                writeLine("--- PRESIÓN ARTERIAL ---", bold = true, alignCenter = false)
+                writeLine("--- PRESIÓN ARTERIAL ---", bold = true, alignCenter = true)
                 writeLine("Presión: ${r.sistolica}/${r.diastolica} mmHg")
                 if (r.pulso.isNotBlank()) writeLine("Pulso: ${r.pulso} bpm")
             }
 
             if (showOxigeno && r.spo2.isNotBlank()) {
                 writeLine("")   // ✅ Espacio antes de la sección
-                writeLine("--- OXÍGENO EN SANGRE ---", bold = true, alignCenter = false)
+                writeLine("--- OXÍGENO EN SANGRE ---", bold = true, alignCenter = true)
                 writeLine("SpO2: ${r.spo2}%")
                 if (r.frecuencia_pulso.isNotBlank()) writeLine("Pulso: ${r.frecuencia_pulso} bpm")
                 if (r.indice_perfusion.isNotBlank()) writeLine("Índice Perfusión: ${r.indice_perfusion}")
@@ -213,13 +213,13 @@ object ThermalPrinterHelper {
 
             if (showTemperatura && r.temperatura.isNotBlank()) {
                 writeLine("")   // ✅ Espacio antes de la sección
-                writeLine("--- TEMPERATURA CORPORAL ---", bold = true, alignCenter = false)
+                writeLine("--- TEMPERATURA CORPORAL ---", bold = true, alignCenter = true)
                 writeLine("Temperatura: ${r.temperatura} °C / ${r.temperatura_f} °F")
             }
 
             if (showEcg && (r.frecuencia_cardiaca.isNotBlank() || r.resultado_ecg.isNotBlank())) {
                 writeLine("")   // ✅ Espacio antes de la sección
-                writeLine("--- ELECTROCARDIOGRAMA ---", bold = true, alignCenter = false)
+                writeLine("--- ELECTROCARDIOGRAMA ---", bold = true, alignCenter = true)
                 writeLine("Frec. Cardíaca: ${r.frecuencia_cardiaca} bpm")
                 if (r.eje_p.isNotBlank()) writeLine("Eje P/QRS/T: ${r.eje_p}/${r.eje_qrs}/${r.eje_t}")
                 if (r.intervalo_pr.isNotBlank()) writeLine("Int. PR / QRS: ${r.intervalo_pr}/${r.duracion_qrs} ms")
