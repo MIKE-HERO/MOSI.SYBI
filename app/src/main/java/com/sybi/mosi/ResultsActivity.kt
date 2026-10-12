@@ -54,6 +54,8 @@ class ResultsActivity : BaseActivity() {
 
     private var idUsuarioWebCargado: Int = 0
 
+    private var resultadoActual: com.sybi.mosi.database.Resultado? = null
+
     private val uiHandler = Handler(Looper.getMainLooper())
     private lateinit var tvPlaceholder: TextView
 
@@ -215,10 +217,13 @@ class ResultsActivity : BaseActivity() {
 
         Thread {
             var mediciones: List<com.sybi.mosi.database.Resultado> = emptyList()
+            var seleccionado: com.sybi.mosi.database.Resultado? = null
+
             runBlocking {
                 val db = AppDatabase.getInstance(this@ResultsActivity)
 
                 if (idResultadoIntent != 0L) {
+                    // ✅ Vengo de la tabla de resultados: cargar ESA medición
                     val rSeleccionado = db.resultadoDao().obtenerResultadoPorId(idResultadoIntent)
                     if (rSeleccionado != null) {
                         idLocal = rSeleccionado.id_local
@@ -229,10 +234,13 @@ class ResultsActivity : BaseActivity() {
                             listOf(rSeleccionado)
                         }
                         mediciones = listOf(rSeleccionado) + historial.filter { it.id_resultado != rSeleccionado.id_resultado }
+                        seleccionado = rSeleccionado
+                        Log.d(TAG, "📌 Resultado SELECCIONADO: id=${rSeleccionado.id_resultado}")
                     }
                 }
 
                 if (mediciones.isEmpty()) {
+                    // ✅ Vengo de una medición recién hecha: usar la más reciente
                     paciente = if (idLocal != 0L) {
                         db.pacienteDao().obtenerPacientePorIdLocal(idLocal)
                     } else null
@@ -242,49 +250,42 @@ class ResultsActivity : BaseActivity() {
                     } else {
                         db.resultadoDao().obtenerResultadosPorIdLocal(0L).take(1)
                     }
+                    seleccionado = mediciones.firstOrNull()
+                    Log.d(TAG, "📌 Resultado MÁS RECIENTE: id=${seleccionado?.id_resultado}")
                 }
+            }
 
-                medicionesCargadas = mediciones
+            medicionesCargadas = mediciones
+            resultadoActual = seleccionado   // ✅ Guardar el actual
 
-                val p = paciente
+            val p = paciente
 
-                uiHandler.post {
-                    tvPlaceholder.visibility = View.GONE
-                    // El contenido de la pantalla final es el informe visual (mismo que
-                    // InformeActivity), no la lista de texto.
-                    resultsContainer.removeAllViews()
-                    val colorTema = runCatching {
-                        Color.parseColor(getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("BackgroundColor", "#0F3E82"))
-                    }.getOrDefault(Color.parseColor("#0F3E82"))
-                    val builder = InformeBuilder(this@ResultsActivity, resultsContainer, colorTema)
-                    if (mediciones.isEmpty()) {
-                        builder.mensajeVacio("No hay mediciones registradas para este paciente.")
-                    } else {
-                        builder.construir(p, idLocal, mediciones)
-                    }
-
-                    if (p?.correo.isNullOrBlank()) {
-                        addEmailWarning()
-                    }
-
-                    // ✅ Generar el HTML UNA SOLA VEZ, ya con los datos del paciente cargados
-                    htmlReporte = buildResultsHtml()
-                    Log.d(TAG, "📝 HTML del reporte generado (${htmlReporte?.length ?: 0} chars)")
-                }
-
-                if (p != null && p.id_usuario_web != null) {
-                    idUsuarioWebCargado = p.id_usuario_web!!
-                    // ✅ Evitar reenvíos si la activity se recrea
-                    if (!medicionesEnviadas) {
-                        medicionesEnviadas = true
-                        enviarMedicionesAlDoctor(p)
-                    } else {
-                        Log.d(TAG, "⏭️ Mediciones ya enviadas, no se repite")
-                    }
+            uiHandler.post {
+                tvPlaceholder.visibility = View.GONE
+                resultsContainer.removeAllViews()
+                val colorTema = runCatching {
+                    Color.parseColor(getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("BackgroundColor", "#0F3E82"))
+                }.getOrDefault(Color.parseColor("#0F3E82"))
+                val builder = InformeBuilder(this@ResultsActivity, resultsContainer, colorTema)
+                if (mediciones.isEmpty()) {
+                    builder.mensajeVacio("No hay mediciones registradas para este paciente.")
                 } else {
-                    Log.d(TAG, "⏭️ Sin id_usuario_web, no se envía")
+                    builder.construir(p, idLocal, mediciones)
                 }
-                // El ECG ya lo muestra el informe (desde ruta_ecg), no hace falta cargarlo aparte.
+
+                if (p?.correo.isNullOrBlank()) {
+                    addEmailWarning()
+                }
+
+                htmlReporte = buildResultsHtml()
+            }
+
+            if (p != null && p.id_usuario_web != null) {
+                idUsuarioWebCargado = p.id_usuario_web!!
+                if (!medicionesEnviadas) {
+                    medicionesEnviadas = true
+                    enviarMedicionesAlDoctor(p)
+                }
             }
         }.start()
     }
@@ -407,7 +408,25 @@ class ResultsActivity : BaseActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        Log.d(TAG, "🔄 onNewIntent — ResultsActivity ya estaba viva")
+        Log.d(TAG, "🔄 onNewIntent — ResultsActivity ya estaba viva, recargando datos")
+
+        // ✅ Leer los nuevos extras
+        idLocal = intent.getLongExtra("id_local", 0L)
+
+        // ✅ Limpiar estado previo
+        resultadoActual = null
+        medicionesCargadas = emptyList()
+        paciente = null
+        htmlReporte = null
+        medicionesEnviadas = false
+        envioExitoso = false
+        idUsuarioWebCargado = 0
+
+        // ✅ Volver a cargar todo
+        tvPlaceholder.visibility = View.VISIBLE
+        resultsContainer.removeAllViews()
+        resultsContainer.addView(tvPlaceholder)
+        cargarPacienteYRenderizar()
     }
 
     // ── Render en pantalla ────────────────────────────────
@@ -601,8 +620,8 @@ class ResultsActivity : BaseActivity() {
     }
 
     // ==========================================
-    // IMPRESIÓN DE RESULTADOS (abre PrintShare)
-    // ==========================================
+// IMPRESIÓN DE TICKET (CORREGIDO)
+// ==========================================
     private fun imprimirTicketResultados() {
         if (impresionEnCurso) {
             Toast.makeText(this, "Ya hay una impresión en curso", Toast.LENGTH_SHORT).show()
@@ -610,17 +629,36 @@ class ResultsActivity : BaseActivity() {
         }
         impresionEnCurso = true
 
+        btnPrintResults.isEnabled = false
+        btnPrintTicket.isEnabled = false
+        btnEmailResults.isEnabled = false
+
+        // ✅ Usar el resultado actual (el seleccionado o el más reciente)
+        val r = resultadoActual
+        if (r == null) {
+            impresionEnCurso = false
+            btnPrintResults.isEnabled = true
+            btnPrintTicket.isEnabled = true
+            btnEmailResults.isEnabled = true
+            Toast.makeText(this, "No hay resultado para imprimir", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Log.d(TAG, "🖨️ Imprimiendo ticket del resultado id=${r.id_resultado}")
+
         Thread {
             try {
                 val success = ThermalPrinterHelper.imprimirTicket(
                     context = this@ResultsActivity,
                     paciente = paciente,
-                    resultados = medicionesCargadas,
+                    resultados = listOf(r),   // ✅ UNA SOLA MEDICIÓN
                     customTitle = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("PdfTitle", null),
                     customSubtitle = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("PdfSubtitle", null)
                 )
                 uiHandler.post {
                     impresionEnCurso = false
+                    btnPrintResults.isEnabled = true
+                    btnPrintTicket.isEnabled = true
+                    btnEmailResults.isEnabled = true
                     Toast.makeText(
                         this@ResultsActivity,
                         if (success) "🖨️ Ticket impreso correctamente" else "❌ Error al imprimir ticket",
@@ -631,6 +669,9 @@ class ResultsActivity : BaseActivity() {
                 Log.e(TAG, "❌ Error imprimiendo ticket: ${e.message}", e)
                 uiHandler.post {
                     impresionEnCurso = false
+                    btnPrintResults.isEnabled = true
+                    btnPrintTicket.isEnabled = true
+                    btnEmailResults.isEnabled = true
                     Toast.makeText(this@ResultsActivity, "❌ Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
