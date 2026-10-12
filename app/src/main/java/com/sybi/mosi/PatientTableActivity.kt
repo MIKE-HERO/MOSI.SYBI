@@ -302,15 +302,20 @@ class PatientTableActivity : BaseActivity() {
                 var exitos = 0
 
                 for (id in seleccionados) {
-                    val p = db.pacienteDao().obtenerPacientePorIdLocal(id)
-                    if (p != null) {
-                        val ok = PacienteSyncHelper.sincronizarPaciente(
-                            paciente = p,
-                            pacienteDao = db.pacienteDao(),
-                            resultadoDao = db.resultadoDao(),
-                            repo = repo
-                        )
-                        if (ok) exitos++
+                    try {
+                        val p = db.pacienteDao().obtenerPacientePorIdLocal(id)
+                        if (p != null) {
+                            val ok = PacienteSyncHelper.sincronizarPaciente(
+                                paciente = p,
+                                pacienteDao = db.pacienteDao(),
+                                resultadoDao = db.resultadoDao(),
+                                repo = repo
+                            )
+                            if (ok) exitos++
+                        }
+                    } catch (e: Exception) {
+                        // Un paciente con error no debe cancelar la sincronización del resto.
+                        Log.e(TAG, "❌ Error sincronizando paciente $id: ${e.message}", e)
                     }
                 }
 
