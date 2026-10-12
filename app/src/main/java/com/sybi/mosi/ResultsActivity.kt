@@ -408,12 +408,22 @@ class ResultsActivity : BaseActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        Log.d(TAG, "🔄 onNewIntent — ResultsActivity ya estaba viva, recargando datos")
+        Log.d(TAG, "🔄 onNewIntent — ResultsActivity ya estaba viva")
 
-        // ✅ Leer los nuevos extras
-        idLocal = intent.getLongExtra("id_local", 0L)
+        val nuevoIdLocal = intent.getLongExtra("id_local", 0L)
+        val nuevoIdResultado = intent.getLongExtra("id_resultado", 0L)
 
-        // ✅ Limpiar estado previo
+        // ✅ Si el intent NO trae datos (por ejemplo, cuando se trae la activity
+        // al frente desde el visor de PDF o desde PrintShare), no recargamos nada.
+        if (nuevoIdLocal == 0L && nuevoIdResultado == 0L) {
+            Log.d(TAG, "⏭️ onNewIntent sin extras: solo se trajo al frente, no se recarga")
+            return
+        }
+
+        // ✅ Sí trae datos: es una navegación real desde la tabla o desde el flujo
+        // de medición. Recargamos todo.
+        Log.d(TAG, "🔁 onNewIntent con datos: id_local=$nuevoIdLocal, id_resultado=$nuevoIdResultado")
+        idLocal = nuevoIdLocal
         resultadoActual = null
         medicionesCargadas = emptyList()
         paciente = null
@@ -422,7 +432,6 @@ class ResultsActivity : BaseActivity() {
         envioExitoso = false
         idUsuarioWebCargado = 0
 
-        // ✅ Volver a cargar todo
         tvPlaceholder.visibility = View.VISIBLE
         resultsContainer.removeAllViews()
         resultsContainer.addView(tvPlaceholder)
