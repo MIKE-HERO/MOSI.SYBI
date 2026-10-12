@@ -41,7 +41,12 @@ import java.util.Locale
 class InformeBuilder(
     private val ctx: Activity,
     private val container: LinearLayout,
-    private val colorTema: Int
+    private val colorTema: Int,
+    // Logos/razón social del cliente (subrogado), ya resueltos y cacheados en disco
+    // por ClienteLogoCache.obtener() ANTES de construir la UI (esta clase no hace red).
+    // Si es null, se usa el logo local único de siempre (AppPrefs.LogoPath) y no se
+    // agrega pie de página con dirección.
+    private val clienteLogo: ClienteLogoCache.Logos? = null
 ) {
     private val d = ctx.resources.displayMetrics.density
 
@@ -87,6 +92,7 @@ class InformeBuilder(
         if (showOxigeno) agregarSeccionOxigeno(actual, asc)
         if (showTemperatura) agregarSeccionTemperatura(actual, asc)
         if (showEcg) agregarSeccionEcg(actual)
+        agregarPieClienteSiAplica()
     }
 
     /**
@@ -130,6 +136,7 @@ class InformeBuilder(
 
         if (showAlturaPeso) agregarSeccionAlturaPeso(actual, asc)
         if (showComposicion) agregarSeccionComposicion(actual, asc, isMale, age, muscleRate)
+        agregarPieClienteSiAplica()
     }
 
     /** Página 2 del PDF: Presión arterial + Oxígeno + Temperatura corporal */
@@ -148,6 +155,7 @@ class InformeBuilder(
         if (showPresion) agregarSeccionPresion(actual, asc)
         if (showOxigeno) agregarSeccionOxigeno(actual, asc)
         if (showTemperatura) agregarSeccionTemperatura(actual, asc)
+        agregarPieClienteSiAplica()
     }
 
     /** Página 3 del PDF: Electrocardiograma */
@@ -157,10 +165,11 @@ class InformeBuilder(
 
         val devicePrefs = ctx.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         val showEcg = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ECG, true)
-        
+
         agregarCabecera(paciente, actual)
 
         if (showEcg) agregarSeccionEcg(actual)
+        agregarPieClienteSiAplica()
     }
 
     fun mensajeVacio(texto: String) {
@@ -288,7 +297,8 @@ class InformeBuilder(
         val defaultAppTitle = appPrefs.getString("AppTitle", "MÓDULO DE SALUD INTEGRAL") ?: "MÓDULO DE SALUD INTEGRAL"
         val pdfTitle = appPrefs.getString("PdfTitle", defaultAppTitle)?.takeIf { it.isNotBlank() } ?: defaultAppTitle
         val pdfSubtitle = appPrefs.getString("PdfSubtitle", "") ?: ""
-        val logoPath = appPrefs.getString("LogoPath", null)
+        // El logo izquierdo del cliente (si hay) manda sobre el logo local único de siempre.
+        val logoPath = clienteLogo?.logoIzquierdoPath ?: appPrefs.getString("LogoPath", null)
 
         val headerLayout = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -352,7 +362,80 @@ class InformeBuilder(
         }
 
         headerLayout.addView(textCol)
+
+        // Logo derecho del cliente (opcional, segundo logo del header).
+        val logoDerechoPath = clienteLogo?.logoDerechoPath
+        if (!logoDerechoPath.isNullOrBlank()) {
+            val logoDerIv = ImageView(ctx).apply {
+                adjustViewBounds = true
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                layoutParams = LinearLayout.LayoutParams(dp(140), dp(70)).apply {
+                    marginStart = dp(16)
+                }
+            }
+            val bmpDer = loadLogoBitmapDirect(ctx, logoDerechoPath)
+            if (bmpDer != null) {
+                logoDerIv.clearColorFilter()
+                logoDerIv.setImageBitmap(bmpDer)
+                headerLayout.addView(logoDerIv)
+            }
+        }
+
         container.addView(headerLayout)
+    }
+
+    /**
+     * Pie de página con la razón social y dirección del cliente (subrogado).
+     * Se agrega al final del contenido de cada página; no es el pie fijo
+     * "Página X de Y" (ese lo dibuja ResultsActivity directo en el Canvas).
+     */
+    private fun agregarPieClienteSiAplica() {
+        val logo = clienteLogo ?: return
+        val direccion = logo.direccion?.trim().orEmpty()
+        val razonSocial = logo.razonSocial?.trim().orEmpty()
+        if (direccion.isBlank() && razonSocial.isBlank()) return
+
+        val partesDireccion = listOfNotNull(
+            direccion.ifBlank { null },
+            logo.codigoPostal?.trim()?.ifBlank { null }?.let { "C.P. $it" },
+            logo.estado?.trim()?.ifBlank { null }
+        ).joinToString(", ")
+
+        val pie = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(10), dp(4), dp(2))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(8) }
+        }
+
+        pie.addView(View(ctx).apply {
+            setBackgroundColor(Color.parseColor("#E5E7EB"))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(1)
+            ).apply { bottomMargin = dp(6) }
+        })
+
+        if (razonSocial.isNotBlank()) {
+            pie.addView(TextView(ctx).apply {
+                text = razonSocial
+                textSize = 10f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(Color.parseColor("#6B7280"))
+                gravity = Gravity.CENTER
+            })
+        }
+        if (partesDireccion.isNotBlank()) {
+            pie.addView(TextView(ctx).apply {
+                text = partesDireccion
+                textSize = 9f
+                setTextColor(Color.parseColor("#9CA3AF"))
+                gravity = Gravity.CENTER
+            })
+        }
+
+        container.addView(pie)
     }
 
     private fun loadLogoBitmapDirect(context: Context, path: String?): Bitmap? {
@@ -822,12 +905,29 @@ class InformeBuilder(
         return wrap
     }
 
+    /**
+     * Barra separadora de cada apartado ("Altura y peso", "Composición corporal",
+     * "Presión arterial", "Oxígeno en sangre", "Temperatura corporal"...): una franja
+     * de color de fondo (no solo texto coloreado) para que se note claramente el corte
+     * entre secciones, incluso en escala de grises.
+     */
     private fun bandaTitulo(texto: String): View = TextView(ctx).apply {
         text = texto
-        textSize = 17f
+        textSize = 14f
         setTypeface(null, Typeface.BOLD)
-        setTextColor(colorTema)
-        setPadding(dp(4), dp(8), dp(4), dp(8))
+        setTextColor(Color.WHITE)
+        setPadding(dp(10), dp(8), dp(10), dp(8))
+        background = GradientDrawable().apply {
+            setColor(colorTema)
+            cornerRadius = dp(4).toFloat()
+        }
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = dp(10)
+            bottomMargin = dp(6)
+        }
     }
 
     // ── Datos / utilidades ───────────────────────────────────────────────────

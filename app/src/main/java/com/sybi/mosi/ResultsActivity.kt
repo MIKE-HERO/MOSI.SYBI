@@ -894,6 +894,13 @@ class ResultsActivity : BaseActivity() {
         var pdfBytes: ByteArray? = null
         val latch = java.util.concurrent.CountDownLatch(1)
 
+        // Red/descarga de logos del cliente ANTES de entrar al hilo principal
+        // (este método siempre se llama desde un hilo en segundo plano).
+        val idCliente = TelemedicineSettingsActivity.getCliente(this)
+        val clienteLogo = runCatching { ClienteLogoCache.obtener(this, idCliente) }
+            .onFailure { Log.w(TAG, "No se pudieron resolver logos de cliente: ${it.message}") }
+            .getOrNull()
+
         uiHandler.post {
             try {
                 val colorTema = runCatching {
@@ -986,7 +993,7 @@ class ResultsActivity : BaseActivity() {
                         paginaActual++
                         val numPag = paginaActual
                         agregarPaginaAlPdf(numPag, totalPaginas) { container ->
-                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema)
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo)
                             builder.construirPagina1(p, idLocal, meds)
                         }
                     }
@@ -996,7 +1003,7 @@ class ResultsActivity : BaseActivity() {
                         paginaActual++
                         val numPag = paginaActual
                         agregarPaginaAlPdf(numPag, totalPaginas) { container ->
-                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema)
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo)
                             builder.construirPagina2(p, idLocal, meds)
                         }
                     }
@@ -1006,13 +1013,13 @@ class ResultsActivity : BaseActivity() {
                         paginaActual++
                         val numPag = paginaActual
                         agregarPaginaAlPdf(numPag, totalPaginas) { container ->
-                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema)
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo)
                             builder.construirPagina3(p, idLocal, meds)
                         }
                     }
                 } else {
                     agregarPaginaAlPdf(1, 1) { container ->
-                        val builder = InformeBuilder(this@ResultsActivity, container, colorTema)
+                        val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo)
                         builder.mensajeVacio("No hay mediciones registradas para este paciente.")
                     }
                 }
