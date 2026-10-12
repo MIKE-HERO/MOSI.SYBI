@@ -9,7 +9,7 @@ class OxigenHelper(private val context: Context) {
 
     companion object {
         private const val TAG = "OxigenHelper"
-        private const val MIN_RESULTS_TO_CONFIRM = 15 // ✅ Cambiado a 15 pulsos
+        private const val MIN_RESULTS_TO_CONFIRM = 10 // ✅ Cambiado a 10 pulsos
     }
 
     var lastSpO2: Int? = null

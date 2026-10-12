@@ -17,7 +17,8 @@ object RangosSalud {
     private val VERDE = Color.parseColor("#32A852")
     private val VERDE_OSC = Color.parseColor("#2E7D32")
     private val AZUL = Color.parseColor("#1E88E5")
-    private val NARANJA = Color.parseColor("#E37214")
+    private val NARANJA_CLARO = Color.parseColor("#F59E0B")  // ámbar
+    private val NARANJA       = Color.parseColor("#EA580C")  // naranja fuerte
     private val ROJO = Color.parseColor("#D32F2F")
 
     private fun seg(etiqueta: String, min: Double, max: Double, color: Int) =
@@ -50,17 +51,17 @@ object RangosSalud {
     fun presionSistolica() = listOf(
         seg("Baja", 40.0, 90.0, AMARILLO),
         seg("Normal", 90.0, 120.0, VERDE),
-        seg("Elevada", 120.0, 129.0, NARANJA),
-        seg("Hipertensión 1", 129.0, 139.0, NARANJA),
-        seg("Hipertensión 2", 139.0, 200.0, ROJO)
+        seg("Elevada", 120.0, 129.9, NARANJA_CLARO),
+        seg("Hipertensión 1", 130.0, 139.9, NARANJA),
+        seg("Hipertensión 2", 140.0, 200.0, ROJO)
     )
 
     fun presionDiastolica() = listOf(
         seg("Baja", 40.0, 60.0, AMARILLO),
         seg("Normal", 60.0, 80.0, VERDE),
-        seg("Elevada", 80.0, 89.0, NARANJA),
-        seg("Hipertensión 1", 89.0, 99.0, NARANJA),
-        seg("Hipertensión 2", 99.0, 140.0, ROJO)
+        seg("Elevada", 80.0, 89.9, NARANJA_CLARO),
+        seg("Hipertensión 1", 90.0, 99.0, NARANJA),
+        seg("Hipertensión 2", 100.0, 140.0, ROJO)
     )
 
     fun pulso() = listOf(

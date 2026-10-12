@@ -10,13 +10,15 @@ object DeviceDefaults {
     const val PREF_DEVICE_PRESION         = "device_presion"
     const val PREF_DEVICE_TEMPERATURA     = "device_temperatura"
     const val PREF_DEVICE_IC_CARD         = "device_ic_card"
+    const val PREF_DEVICE_THERMAL_PRINTER = "device_thermal_printer"
 
     /** Puerto serial por defecto para cada dispositivo (si no hay uno guardado). */
     val DEFAULT_PORTS: Map<String, String> = mapOf(
         PREF_DEVICE_ALTURA_PESO to "/dev/ttyS5",
         PREF_DEVICE_PRESION     to "/dev/ttyS2",
         PREF_DEVICE_TEMPERATURA to "/dev/ttyS7",
-        PREF_DEVICE_IC_CARD     to "/dev/ttyS6"
+        PREF_DEVICE_IC_CARD     to "/dev/ttyS6",
+        PREF_DEVICE_THERMAL_PRINTER to "/dev/ttyS1"
     )
 
     fun ensureDefaultPorts(prefs: SharedPreferences) {

@@ -15,74 +15,58 @@ class IcCardHelper(private val context: Context) {
         if (data.isEmpty()) return
         Log.d(TAG, "💳 Lector IC RX (${data.size} bytes): ${bytesToHex(data)}")
 
-        // ===== Trama de 4 bytes (sin checksum) =====
-        if (data.size == 4) {
-            try {
-                val cardId = bytesToCardId(data, 0)
-                Log.d(TAG, "✅ Tarjeta IC procesada (4 bytes, sin checksum): $cardId")
-                broadcastCard(cardId)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error procesando 4 bytes de tarjeta: ${e.message}")
-            }
-            return
-        }
-
-        // ===== Trama de 5 bytes (con checksum = suma de los primeros 4 bytes, mod 256) =====
-        if (data.size == 5) {
-            try {
-                val suma = (0 until 4).sumOf { data[it].toInt() and 0xFF } and 0xFF
-                val checksumRecibido = data[4].toInt() and 0xFF
-
-                if (suma != checksumRecibido) {
-                    Log.w(
-                        TAG,
-                        "⚠️ Checksum inválido: esperado=%02X recibido=%02X trama=%s".format(
-                            suma, checksumRecibido, bytesToHex(data)
-                        )
-                    )
+        // ===== 1. Fallback: texto ASCII (ej. lectores que envían 10 dígitos decimales + \r\n) =====
+        try {
+            val text = String(data, Charsets.US_ASCII).trim()
+            if (text.isNotEmpty() && text.all { it.isDigit() || it.isLetter() || it == '-' }) {
+                val cleanCard = text.filter { it.isDigit() }
+                if (cleanCard.isNotEmpty()) {
+                    val cardId = cleanCard.trimStart('0').ifEmpty { "0" }
+                    Log.d(TAG, "✅ Tarjeta IC de texto procesada: $cardId")
+                    broadcastCard(cardId)
                     return
                 }
-
-                val cardId = bytesToCardId(data, 0)
-                Log.d(TAG, "✅ Tarjeta IC procesada (5 bytes, checksum OK): $cardId")
-                broadcastCard(cardId)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error procesando 5 bytes de tarjeta: ${e.message}")
             }
-            return
+        } catch (_: Exception) {
+            // No es texto ASCII válido, continuar con procesamiento binario
         }
 
-        // ===== Tramas de más de 5 bytes: intentar validar como 5+checksum =====
-        if (data.size > 5) {
-            // Tomamos los primeros 5 bytes como trama con checksum
-            val cinco = data.copyOfRange(0, 5)
-            val suma = (0 until 4).sumOf { cinco[it].toInt() and 0xFF } and 0xFF
-            val checksumRecibido = cinco[4].toInt() and 0xFF
+        // ===== 2. Procesamiento binario (con o sin checksum al final) =====
+        try {
+            var body = data
+            var hasValidChecksum = false
 
-            if (suma == checksumRecibido) {
-                val cardId = bytesToCardId(cinco, 0)
-                Log.d(TAG, "✅ Tarjeta IC procesada (${data.size} bytes, checksum OK en primeros 5): $cardId")
-                broadcastCard(cardId)
+            // Verificar si hay checksum al final (para tramas de 5 o más bytes)
+            if (data.size >= 5) {
+                val lastByte = data[data.size - 1].toInt() and 0xFF
+                val potentialBody = data.copyOfRange(0, data.size - 1)
+
+                val sumChecksum = (0 until potentialBody.size).sumOf { potentialBody[it].toInt() and 0xFF } and 0xFF
+                val xorChecksum = (0 until potentialBody.size).fold(0) { acc, i -> acc xor (potentialBody[i].toInt() and 0xFF) }
+
+                if (sumChecksum == lastByte || xorChecksum == lastByte) {
+                    Log.d(TAG, "✅ Checksum válido detectado al final (${data.size} bytes)")
+                    body = potentialBody
+                    hasValidChecksum = true
+                }
+            }
+
+            val cardId = if (body.size >= 4) {
+                bytesToCardId(body, 0)
+            } else if (body.isNotEmpty()) {
+                var value = 0L
+                for (b in body) {
+                    value = (value shl 8) or ((b.toInt() and 0xFF).toLong())
+                }
+                value.toString()
+            } else {
                 return
             }
 
-            // Si no cuadra el checksum en los primeros 5, probamos tomar los últimos 4 bytes
-            val ultimos4 = data.copyOfRange(data.size - 4, data.size)
-            val cardId = bytesToCardId(ultimos4, 0)
-            Log.d(TAG, "⚠️ Checksum no válido en trama larga, usando últimos 4 bytes: $cardId")
+            Log.d(TAG, "✅ Tarjeta IC binaria procesada (conChecksum=$hasValidChecksum): $cardId")
             broadcastCard(cardId)
-            return
-        }
-
-        // ===== Fallback: texto ASCII =====
-        val text = String(data, Charsets.US_ASCII).trim()
-        if (text.isNotEmpty()) {
-            val cleanCard = text.filter { it.isDigit() }
-            if (cleanCard.isNotEmpty()) {
-                val cardId = cleanCard.trimStart('0').ifEmpty { "0" }
-                Log.d(TAG, "✅ Tarjeta IC de texto procesada: $cardId")
-                broadcastCard(cardId)
-            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error procesando tarjeta binaria: ${e.message}")
         }
     }
 

@@ -25,13 +25,14 @@ class CalibTestActivity : BaseActivity() {
     private lateinit var btnBack: View
     private lateinit var btnTestMic: Button
     private lateinit var btnTestCamera: Button
-
     private lateinit var btnCalibrate: Button
+    private lateinit var etCardResult: android.widget.EditText
 
+    private var icCardReceiver: BroadcastReceiver? = null
     private var onPermissionsGrantedAction: (() -> Unit)? = null
 
     companion object {
-        private const val TAG = "MicTestActivity"
+        private const val TAG = "CalibTestActivity"
         private const val TEST_MIC_URL = "https://es.mictests.com/"
         private const val TEST_CAMERA_URL = "https://es.webcamtests.com/"
         private const val REQUEST_PERMISSIONS_CODE = 200
@@ -47,6 +48,21 @@ class CalibTestActivity : BaseActivity() {
         btnTestMic = findViewById(R.id.btnTestMic)
         btnTestCamera = findViewById(R.id.btnTestCamera)
         btnCalibrate = findViewById(R.id.btnCalibrate)
+        etCardResult = findViewById(R.id.etCardResult)
+
+        // --- RECEPTOR DE TARJETA IC ---
+        icCardReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == "DEVICE_DATA_RECEIVED" && intent.getStringExtra("type") == "IC_CARD") {
+                    val cardNumber = intent.getStringExtra("card_number") ?: return
+                    Log.d(TAG, "💳 Tarjeta IC escaneada en CalibTest: $cardNumber")
+                    etCardResult.setText("")
+                    etCardResult.setText(cardNumber)
+                    Toast.makeText(this@CalibTestActivity, "Tarjeta IC leída: $cardNumber", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(icCardReceiver!!, IntentFilter("DEVICE_DATA_RECEIVED"))
 
         // --- RECEPTOR DE CAMBIO DE TEMA ---
         val colorReceiver = object : BroadcastReceiver() {
@@ -124,5 +140,14 @@ class CalibTestActivity : BaseActivity() {
     private fun abrirTestUrl(url: String) {
         Log.d(TAG, "🌐 Abriendo test en CustomTabs: $url")
         CustomTabsHelper.openUrl(this, url, preferFirefox = true)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        icCardReceiver?.let {
+            try {
+                LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
+            } catch (_: Exception) {}
+        }
     }
 }

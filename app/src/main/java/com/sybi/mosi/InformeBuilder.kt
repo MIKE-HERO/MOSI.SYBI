@@ -31,14 +31,12 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 /**
- * Construye el informe de salud (estilo MediTech) dentro de un contenedor dado. Por cada
- * bloque (IMC, composición, presión, oxígeno, temperatura, ECG) agrega a la izquierda los
- * valores de la medición más reciente con barras de rango (usando los umbrales que la app ya
- * define en [RangosSalud]), y a la derecha las gráficas de tendencia de la medición actual +
- * hasta 20 anteriores del mismo paciente.
+ * Construye el informe de salud (estilo MediTech) dentro de un contenedor dado.
  *
- * Lo usan tanto [InformeActivity] (pantalla propia de informe) como [ResultsActivity] (donde
- * el informe es el contenido de la pantalla final), para no duplicar la lógica.
+ * NOTA IMPORTANTE SOBRE EL PIE DE PÁGINA:
+ * El pie "Página X de Y" YA NO se construye aquí. Lo dibuja directamente ResultsActivity
+ * sobre el Canvas del PDF, anclado abajo-derecha de la hoja A4, para que no dependa del
+ * alto del contenido ni se recorte con él.
  */
 class InformeBuilder(
     private val ctx: Activity,
@@ -62,7 +60,7 @@ class InformeBuilder(
         }
 
         val actual = mediciones.first()
-        val asc = mediciones.reversed() // cronológico: antiguo -> reciente
+        val asc = mediciones.reversed()
 
         val isMale = (paciente?.genero ?: "").uppercase().let { it == "M" || it == "MASCULINO" || it == "H" }
         val age = paciente?.calcularEdad()?.takeIf { it > 0 } ?: 30
@@ -91,6 +89,26 @@ class InformeBuilder(
         if (showEcg) agregarSeccionEcg(actual)
     }
 
+    /**
+     * Calcula cuántas páginas tendrá el PDF según las mediciones activas en DevicePrefs.
+     * Devuelve al menos 1.
+     */
+    fun calcularTotalPaginas(): Int {
+        val prefs = ctx.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val showAlturaPeso = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_ALTURA_PESO, true)
+        val showComposicion = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_COMPOSICION, true)
+        val showPresion = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_PRESION, true)
+        val showOxigeno = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_OXIGENO, true)
+        val showTemperatura = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_TEMPERATURA, true)
+        val showEcg = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_ECG, true)
+
+        var total = 0
+        if (showAlturaPeso || showComposicion) total++
+        if (showPresion || showOxigeno || showTemperatura) total++
+        if (showEcg) total++
+        return total.coerceAtLeast(1)
+    }
+
     /** Página 1 del PDF: Altura y peso + Composición corporal */
     fun construirPagina1(paciente: Paciente?, idLocal: Long, mediciones: List<Resultado>) {
         if (mediciones.isEmpty()) return
@@ -106,9 +124,7 @@ class InformeBuilder(
         val showAlturaPeso = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ALTURA_PESO, true)
         val showComposicion = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_COMPOSICION, true)
 
-        // Margen superior para que el header no quede cortado
-        agregarEspaciadorSuperior()
-
+        // La página 1 NO lleva espaciador: el encabezado de app ya da el aire superior.
         agregarEncabezadoApp()
         agregarCabecera(paciente, actual)
 
@@ -127,9 +143,6 @@ class InformeBuilder(
         val showOxigeno = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_OXIGENO, true)
         val showTemperatura = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_TEMPERATURA, true)
 
-        // Margen superior para que el header no quede cortado en páginas 2 y 3
-        agregarEspaciadorSuperior()
-
         agregarCabecera(paciente, actual)
 
         if (showPresion) agregarSeccionPresion(actual, asc)
@@ -144,10 +157,7 @@ class InformeBuilder(
 
         val devicePrefs = ctx.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         val showEcg = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ECG, true)
-
-        // Margen superior para que el header no quede cortado
-        agregarEspaciadorSuperior()
-
+        
         agregarCabecera(paciente, actual)
 
         if (showEcg) agregarSeccionEcg(actual)
@@ -183,7 +193,7 @@ class InformeBuilder(
         agregarSeccion("Composición corporal",
             columnaValores(
                 etiquetaBarra("Tasa de masa muscular"),
-                rangeBar(RangosSalud.masaMuscular(isMale, age), muscleRate, "%"),
+                rangeBar(RangosSalud.masaMuscular(isMale, age), muscleRate, "%", anchosIguales = true),
                 etiquetaBarra("Tasa de grasa corporal"),
                 rangeBar(RangosSalud.grasaCorporal(isMale, age), actual.grasa_corporal.f(), "%"),
                 etiquetaBarra("Tasa de agua corporal"),
@@ -216,9 +226,9 @@ class InformeBuilder(
         agregarSeccion("Presión arterial",
             columnaValores(
                 etiquetaBarra("Presión sistólica"),
-                rangeBar(RangosSalud.presionSistolica(), actual.sistolica.f(), " mmHg"),
+                rangeBar(RangosSalud.presionSistolica(), actual.sistolica.f(), " mmHg", anchosIguales = true),
                 etiquetaBarra("Presión diastólica"),
-                rangeBar(RangosSalud.presionDiastolica(), actual.diastolica.f(), " mmHg"),
+                rangeBar(RangosSalud.presionDiastolica(), actual.diastolica.f(), " mmHg", anchosIguales = true),
                 etiquetaBarra("Pulso"),
                 rangeBar(RangosSalud.pulso(), actual.pulso.f(), " bpm")
             ),
@@ -260,13 +270,15 @@ class InformeBuilder(
     // ── Secciones ──────────────────────────────────────────────────────────────
 
     /**
-     * Agrega un pequeño espacio al inicio de cada página del PDF para evitar que el
-     * encabezado quede cortado por el borde superior de la página.
+     * Espaciador superior de páginas 2 y 3. Su alto debe igualar el del encabezado de app
+     * de la página 1 para que las 3 páginas arranquen al mismo nivel.
+     *
+     * Alto del encabezado de app = padding sup (20) + alto logo (70) + padding inf (20) + bottomMargin (10) = 120dp
      */
     private fun agregarEspaciadorSuperior() {
         container.addView(View(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(16)
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(120)
             )
         })
     }
@@ -281,7 +293,6 @@ class InformeBuilder(
         val headerLayout = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            // Padding generoso para que el logo no quede pegado al borde
             setPadding(dp(16), dp(20), dp(16), dp(20))
             background = GradientDrawable().apply {
                 setColor(Color.WHITE)
@@ -291,10 +302,9 @@ class InformeBuilder(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                topMargin = dp(16)
+                topMargin = dp(0)
                 bottomMargin = dp(10)
             }
-            // NO usar elevation: el Canvas del PDF no dibuja sombras y recorta el contenido
         }
 
         val logoIv = ImageView(ctx).apply {
@@ -305,7 +315,6 @@ class InformeBuilder(
             }
         }
 
-        // Carga del logotipo puro sobre el encabezado sin recuadros de fondo
         val directBmp = loadLogoBitmapDirect(ctx, logoPath)
         if (directBmp != null) {
             logoIv.clearColorFilter()
@@ -316,7 +325,6 @@ class InformeBuilder(
             cargarLogoAsincrono(ctx, logoIv, logoPath)
             headerLayout.addView(logoIv)
         } else {
-            // Logotipo por defecto: aplicar tinte con el color del tema para que resalte sobre el fondo blanco
             logoIv.setImageResource(R.drawable.sybi_logo_blanco)
             logoIv.setColorFilter(colorTema, PorterDuff.Mode.SRC_IN)
             headerLayout.addView(logoIv)
@@ -370,15 +378,9 @@ class InformeBuilder(
             }
         }
 
-        // Aplanar el PNG transparente sobre fondo blanco para que el PDF
-        // no muestre el canal alfa como negro.
         return original?.let { aplanarSobreBlanco(it) }
     }
 
-    /**
-     * Dibuja [src] sobre un Bitmap blanco del mismo tamaño, eliminando la transparencia.
-     * Así el PDF (que no compone alfa contra el padre) muestra fondo blanco.
-     */
     private fun aplanarSobreBlanco(src: Bitmap): Bitmap {
         val out = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(out)
@@ -414,7 +416,6 @@ class InformeBuilder(
     }
 
     private fun agregarCabecera(paciente: Paciente?, actual: Resultado) {
-        // ── Datos descompuestos ──────────────────────────────────────────────
         val nombres = paciente?.nombre?.trim().orEmpty().ifBlank { "-" }
         val apellidos = listOfNotNull(paciente?.apellido_paterno, paciente?.apellido_materno)
             .joinToString(" ").trim().ifBlank { "-" }
@@ -426,16 +427,16 @@ class InformeBuilder(
             else -> "-"
         }
 
-        // Separar fecha y hora del campo fecha_medicion
-        val (fecha, hora) = separarFechaHora(actual.fecha_medicion)
+        val folio = paciente?.folio?.trim().orEmpty().ifBlank { "-" }
 
-        // ── Construcción de la tabla 2x3 ─────────────────────────────────────
+        val (fecha, hora) = separarFechaHora(actual.fecha_medicion)
+        val fechaHoraStr = if (hora != "-") "$fecha $hora" else fecha
+
         val tabla = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(12))
+            setPadding(0, 0, 0, 0)
         }
 
-        // Fila 1: Nombre(s) | Edad | Fecha
         val fila1 = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -444,10 +445,9 @@ class InformeBuilder(
             )
         }
         fila1.addView(celdaCabecera("Nombre(s)", nombres), pesoParam(2f))
-        fila1.addView(celdaCabecera("Edad", edad), pesoParam())
-        fila1.addView(celdaCabecera("Fecha", fecha), pesoParam(1.5f))
+        fila1.addView(celdaCabecera("Edad", edad), pesoParam(1f))
+        fila1.addView(celdaCabecera("Fecha y hora", fechaHoraStr), pesoParam(1.8f))
 
-        // Fila 2: Apellidos | Género | Hora
         val fila2 = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -456,19 +456,67 @@ class InformeBuilder(
             ).apply { topMargin = dp(8) }
         }
         fila2.addView(celdaCabecera("Apellidos", apellidos), pesoParam(2f))
-        fila2.addView(celdaCabecera("Género", genero), pesoParam())
-        fila2.addView(celdaCabecera("Hora", hora), pesoParam(1.5f))
+        fila2.addView(celdaCabecera("Género", genero), pesoParam(1f))
+        fila2.addView(celdaCabecera("Folio", folio), pesoParam(1.8f))
 
         tabla.addView(fila1)
         tabla.addView(fila2)
 
-        container.addView(tarjeta(tabla))
+        val fotoContainer = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(dp(75), dp(85)).apply {
+                marginStart = dp(12)
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#F3F4F6"))
+                cornerRadius = dp(6).toFloat()
+                setStroke(dp(1), Color.parseColor("#E5E7EB"))
+            }
+            clipToOutline = true
+        }
+
+        val fotoIv = ImageView(ctx).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        val fotoBase64 = paciente?.foto
+        var fotoBitmap: Bitmap? = null
+        if (!fotoBase64.isNullOrBlank()) {
+            runCatching {
+                val bytes = Base64.decode(fotoBase64, Base64.DEFAULT)
+                fotoBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
+        }
+
+        if (fotoBitmap != null) {
+            fotoIv.setImageBitmap(fotoBitmap)
+        } else {
+            fotoIv.setImageResource(R.drawable.ic_face)
+            fotoIv.setColorFilter(Color.parseColor("#9CA3AF"), PorterDuff.Mode.SRC_IN)
+            fotoIv.scaleType = ImageView.ScaleType.FIT_CENTER
+            fotoIv.setPadding(dp(14), dp(14), dp(14), dp(14))
+        }
+
+        fotoContainer.addView(fotoIv)
+
+        val cabeceraRoot = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+        }
+
+        cabeceraRoot.addView(tabla, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        cabeceraRoot.addView(fotoContainer)
+
+        container.addView(tarjeta(cabeceraRoot))
     }
 
-    /**
-     * Crea una celda de la cabecera con el estilo: etiqueta en gris pequeña arriba,
-     * valor en negrita debajo.
-     */
     private fun celdaCabecera(label: String, valor: String): View {
         val col = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
@@ -490,17 +538,6 @@ class InformeBuilder(
         return col
     }
 
-    /**
-     * Separa el campo fecha_medicion en (fecha, hora).
-     * Acepta formatos:
-     *  - "dd/MM/yyyy HH:mm:ss"  -> ("dd/MM/yyyy", "HH:mm:ss")
-     *  - "dd/MM/yyyy HH:mm"     -> ("dd/MM/yyyy", "HH:mm")
-     *  - "dd/MM/yyyy"           -> ("dd/MM/yyyy", "-")
-     *  - "yyyy-MM-dd HH:mm:ss"  -> ("dd/MM/yyyy", "HH:mm:ss")  (reformateado)
-     *  - "yyyy-MM-dd HH:mm"     -> ("dd/MM/yyyy", "HH:mm")
-     *  - "yyyy-MM-dd"           -> ("dd/MM/yyyy", "-")
-     * Si no se puede parsear, se devuelve el string original como fecha y "-" como hora.
-     */
     private fun separarFechaHora(raw: String): Pair<String, String> {
         if (raw.isBlank()) return "-" to "-"
 
@@ -546,7 +583,6 @@ class InformeBuilder(
         container.addView(bandaTitulo("Electrocardiograma de 6 derivaciones"))
         val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
 
-        // Texto del resultado general de ECG en renglón solo (alineado a la izquierda)
         if (actual.resultado_ecg.isNotBlank() && actual.resultado_ecg != "0") {
             col.addView(
                 TextView(ctx).apply {
@@ -563,7 +599,6 @@ class InformeBuilder(
             )
         }
 
-        // Fila 1: Frecuencia, Eje P, Eje QRS, Eje T
         val fila1 = listOf(
             "Frecuencia" to fmtUnidad(actual.frecuencia_cardiaca, "bpm"),
             "Eje P" to fmtUnidad(actual.eje_p, "°"),
@@ -571,7 +606,6 @@ class InformeBuilder(
             "Eje T" to fmtUnidad(actual.eje_t, "°")
         )
 
-        // Fila 2: Intervalo PR, Intervalo QT, QT corregido, Duración QRS
         val fila2 = listOf(
             "Intervalo PR" to fmtUnidad(actual.intervalo_pr, "ms"),
             "Intervalo QT" to fmtUnidad(actual.intervalo_qt, "ms"),
@@ -579,7 +613,6 @@ class InformeBuilder(
             "Duración QRS" to fmtUnidad(actual.duracion_qrs, "ms")
         )
 
-        // Fila 3: Onda RV5, Onda SV1 (en las primeras 2 columnas de las 4)
         val fila3 = listOf(
             "Onda RV5" to fmtUnidad(actual.onda_rv5, "mV"),
             "Onda SV1" to fmtUnidad(actual.onda_sv1, "mV")
@@ -728,11 +761,17 @@ class InformeBuilder(
         setPadding(dp(4), dp(10), dp(4), dp(2))
     }
 
-    private fun rangeBar(segmentos: List<RangeBarView.Segmento>, valor: Float?, sufijo: String = ""): View {
+    private fun rangeBar(
+        segmentos: List<RangeBarView.Segmento>,
+        valor: Float?,
+        sufijo: String = "",
+        anchosIguales: Boolean = false
+    ): View {
         return RangeBarView(ctx).apply {
             setSegmentos(segmentos)
+            setAnchosIguales(anchosIguales)
             if (valor != null) setValor(valor.toDouble(), sufijo)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(68))
                 .apply { topMargin = dp(2); bottomMargin = dp(6) }
         }
     }
@@ -774,10 +813,8 @@ class InformeBuilder(
             background = GradientDrawable().apply {
                 setColor(Color.WHITE)
                 cornerRadius = dp(10).toFloat()
-                // Borde sutil en lugar de sombra: el PDF (Canvas) no dibuja elevation
                 setStroke(dp(1), Color.parseColor("#E5E7EB"))
             }
-            // Se elimina elevation y outlineProvider: no se renderizan en Canvas del PDF
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                 .apply { setMargins(dp(2), dp(2), dp(2), dp(10)) }
         }
@@ -791,12 +828,6 @@ class InformeBuilder(
         setTypeface(null, Typeface.BOLD)
         setTextColor(colorTema)
         setPadding(dp(4), dp(8), dp(4), dp(8))
-    }
-
-    private fun textoCabecera(texto: String) = TextView(ctx).apply {
-        text = texto
-        textSize = 13f
-        setTextColor(Color.parseColor("#111827"))
     }
 
     // ── Datos / utilidades ───────────────────────────────────────────────────

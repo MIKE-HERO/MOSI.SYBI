@@ -95,7 +95,21 @@
             android:id="@+id/btnPrintResults"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Imprimir Resultados"
+            android:text="Imprimir PDF"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#4D000000"
+            android:textSize="20sp"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_marginEnd="5dp" />
+
+        <!-- Botón Imprimir Ticket -->
+        <Button
+            android:id="@+id/btnPrintTicket"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Imprimir Ticket"
             android:textColor="#FFFFFF"
             android:backgroundTint="#4D000000"
             android:textSize="20sp"

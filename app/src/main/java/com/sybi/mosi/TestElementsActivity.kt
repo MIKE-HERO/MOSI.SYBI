@@ -38,6 +38,7 @@ class TestElementsActivity : BaseActivity() {
         const val PREF_DEVICE_ACIDO_URICO = "device_acido_urico"
         const val PREF_DEVICE_COLESTEROL = "device_colesterol"
         const val PREF_DEVICE_IC_CARD = "device_ic_card"
+        const val PREF_DEVICE_THERMAL_PRINTER = "device_thermal_printer"
 
         /** Marca de la línea divisoria en el selector de velocidad. */
         private const val SEPARATOR = -1
@@ -152,6 +153,14 @@ class TestElementsActivity : BaseActivity() {
         val icCardRow = createDeviceRow("Lector de Tarjeta IC", PREF_DEVICE_IC_CARD, devicePrefs, availablePorts)
         container.addView(icCardRow)
         configRowsMap[PREF_DEVICE_IC_CARD] = icCardRow
+
+        // --- LÍNEA DIVISORIA ---
+        container.addView(createDividerLine())
+
+        // --- CREAR IMPRESORA TÉRMICA DE TICKETS ---
+        val thermalPrinterRow = createDeviceRow("Impresora de Tickets (SP-RMD8CS1H)", PREF_DEVICE_THERMAL_PRINTER, devicePrefs, availablePorts)
+        container.addView(thermalPrinterRow)
+        configRowsMap[PREF_DEVICE_THERMAL_PRINTER] = thermalPrinterRow
 
         // --- LÍNEA DIVISORIA ---
         container.addView(createDividerLine())
@@ -404,7 +413,8 @@ class TestElementsActivity : BaseActivity() {
                 prefKey == PREF_DEVICE_AZUCAR ||
                 prefKey == PREF_DEVICE_ACIDO_URICO ||
                 prefKey == PREF_DEVICE_COLESTEROL ||
-                prefKey == PREF_DEVICE_IC_CARD
+                prefKey == PREF_DEVICE_IC_CARD ||
+                prefKey == PREF_DEVICE_THERMAL_PRINTER
 
         val isUsbDevice = prefKey == PREF_DEVICE_OXIGENO || prefKey == PREF_DEVICE_ECG
 
@@ -518,7 +528,8 @@ class TestElementsActivity : BaseActivity() {
                     PREF_DEVICE_AZUCAR,
                     PREF_DEVICE_ACIDO_URICO,
                     PREF_DEVICE_COLESTEROL,
-                    PREF_DEVICE_IC_CARD
+                    PREF_DEVICE_IC_CARD,
+                    PREF_DEVICE_THERMAL_PRINTER
                 )
                 var activeCount = 0
                 for (key in allKeys) {

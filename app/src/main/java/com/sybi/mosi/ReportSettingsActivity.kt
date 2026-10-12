@@ -26,6 +26,7 @@ class ReportSettingsActivity : BaseActivity() {
     companion object {
         const val PREF_ALLOW_PRINT = "allow_print_results"
         const val PREF_ALLOW_EMAIL = "allow_email_results"
+        const val PREF_ALLOW_TICKET_PRINT = "allow_ticket_print"
         const val PREF_PRINTER_IP = "printer_ip"
     }
 
@@ -38,6 +39,7 @@ class ReportSettingsActivity : BaseActivity() {
     private val logoReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             actualizarPrevisualizacion()
+            actualizarPrevisualizacionTicket()
         }
     }
 
@@ -54,6 +56,7 @@ class ReportSettingsActivity : BaseActivity() {
                 sideBar.setBackgroundColor(Color.parseColor(newColor))
                 applySwitchTint(Color.parseColor(newColor))
                 actualizarPrevisualizacion()
+                actualizarPrevisualizacionTicket()
             }
         }
         LocalBroadcastManager.getInstance(this)
@@ -74,6 +77,7 @@ class ReportSettingsActivity : BaseActivity() {
         val prefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         setupSwitch(R.id.switchEnablePrint, PREF_ALLOW_PRINT, prefs)
         setupSwitch(R.id.switchEnableEmail, PREF_ALLOW_EMAIL, prefs)
+        setupSwitch(R.id.switchEnableTicketPrint, PREF_ALLOW_TICKET_PRINT, prefs)
 
         // IP de la impresora de red (impresión directa por IPP)
         val etPrinterIp = findViewById<EditText>(R.id.etPrinterIp)
@@ -100,6 +104,7 @@ class ReportSettingsActivity : BaseActivity() {
         etPdfSubtitle.setText(savedPdfSubtitle)
 
         actualizarPrevisualizacion()
+        actualizarPrevisualizacionTicket()
 
         etPdfTitle.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -108,6 +113,7 @@ class ReportSettingsActivity : BaseActivity() {
                 val title = s.toString()
                 appPrefs.edit().putString("PdfTitle", title).apply()
                 actualizarPrevisualizacion()
+                actualizarPrevisualizacionTicket()
             }
         })
 
@@ -118,6 +124,7 @@ class ReportSettingsActivity : BaseActivity() {
                 val subtitle = s.toString()
                 appPrefs.edit().putString("PdfSubtitle", subtitle).apply()
                 actualizarPrevisualizacion()
+                actualizarPrevisualizacionTicket()
             }
         })
     }
@@ -223,6 +230,117 @@ class ReportSettingsActivity : BaseActivity() {
         )
 
         builder.construir(samplePaciente, 1L, sampleMediciones)
+    }
+
+    private fun actualizarPrevisualizacionTicket() {
+        val container = findViewById<android.widget.LinearLayout>(R.id.previewTicketContainer) ?: return
+        container.removeAllViews()
+
+        val title = etPdfTitle.text.toString().takeIf { it.isNotBlank() } ?: "MÓDULO DE SALUD INTEGRAL"
+        val subtitle = etPdfSubtitle.text.toString().takeIf { it.isNotBlank() } ?: ""
+
+        val textColor = Color.parseColor("#222222")
+        val primaryColor = Color.parseColor("#0F3E82")
+
+        fun addTicketLine(text: String, bold: Boolean = false, center: Boolean = false, size: Float = 11f, color: Int = textColor) {
+            val tv = TextView(this).apply {
+                this.text = text
+                textSize = size
+                setTextColor(color)
+                if (bold) setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD)
+                else setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.NORMAL)
+                gravity = if (center) android.view.Gravity.CENTER else android.view.Gravity.START
+                setPadding(0, 2, 0, 2)
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            container.addView(tv)
+        }
+
+        fun addDivider() {
+            addTicketLine("--------------------------------", bold = false, center = true, color = Color.parseColor("#888888"))
+        }
+
+        addTicketLine(title, bold = true, center = true, size = 12f, color = primaryColor)
+        if (subtitle.isNotBlank()) {
+            addTicketLine(subtitle, bold = false, center = true, size = 10f)
+        }
+        addDivider()
+
+        addTicketLine("DATOS DEL PACIENTE", bold = true, center = false, size = 11f, color = primaryColor)
+        addTicketLine("Nombre: Juan Pérez Gómez")
+        addTicketLine("Edad: 36 años")
+        addTicketLine("Género: Masculino")
+        addTicketLine("Fecha/Hora: 07/10/2026 13:43")
+        addDivider()
+
+        addTicketLine("RESULTADOS DE MEDICIÓN", bold = true, center = false, size = 11f, color = primaryColor)
+
+        val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val showAlturaPeso = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ALTURA_PESO, true)
+        val showComposicion = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_COMPOSICION, true)
+        val showPresion = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_PRESION, true)
+        val showOxigeno = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_OXIGENO, true)
+        val showTemperatura = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_TEMPERATURA, true)
+        val showEcg = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ECG, true)
+
+        // 1. Altura y Peso
+        if (showAlturaPeso) {
+            addTicketLine("--- ALTURA Y PESO ---", bold = true, center = false, color = primaryColor)
+            addTicketLine("Altura: 175.0 cm")
+            addTicketLine("Peso: 70.5 kg")
+            addTicketLine("IMC: 23.0")
+        }
+
+        // 2. Composición Corporal
+        if (showComposicion) {
+            addTicketLine("--- COMPOSICIÓN CORPORAL ---", bold = true, center = false, color = primaryColor)
+            addTicketLine("Grasa Corporal: 18.5% (13.0 kg)")
+            addTicketLine("Agua Corporal: 55.0% (38.8 kg)")
+            addTicketLine("Masa Muscular: 32.0 kg")
+            addTicketLine("Masa Libre Grasa: 57.5 kg")
+            addTicketLine("Proteína: 12.5 kg")
+            addTicketLine("Minerales: 3.2 kg")
+            addTicketLine("Metabolismo Basal: 1550 kcal")
+            addTicketLine("Grasa Visceral: 4.0")
+            addTicketLine("Peso Ideal: 68.0 kg")
+            addTicketLine("Tipo de Grasa: 1")
+        }
+
+        // 3. Presión Arterial
+        if (showPresion) {
+            addTicketLine("--- PRESIÓN ARTERIAL ---", bold = true, center = false, color = primaryColor)
+            addTicketLine("Presión: 120/80 mmHg")
+            addTicketLine("Pulso: 72 bpm")
+        }
+
+        // 4. Oxígeno
+        if (showOxigeno) {
+            addTicketLine("--- OXÍGENO EN SANGRE ---", bold = true, center = false, color = primaryColor)
+            addTicketLine("SpO2: 98%")
+            addTicketLine("Pulso: 72 bpm")
+            addTicketLine("Índice Perfusión: 2.1")
+        }
+
+        // 5. Temperatura
+        if (showTemperatura) {
+            addTicketLine("--- TEMPERATURA CORPORAL ---", bold = true, center = false, color = primaryColor)
+            addTicketLine("Temperatura: 36.6 °C / 97.8 °F")
+        }
+
+        // 6. ECG
+        if (showEcg) {
+            addTicketLine("--- ECG ---", bold = true, center = false, color = primaryColor)
+            addTicketLine("Frec. Cardíaca: 72 bpm")
+            addTicketLine("Eje P/QRS/T: 45/60/30")
+            addTicketLine("Int. PR / QRS: 140/85 ms")
+            addTicketLine("Int. QT / QTc: 380/410 ms")
+            addTicketLine("Ritmo: Ritmo sinusal normal")
+        }
+        addDivider()
+        addTicketLine("¡Gracias por su visita!", bold = true, center = true, size = 10f)
     }
 
     override fun onDestroy() {
