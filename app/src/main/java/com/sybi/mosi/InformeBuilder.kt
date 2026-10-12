@@ -350,6 +350,10 @@ class InformeBuilder(
             textSize = 20f
             setTypeface(null, Typeface.BOLD)
             setTextColor(colorTema)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            )
         })
 
         if (pdfSubtitle.isNotBlank()) {
@@ -357,29 +361,35 @@ class InformeBuilder(
                 text = pdfSubtitle
                 textSize = 14f
                 setTextColor(Color.parseColor("#6B7280"))
+                gravity = Gravity.CENTER
                 setPadding(0, dp(2), 0, 0)
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                )
             })
         }
 
         headerLayout.addView(textCol)
 
-        // Logo derecho del cliente (opcional, segundo logo del header).
+        // Logo derecho del cliente (opcional, segundo logo del header). Se reserva SIEMPRE
+        // el mismo ancho que el logo izquierdo, haya o no imagen, para que el título quede
+        // centrado respecto a la hoja y no se recorra hacia la izquierda cuando falta.
         val logoDerechoPath = clienteLogo?.logoDerechoPath
-        if (!logoDerechoPath.isNullOrBlank()) {
-            val logoDerIv = ImageView(ctx).apply {
-                adjustViewBounds = true
-                scaleType = ImageView.ScaleType.FIT_CENTER
-                layoutParams = LinearLayout.LayoutParams(dp(140), dp(70)).apply {
-                    marginStart = dp(16)
-                }
+        val logoDerIv = ImageView(ctx).apply {
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            layoutParams = LinearLayout.LayoutParams(dp(140), dp(70)).apply {
+                marginStart = dp(16)
             }
+        }
+        if (!logoDerechoPath.isNullOrBlank()) {
             val bmpDer = loadLogoBitmapDirect(ctx, logoDerechoPath)
             if (bmpDer != null) {
                 logoDerIv.clearColorFilter()
                 logoDerIv.setImageBitmap(bmpDer)
-                headerLayout.addView(logoDerIv)
             }
         }
+        headerLayout.addView(logoDerIv)
 
         container.addView(headerLayout)
     }
