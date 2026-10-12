@@ -53,24 +53,63 @@ object PacienteSyncHelper {
         resultadoDao: ResultadoDao,
         repo: PacienteRemoteRepository
     ): Boolean {
-        val resultado = repo.buscarPacienteEnAPI(paciente) ?: return false
+        return try {
+            val resultado = repo.buscarPacienteEnAPI(paciente)
+            if (resultado == null) {
+                Log.d(TAG, "⚠️ Paciente ${paciente.id_local} no encontrado en la API (tel=${paciente.telefono}, curp=${paciente.curp}, folio=${paciente.folio})")
+                return false
+            }
 
-        // 1. Actualizar el paciente
-        val actualizado = aplicarDatosAPI(
-            local = paciente,
-            idUsuarioWeb = resultado.idPaciente,
-            usuario = resultado.usuarioWeb
-        )
-        pacienteDao.actualizarPaciente(actualizado)
+            // 1. Actualizar el paciente
+            val actualizado = aplicarDatosAPI(
+                local = paciente,
+                idUsuarioWeb = resultado.idPaciente,
+                usuario = resultado.usuarioWeb
+            )
 
-        // 2. Propagar el id_usuario_web a todos sus resultados sin id
-        resultadoDao.actualizarIdUsuarioWebPorPaciente(
-            idLocal = paciente.id_local,
-            idUsuarioWeb = resultado.idPaciente
-        )
+            // Log de diagnóstico: qué campos realmente cambian con esta sincronización.
+            if (actualizado == paciente) {
+                Log.w(
+                    TAG,
+                    "⚠️ Paciente ${paciente.id_local}: la API respondió pero NINGÚN campo cambió " +
+                            "(posible deserialización vacía de UsuarioWeb; revisar que los nombres de " +
+                            "campo del JSON coincidan con @SerializedName en UsuarioWeb.kt). " +
+                            "usuarioWeb=${resultado.usuarioWeb}"
+                )
+            } else {
+                Log.d(
+                    TAG,
+                    "🔄 Paciente ${paciente.id_local}: nombre '${paciente.nombre}'->'${actualizado.nombre}', " +
+                            "telefono '${paciente.telefono}'->'${actualizado.telefono}', " +
+                            "correo '${paciente.correo}'->'${actualizado.correo}', " +
+                            "curp '${paciente.curp}'->'${actualizado.curp}'"
+                )
+            }
 
-        Log.d(TAG, "✅ Paciente ${paciente.id_local} sincronizado con id ${resultado.idPaciente}, resultados propagados")
-        return true
+            pacienteDao.actualizarPaciente(actualizado)
+
+            // Verificación: releer de la BD para confirmar que el UPDATE realmente se aplicó.
+            val relectura = pacienteDao.obtenerPacientePorIdLocal(paciente.id_local)
+            if (relectura != actualizado) {
+                Log.e(
+                    TAG,
+                    "❌ Paciente ${paciente.id_local}: actualizarPaciente() no dejó la fila como se esperaba. " +
+                            "Esperado=$actualizado, leído=$relectura"
+                )
+            }
+
+            // 2. Propagar el id_usuario_web a todos sus resultados sin id
+            resultadoDao.actualizarIdUsuarioWebPorPaciente(
+                idLocal = paciente.id_local,
+                idUsuarioWeb = resultado.idPaciente
+            )
+
+            Log.d(TAG, "✅ Paciente ${paciente.id_local} sincronizado con id ${resultado.idPaciente}, resultados propagados")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error sincronizando paciente ${paciente.id_local}: ${e.message}", e)
+            false
+        }
     }
 
     // ── Helpers privados ─────────────────────────────────
