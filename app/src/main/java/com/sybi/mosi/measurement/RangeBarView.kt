@@ -8,6 +8,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
+import kotlin.math.abs
 import kotlin.math.max
 
 /**
@@ -15,6 +16,12 @@ import kotlin.math.max
  * MediTech (IMC, tasa de grasa, grasa visceral, temperatura, SpO2). La barra se divide en
  * segmentos de color; debajo van las etiquetas de cada segmento; arriba, un "globo" con el
  * valor apuntando a su posición. Dibujo directo en Canvas (equipo de 2GB).
+ *
+ * Modo "anchos iguales": cuando se activa con [setAnchosIguales], todos los segmentos se
+ * dibujan con el mismo ancho sin importar su rango numérico. El pin del valor sigue
+ * ubicándose proporcionalmente DENTRO del segmento que contiene al valor, no en la
+ * posición absoluta del rango. Se usa en las barras con 4-5 segmentos donde las etiquetas
+ * no caben (presión sistólica/diastólica, tasa de masa muscular).
  */
 class RangeBarView @JvmOverloads constructor(
     context: Context,
@@ -29,6 +36,7 @@ class RangeBarView @JvmOverloads constructor(
     private var sufijo: String = ""
     private var minTotal = 0.0
     private var maxTotal = 1.0
+    private var anchosIguales: Boolean = false
 
     private val d = resources.displayMetrics.density
 
@@ -66,6 +74,16 @@ class RangeBarView @JvmOverloads constructor(
         invalidate()
     }
 
+    /**
+     * Si es true, todos los segmentos se dibujan con el mismo ancho, independientemente
+     * de su rango numérico. El pin sigue ubicándose según el valor real dentro del
+     * segmento que le corresponde.
+     */
+    fun setAnchosIguales(iguales: Boolean) {
+        anchosIguales = iguales
+        invalidate()
+    }
+
     /** Color del pin según en qué segmento cae el valor (el color de esa zona). */
     private fun colorDelValor(): Int {
         for (s in segmentos) if (valor >= s.min && valor <= s.max) return s.color
@@ -76,42 +94,73 @@ class RangeBarView @JvmOverloads constructor(
         super.onDraw(canvas)
         if (width <= 0 || height <= 0 || segmentos.isEmpty()) return
 
-        val pinH = 20f * d           // alto del globo del pin
-        val pinGap = 4f * d          // separación globo-barra
+        val pinH = 20f * d
+        val pinGap = 4f * d
         val barH = 10f * d
-        val labelH = 14f * d
+        val labelH = 26f * d
         val barTop = pinH + pinGap
         val barBottom = barTop + barH
         val padSide = 6f * d
         val barW = width - padSide * 2
         val rangoTotal = (maxTotal - minTotal).let { if (it < 0.0001) 1.0 else it }
 
-        fun xDe(v: Double): Float =
+        // Posición proporcional real (para el pin cuando NO se usan anchos iguales)
+        fun xReal(v: Double): Float =
             (padSide + barW * ((v - minTotal) / rangoTotal).coerceIn(0.0, 1.0)).toFloat()
 
-        // Segmentos de la barra (con esquinas redondeadas en los extremos)
+        // Ancho uniforme por segmento cuando se usa el modo anchos iguales
+        val n = segmentos.size
+        val anchoSeg = if (anchosIguales && n > 0) barW / n else 0f
+
+        fun xDeSegmento(index: Int, esFin: Boolean): Float {
+            return if (anchosIguales) {
+                val base = padSide + anchoSeg * index
+                if (esFin) base + anchoSeg else base
+            } else {
+                val s = segmentos[index]
+                if (esFin) xReal(s.max) else xReal(s.min)
+            }
+        }
+
+        // ── Dibujo de segmentos ──
         val radius = barH / 2f
-        segmentos.forEach { s ->
+        segmentos.forEachIndexed { i, s ->
             barPaint.color = s.color
-            barRect.set(xDe(s.min), barTop, xDe(s.max), barBottom)
+            val x0 = xDeSegmento(i, esFin = false)
+            val x1 = xDeSegmento(i, esFin = true)
+            barRect.set(x0, barTop, x1, barBottom)
             canvas.drawRect(barRect, barPaint)
         }
-        // Redondear extremos tapando las esquinas exteriores con el color del primer/último segmento
-        barPaint.color = segmentos.first().color
-        canvas.drawCircle(xDe(minTotal) + radius, barTop + radius, radius, barPaint)
-        barPaint.color = segmentos.last().color
-        canvas.drawCircle(xDe(maxTotal) - radius, barTop + radius, radius, barPaint)
 
-        // Etiquetas de cada segmento (centradas bajo su tramo)
+        // Redondear extremos con el color del primer/último segmento
+        barPaint.color = segmentos.first().color
+        canvas.drawCircle(padSide + radius, barTop + radius, radius, barPaint)
+        barPaint.color = segmentos.last().color
+        canvas.drawCircle(padSide + barW - radius, barTop + radius, radius, barPaint)
+
+        // ── Etiquetas centradas bajo cada segmento ──
         val labelY = barBottom + labelH
-        segmentos.forEach { s ->
-            val cx = (xDe(s.min) + xDe(s.max)) / 2f
+        segmentos.forEachIndexed { i, s ->
+            val x0 = xDeSegmento(i, esFin = false)
+            val x1 = xDeSegmento(i, esFin = true)
+            val cx = (x0 + x1) / 2f
             canvas.drawText(s.etiqueta, cx, labelY, labelPaint)
         }
 
-        // Pin / globo con el valor
+        // ── Pin del valor ──
         if (valor > 0.0) {
-            val px = xDe(valor)
+            val px: Float = if (anchosIguales) {
+                val idx = segmentos.indexOfFirst { valor >= it.min && valor <= it.max }
+                    .takeIf { it >= 0 } ?: (segmentos.size - 1)
+                val s = segmentos[idx]
+                val rangoSeg = (s.max - s.min).let { if (it < 0.0001) 1.0 else it }
+                val frac = ((valor - s.min) / rangoSeg).coerceIn(0.0, 1.0).toFloat()
+                val x0 = xDeSegmento(idx, esFin = false)
+                x0 + anchoSeg * frac
+            } else {
+                xReal(valor)
+            }
+
             val numStr = if (valor == valor.toLong().toDouble()) valor.toLong().toString()
             else "%.1f".format(valor)
             val texto = if (sufijo.isNotBlank()) "$numStr$sufijo" else numStr
@@ -124,7 +173,6 @@ class RangeBarView @JvmOverloads constructor(
             pinRect.set(left, 0f, left + pinW, pinH)
             canvas.drawRoundRect(pinRect, 5f * d, 5f * d, pinPaint)
 
-            // Triángulo apuntando a la barra
             pinPath.reset()
             pinPath.moveTo(px - 5f * d, pinH)
             pinPath.lineTo(px + 5f * d, pinH)
@@ -133,6 +181,34 @@ class RangeBarView @JvmOverloads constructor(
             canvas.drawPath(pinPath, pinPaint)
 
             canvas.drawText(texto, pinRect.centerX(), pinH / 2f + 4f * d, pinTextPaint)
+        }
+    }
+
+    /**
+     * Divide un texto en dos líneas lo más equilibradas posible, cortando por el espacio
+     * más cercano a la mitad. Si no hay espacios, corta por la mitad exacta.
+     * (Disponible por si más adelante quieres usarlo; no se usa en el flujo actual de
+     * anchos iguales.)
+     */
+    @Suppress("unused")
+    private fun partirEnDosLineas(texto: String): Pair<String, String> {
+        if (texto.length <= 3) return texto to ""
+        val mitad = texto.length / 2
+        var mejorIdx = -1
+        var mejorDist = Int.MAX_VALUE
+        texto.forEachIndexed { i, c ->
+            if (c == ' ') {
+                val dist = abs(i - mitad)
+                if (dist < mejorDist) {
+                    mejorDist = dist
+                    mejorIdx = i
+                }
+            }
+        }
+        return if (mejorIdx > 0) {
+            texto.substring(0, mejorIdx) to texto.substring(mejorIdx + 1)
+        } else {
+            texto.substring(0, mitad) to texto.substring(mitad)
         }
     }
 }

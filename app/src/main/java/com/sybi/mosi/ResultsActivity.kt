@@ -887,8 +887,8 @@ class ResultsActivity : BaseActivity() {
     }
 
     // ==========================================
-    // GENERAR PDF EN MEMORIA
-    // ==========================================
+// GENERAR PDF EN MEMORIA
+// ==========================================
 
     private fun generarPdfBytes(): ByteArray? {
         var pdfBytes: ByteArray? = null
@@ -915,12 +915,26 @@ class ResultsActivity : BaseActivity() {
                 val pageHeight = 1754
                 val marginLeft = 60f
                 val marginTop = 60f
-                val targetWidth = (pageWidth - (marginLeft * 2).toInt()) // 1120px
+                val targetWidth = pageWidth - (marginLeft * 2).toInt() // 1120px
+
+                // Escala uniforme aplicada al contenido de las 3 páginas.
+                // Reduce este valor si el contenido se corta; súbelo si sobra espacio.
+                val escalaContenido = 0.88f
+
+                // Alto reservado abajo para el pie de página (evita que el contenido lo pise)
+                val altoPie = 50f
 
                 val pdfDocument = android.graphics.pdf.PdfDocument()
                 var pageNumber = 1
 
-                fun agregarPaginaAlPdf(crearContenido: (LinearLayout) -> Unit) {
+                // Paint del pie, reutilizado
+                val piePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.parseColor("#6B7280")
+                    textSize = 20f
+                    textAlign = android.graphics.Paint.Align.RIGHT
+                }
+
+                fun agregarPaginaAlPdf(numPagina: Int, totalPaginas: Int, crearContenido: (LinearLayout) -> Unit) {
                     val pageContainer = LinearLayout(this@ResultsActivity).apply {
                         orientation = LinearLayout.VERTICAL
                         setBackgroundColor(Color.WHITE)
@@ -935,23 +949,43 @@ class ResultsActivity : BaseActivity() {
                     pageContainer.measure(widthSpec, heightSpec)
                     pageContainer.layout(0, 0, targetWidth, pageContainer.measuredHeight)
 
-                    val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber++).create()
+                    val pageInfo = android.graphics.pdf.PdfDocument.PageInfo
+                        .Builder(pageWidth, pageHeight, pageNumber++)
+                        .create()
                     val page = pdfDocument.startPage(pageInfo)
                     val canvas = page.canvas
 
+                    // Dibujo del contenido con escala uniforme
                     canvas.save()
-                    canvas.clipRect(marginLeft, marginTop, marginLeft + targetWidth, pageHeight - marginTop)
                     canvas.translate(marginLeft, marginTop)
+                    canvas.scale(escalaContenido, escalaContenido, 0f, 0f)
                     pageContainer.draw(canvas)
                     canvas.restore()
+
+                    // Pie de página anclado abajo-derecha de la hoja A4
+                    val textoPie = "Página $numPagina de $totalPaginas"
+                    val xPie = pageWidth - marginLeft
+                    val yPie = pageHeight - (marginTop / 2f)
+                    canvas.drawText(textoPie, xPie, yPie, piePaint)
 
                     pdfDocument.finishPage(page)
                 }
 
                 if (meds.isNotEmpty()) {
+                    // Calcular total de páginas según lo activo en DevicePrefs
+                    var totalPaginas = 0
+                    if (showAlturaPeso || showComposicion) totalPaginas++
+                    if (showPresion || showOxigeno || showTemperatura) totalPaginas++
+                    if (showEcg) totalPaginas++
+                    if (totalPaginas == 0) totalPaginas = 1
+
+                    var paginaActual = 0
+
                     // Página 1: Altura y peso + Composición corporal
                     if (showAlturaPeso || showComposicion) {
-                        agregarPaginaAlPdf { container ->
+                        paginaActual++
+                        val numPag = paginaActual
+                        agregarPaginaAlPdf(numPag, totalPaginas) { container ->
                             val builder = InformeBuilder(this@ResultsActivity, container, colorTema)
                             builder.construirPagina1(p, idLocal, meds)
                         }
@@ -959,7 +993,9 @@ class ResultsActivity : BaseActivity() {
 
                     // Página 2: Presión arterial + Oxígeno + Temperatura corporal
                     if (showPresion || showOxigeno || showTemperatura) {
-                        agregarPaginaAlPdf { container ->
+                        paginaActual++
+                        val numPag = paginaActual
+                        agregarPaginaAlPdf(numPag, totalPaginas) { container ->
                             val builder = InformeBuilder(this@ResultsActivity, container, colorTema)
                             builder.construirPagina2(p, idLocal, meds)
                         }
@@ -967,14 +1003,16 @@ class ResultsActivity : BaseActivity() {
 
                     // Página 3: Electrocardiograma
                     if (showEcg) {
-                        agregarPaginaAlPdf { container ->
+                        paginaActual++
+                        val numPag = paginaActual
+                        agregarPaginaAlPdf(numPag, totalPaginas) { container ->
                             val builder = InformeBuilder(this@ResultsActivity, container, colorTema)
                             builder.construirPagina3(p, idLocal, meds)
                         }
                     }
                 } else {
-                    agregarPaginaAlPdf { container ->
-                        val builder = InformeBuilder(this@ResultsActivity, container, container.id)
+                    agregarPaginaAlPdf(1, 1) { container ->
+                        val builder = InformeBuilder(this@ResultsActivity, container, colorTema)
                         builder.mensajeVacio("No hay mediciones registradas para este paciente.")
                     }
                 }
