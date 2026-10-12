@@ -27,6 +27,7 @@ object SerialBaudConfig {
         "device_presion" -> 115200
         "device_temperatura" -> 600
         "device_ic_card" -> 9600
+        "device_thermal_printer" -> 9600
         else -> 9600
     }
 

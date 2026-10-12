@@ -326,6 +326,17 @@ class SerialService : Service() {
             }
         }
 
+        // Impresora Térmica
+        val thermalPortPath = prefs.getString("device_thermal_printer_port", null) ?: ""
+        if (prefs.getBoolean("device_thermal_printer", true) &&
+            thermalPortPath.isNotEmpty() &&
+            thermalPortPath != "No se encontraron puertos") {
+            if (openPortInternalSimple(thermalPortPath, SerialBaudConfig.get(prefs, "device_thermal_printer"))) {
+                activePorts.add(thermalPortPath)
+                Log.i(TAG, "✅ Puerto abierto para Impresora Térmica: $thermalPortPath")
+            }
+        }
+
         // Oxígeno (USB)
         if (prefs.getBoolean("device_oxigeno", true)) {
             activePorts.add("USB_OXYGEN")

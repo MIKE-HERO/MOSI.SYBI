@@ -324,21 +324,26 @@ class BasicSettingsActivity : BaseActivity() {
 
         try {
             val systemBrightness = Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS)
-            currentBrightnessPercent = (systemBrightness * 100 / 255).coerceIn(10, 100)
+            val systemPct = (systemBrightness * 100 / 255).coerceIn(0, 100)
+            currentBrightnessPercent = 100 - systemPct
         } catch (e: Exception) {
             val winBrightness = window.attributes.screenBrightness
             if (winBrightness >= 0) {
-                currentBrightnessPercent = (winBrightness * 100).toInt().coerceIn(10, 100)
+                currentBrightnessPercent = 100 - (winBrightness * 100).toInt().coerceIn(0, 100)
             }
         }
+        currentBrightnessPercent = currentBrightnessPercent.coerceIn(0, 100)
 
         seekBarBrightness.progress = currentBrightnessPercent
         txtBrightnessValue.text = "$currentBrightnessPercent%"
 
         seekBarBrightness.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val valPct = progress.coerceAtLeast(5)
-                txtBrightnessValue.text = "$valPct%"
+                txtBrightnessValue.text = "$progress%"
+
+                // Invert progress because hardware brightness is inverted (0 = max brightness, 100 = min brightness)
+                val invertedProgress = 100 - progress
+                val valPct = invertedProgress.coerceIn(5, 100)
 
                 val lp = window.attributes
                 lp.screenBrightness = valPct / 100f

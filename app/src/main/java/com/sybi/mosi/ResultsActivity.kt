@@ -43,6 +43,7 @@ class ResultsActivity : BaseActivity() {
     private lateinit var resultsContainer: LinearLayout
     private lateinit var btnStartConsultation: Button
     private lateinit var btnPrintResults: Button
+    private lateinit var btnPrintTicket: Button
     private lateinit var btnEmailResults: Button
     private lateinit var btnExitResults: View
 
@@ -95,6 +96,7 @@ class ResultsActivity : BaseActivity() {
         resultsContainer = findViewById(R.id.resultsContainer)
         btnStartConsultation = findViewById(R.id.btnStartConsultation)
         btnPrintResults = findViewById(R.id.btnPrintResults)
+        btnPrintTicket = findViewById(R.id.btnPrintTicket)
         btnEmailResults = findViewById(R.id.btnEmailResults)
         btnExitResults = findViewById(R.id.btnExitResults)
 
@@ -170,12 +172,20 @@ class ResultsActivity : BaseActivity() {
         val allowEmail = devicePrefs.getBoolean(
             ReportSettingsActivity.PREF_ALLOW_EMAIL, true
         )
+        val allowTicketPrint = devicePrefs.getBoolean(
+            ReportSettingsActivity.PREF_ALLOW_TICKET_PRINT, true
+        )
 
         btnPrintResults.visibility = if (allowPrint) View.VISIBLE else View.GONE
+        btnPrintTicket.visibility = if (allowTicketPrint) View.VISIBLE else View.GONE
         btnEmailResults.visibility = if (allowEmail) View.VISIBLE else View.GONE
 
         btnPrintResults.setOnClickListener {
             imprimirResultados()
+        }
+
+        btnPrintTicket.setOnClickListener {
+            imprimirTicketResultados()
         }
 
         btnEmailResults.setOnClickListener {
@@ -593,6 +603,40 @@ class ResultsActivity : BaseActivity() {
     // ==========================================
     // IMPRESIÓN DE RESULTADOS (abre PrintShare)
     // ==========================================
+    private fun imprimirTicketResultados() {
+        if (impresionEnCurso) {
+            Toast.makeText(this, "Ya hay una impresión en curso", Toast.LENGTH_SHORT).show()
+            return
+        }
+        impresionEnCurso = true
+
+        Thread {
+            try {
+                val success = ThermalPrinterHelper.imprimirTicket(
+                    context = this@ResultsActivity,
+                    paciente = paciente,
+                    resultados = medicionesCargadas,
+                    customTitle = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("PdfTitle", null),
+                    customSubtitle = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("PdfSubtitle", null)
+                )
+                uiHandler.post {
+                    impresionEnCurso = false
+                    Toast.makeText(
+                        this@ResultsActivity,
+                        if (success) "🖨️ Ticket impreso correctamente" else "❌ Error al imprimir ticket",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error imprimiendo ticket: ${e.message}", e)
+                uiHandler.post {
+                    impresionEnCurso = false
+                    Toast.makeText(this@ResultsActivity, "❌ Error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
+    }
+
     private fun imprimirResultados() {
         if (impresionEnCurso) {
             Toast.makeText(this, "Ya hay una impresión en curso", Toast.LENGTH_SHORT).show()

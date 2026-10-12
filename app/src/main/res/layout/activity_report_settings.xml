@@ -96,7 +96,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Permitir impresión de resultados"
+                        android:text="Permitir impresión de resultados (PDF)"
                         android:textSize="15sp"
                         android:textColor="#333333"/>
                     <Switch
@@ -121,6 +121,26 @@
                         android:textColor="#333333"/>
                     <Switch
                         android:id="@+id/switchEnableEmail"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"/>
+                </LinearLayout>
+
+                <!-- Imprimir tickets térmicos -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="8dp"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Permitir impresión de tickets térmicos"
+                        android:textSize="15sp"
+                        android:textColor="#333333"/>
+                    <Switch
+                        android:id="@+id/switchEnableTicketPrint"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"/>
                 </LinearLayout>
@@ -228,39 +248,115 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Previsualización del PDF"
+                    android:text="Previsualización de Informes"
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="#333333"
                     android:layout_marginBottom="8dp"/>
 
-                <androidx.cardview.widget.CardView
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="550dp"
-                    app:cardCornerRadius="8dp"
-                    app:cardElevation="2dp"
-                    app:cardBackgroundColor="#F0F2F5"
-                    android:layout_marginBottom="8dp">
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:baselineAligned="false">
 
-                    <ScrollView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:fillViewport="true"
-                        android:nestedScrollingEnabled="true"
-                        android:clipChildren="false"
-                        android:clipToPadding="false"
-                        android:padding="12dp">
+                    <!-- PDF Preview (Izquierda) -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginEnd="8dp">
 
-                        <LinearLayout
-                            android:id="@+id/previewInformeContainer"
-                            android:layout_width="match_parent"
+                        <TextView
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:clipChildren="false"
-                            android:clipToPadding="false" />
+                            android:text="PDF (Carta)"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:textColor="#555555"
+                            android:layout_marginBottom="4dp"/>
 
-                    </ScrollView>
-                </androidx.cardview.widget.CardView>
+                        <androidx.cardview.widget.CardView
+                            android:layout_width="match_parent"
+                            android:layout_height="550dp"
+                            app:cardCornerRadius="8dp"
+                            app:cardElevation="2dp"
+                            app:cardBackgroundColor="#F0F2F5"
+                            android:layout_marginBottom="8dp">
+
+                            <ScrollView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:fillViewport="true"
+                                android:nestedScrollingEnabled="true"
+                                android:padding="12dp">
+
+                                <LinearLayout
+                                    android:id="@+id/previewInformeContainer"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical" />
+
+                            </ScrollView>
+                        </androidx.cardview.widget.CardView>
+                    </LinearLayout>
+
+                    <!-- Ticket Preview (Derecha - 3 pulgadas / térmico) -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginStart="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Ticket Térmico (3&quot;)"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:textColor="#555555"
+                            android:layout_marginBottom="4dp"/>
+
+                        <androidx.cardview.widget.CardView
+                            android:layout_width="match_parent"
+                            android:layout_height="550dp"
+                            app:cardCornerRadius="8dp"
+                            app:cardElevation="2dp"
+                            app:cardBackgroundColor="#E9ECEF"
+                            android:layout_marginBottom="8dp">
+
+                            <ScrollView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:fillViewport="true"
+                                android:nestedScrollingEnabled="true"
+                                android:padding="16dp">
+
+                                <!-- Rectángulo que simula el ticket físico de 3 pulgadas (centrado) -->
+                                <androidx.cardview.widget.CardView
+                                    android:layout_width="280dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center_horizontal"
+                                    app:cardCornerRadius="4dp"
+                                    app:cardElevation="4dp"
+                                    app:cardBackgroundColor="#FFFFFF">
+
+                                    <LinearLayout
+                                        android:id="@+id/previewTicketContainer"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:orientation="vertical"
+                                        android:padding="12dp" />
+
+                                </androidx.cardview.widget.CardView>
+
+                            </ScrollView>
+                        </androidx.cardview.widget.CardView>
+                    </LinearLayout>
+
+                </LinearLayout>
             </LinearLayout>
 
         </LinearLayout>
