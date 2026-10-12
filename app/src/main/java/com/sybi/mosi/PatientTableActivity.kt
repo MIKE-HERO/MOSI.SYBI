@@ -26,6 +26,7 @@ import com.sybi.mosi.repository.PacienteRemoteRepository
 import com.sybi.mosi.repository.PacienteSyncHelper
 import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -337,13 +338,36 @@ class PatientTableActivity : BaseActivity() {
             .setTitle("Confirmar eliminación")
             .setMessage(
                 "¿Eliminar los ${seleccionados.size} pacientes seleccionados?\n\n" +
+                        "También se eliminará su historial de mediciones (y sus archivos de ECG). " +
                         "Si quedaron registros duplicados de la misma persona (mismo teléfono, " +
                         "tarjeta IC o CURP), también se eliminarán — para evitar que al buscar " +
-                        "otra vez por esos datos reaparezca una copia vieja."
+                        "otra vez por esos datos reaparezca una copia vieja.\n\n" +
+                        "Esta acción no se puede deshacer."
             )
             .setPositiveButton("Eliminar") { _, _ -> eliminarSeleccionados() }
             .setNegativeButton("Cancelar", null)
             .show()
+    }
+
+    /**
+     * Elimina completamente a un paciente: sus mediciones (tabla "resultados",
+     * que tiene su propio almacenamiento y NO se borra en cascada con Room),
+     * los archivos de ECG que esas mediciones referencian en disco, y por
+     * último la fila del paciente.
+     */
+    private suspend fun eliminarPacienteYSusDatos(
+        pacienteDao: com.sybi.mosi.database.PacienteDao,
+        resultadoDao: com.sybi.mosi.database.ResultadoDao,
+        idLocal: Long
+    ) {
+        val resultados = resultadoDao.obtenerResultadosPorIdLocal(idLocal)
+        for (r in resultados) {
+            if (r.ruta_ecg.isNotEmpty()) {
+                try { File(r.ruta_ecg).delete() } catch (_: Exception) {}
+            }
+        }
+        resultadoDao.eliminarResultadosPorIdLocal(idLocal)
+        pacienteDao.eliminarPaciente(idLocal)
     }
 
     private fun eliminarSeleccionados() {
@@ -351,6 +375,7 @@ class PatientTableActivity : BaseActivity() {
             runBlocking {
                 val db = AppDatabase.getInstance(this@PatientTableActivity)
                 val pacienteDao = db.pacienteDao()
+                val resultadoDao = db.resultadoDao()
                 try {
                     val count = seleccionados.size
                     var duplicadosEliminados = 0
@@ -373,12 +398,12 @@ class PatientTableActivity : BaseActivity() {
                             for (dup in duplicados) {
                                 // No borrar dos veces algo que ya está en la selección.
                                 if (dup.id_local !in seleccionados) {
-                                    pacienteDao.eliminarPaciente(dup.id_local)
+                                    eliminarPacienteYSusDatos(pacienteDao, resultadoDao, dup.id_local)
                                     duplicadosEliminados++
                                 }
                             }
                         }
-                        pacienteDao.eliminarPaciente(id)
+                        eliminarPacienteYSusDatos(pacienteDao, resultadoDao, id)
                     }
 
                     runOnUiThread {
