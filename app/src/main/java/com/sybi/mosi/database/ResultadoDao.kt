@@ -30,4 +30,11 @@ interface ResultadoDao {
 
     @Query("UPDATE resultados SET id_usuario_web = :idUsuarioWeb WHERE id_local = :idLocal AND id_usuario_web = 0")
     suspend fun actualizarIdUsuarioWebPorPaciente(idLocal: Long, idUsuarioWeb: Int)
+
+    // Al eliminar un paciente hay que limpiar también sus mediciones: son su propio
+    // almacenamiento (tabla "resultados"), sin relación de borrado en cascada con
+    // Room, así que si no se borran aquí quedan huérfanas (id_local apuntando a un
+    // paciente que ya no existe).
+    @Query("DELETE FROM resultados WHERE id_local = :idLocal")
+    suspend fun eliminarResultadosPorIdLocal(idLocal: Long)
 }
