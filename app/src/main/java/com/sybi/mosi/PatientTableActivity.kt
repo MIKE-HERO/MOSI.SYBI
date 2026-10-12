@@ -335,7 +335,12 @@ class PatientTableActivity : BaseActivity() {
         if (seleccionados.isEmpty()) return
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Confirmar eliminación")
-            .setMessage("¿Eliminar los ${seleccionados.size} pacientes seleccionados?")
+            .setMessage(
+                "¿Eliminar los ${seleccionados.size} pacientes seleccionados?\n\n" +
+                        "Si quedaron registros duplicados de la misma persona (mismo teléfono, " +
+                        "tarjeta IC o CURP), también se eliminarán — para evitar que al buscar " +
+                        "otra vez por esos datos reaparezca una copia vieja."
+            )
             .setPositiveButton("Eliminar") { _, _ -> eliminarSeleccionados() }
             .setNegativeButton("Cancelar", null)
             .show()
@@ -345,16 +350,45 @@ class PatientTableActivity : BaseActivity() {
         Thread {
             runBlocking {
                 val db = AppDatabase.getInstance(this@PatientTableActivity)
+                val pacienteDao = db.pacienteDao()
                 try {
                     val count = seleccionados.size
+                    var duplicadosEliminados = 0
+
                     for (id in seleccionados) {
-                        db.pacienteDao().eliminarPaciente(id)
+                        // Antes de borrar, localizar y borrar también cualquier fila
+                        // duplicada de la misma persona (mismo teléfono/tarjetaIc/CURP).
+                        // Son casi siempre restos de un bug ya corregido en el que la app
+                        // insertaba un registro nuevo en vez de sobrescribir el existente;
+                        // dejarlos vivos hace que, tras "eliminar" a alguien, una búsqueda
+                        // por esos mismos datos vuelva a encontrar la copia vieja.
+                        val p = pacienteDao.obtenerPacientePorIdLocal(id)
+                        if (p != null) {
+                            val duplicados = pacienteDao.obtenerDuplicadosDe(
+                                idLocalExcluir = id,
+                                telefono = p.telefono,
+                                tarjetaIc = p.tarjetaIc,
+                                curp = p.curp
+                            )
+                            for (dup in duplicados) {
+                                // No borrar dos veces algo que ya está en la selección.
+                                if (dup.id_local !in seleccionados) {
+                                    pacienteDao.eliminarPaciente(dup.id_local)
+                                    duplicadosEliminados++
+                                }
+                            }
+                        }
+                        pacienteDao.eliminarPaciente(id)
                     }
+
                     runOnUiThread {
+                        val mensajeDup = if (duplicadosEliminados > 0) {
+                            " (+ $duplicadosEliminados duplicado(s) de la misma persona)"
+                        } else ""
                         Toast.makeText(
                             this@PatientTableActivity,
-                            "✅ $count paciente(s) eliminado(s)",
-                            Toast.LENGTH_SHORT
+                            "✅ $count paciente(s) eliminado(s)$mensajeDup",
+                            Toast.LENGTH_LONG
                         ).show()
                         seleccionados.clear()
                         loadPatients()
