@@ -41,9 +41,15 @@ interface ApiService {
         @Query("id_cliente") idCliente: String
     ): Response<SucursalesResponse>
 
-    // ── Logos/razón social del cliente (encabezado y pie de página del PDF) ──
+    // ── Logos/razón social del cliente (encabezado del PDF) ──
     @GET("usuariosWeb/logosCliente")
     fun obtenerLogosCliente(
         @Query("id_cliente") idCliente: String
     ): Call<LogosClienteResponse>
+
+    // ── Dirección de la sucursal y nombre del proyecto (pie de página del PDF) ──
+    @GET("usuariosWeb/datosSucursal")
+    fun obtenerDatosSucursal(
+        @Query("id_sucursal") idSucursal: String
+    ): Call<DatosSucursalResponse>
 }
