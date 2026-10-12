@@ -941,6 +941,26 @@ class ResultsActivity : BaseActivity() {
                     textAlign = android.graphics.Paint.Align.RIGHT
                 }
 
+                // Pie de cliente (razón social + dirección), anclado al fondo de cada hoja
+                // igual que "Página X de Y" (no depende de cuánto contenido haya arriba).
+                val clienteRazonSocial = clienteLogo?.razonSocial?.trim()?.ifBlank { null }
+                val clienteDireccion = InformeBuilder.formatearDireccionCliente(clienteLogo)
+                val clienteRazonPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.parseColor("#6B7280")
+                    textSize = 18f
+                    isFakeBoldText = true
+                    textAlign = android.graphics.Paint.Align.CENTER
+                }
+                val clienteDireccionPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.parseColor("#9CA3AF")
+                    textSize = 16f
+                    textAlign = android.graphics.Paint.Align.CENTER
+                }
+                val clienteLineaPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.parseColor("#E5E7EB")
+                    strokeWidth = 1.5f
+                }
+
                 fun agregarPaginaAlPdf(numPagina: Int, totalPaginas: Int, crearContenido: (LinearLayout) -> Unit) {
                     val pageContainer = LinearLayout(this@ResultsActivity).apply {
                         orientation = LinearLayout.VERTICAL
@@ -974,6 +994,22 @@ class ResultsActivity : BaseActivity() {
                     val xPie = pageWidth - marginLeft
                     val yPie = pageHeight - (marginTop / 2f)
                     canvas.drawText(textoPie, xPie, yPie, piePaint)
+
+                    // Pie del cliente (razón social + dirección), centrado y anclado
+                    // justo arriba del número de página, en TODAS las hojas.
+                    if (clienteRazonSocial != null || clienteDireccion != null) {
+                        val xCentro = pageWidth / 2f
+                        var y = yPie - 40f
+                        if (clienteDireccion != null) {
+                            canvas.drawText(clienteDireccion, xCentro, y, clienteDireccionPaint)
+                            y -= 26f
+                        }
+                        if (clienteRazonSocial != null) {
+                            canvas.drawText(clienteRazonSocial, xCentro, y, clienteRazonPaint)
+                            y -= 16f
+                        }
+                        canvas.drawLine(xCentro - 160f, y, xCentro + 160f, y, clienteLineaPaint)
+                    }
 
                     pdfDocument.finishPage(page)
                 }
