@@ -133,6 +133,7 @@ object ThermalPrinterHelper {
             val title = customTitle?.takeIf { it.isNotBlank() } ?: appPrefs.getString("PdfTitle", defaultTitle) ?: defaultTitle
             val subtitle = customSubtitle?.takeIf { it.isNotBlank() } ?: appPrefs.getString("PdfSubtitle", "") ?: ""
 
+            writeLine("")   // ✅ Espacio antes de la sección
             writeLine(title, bold = true, alignCenter = true)
             if (subtitle.isNotBlank()) {
                 writeLine(subtitle, bold = false, alignCenter = true)
