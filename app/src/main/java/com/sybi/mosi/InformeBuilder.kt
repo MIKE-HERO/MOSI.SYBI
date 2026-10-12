@@ -92,7 +92,6 @@ class InformeBuilder(
         if (showOxigeno) agregarSeccionOxigeno(actual, asc)
         if (showTemperatura) agregarSeccionTemperatura(actual, asc)
         if (showEcg) agregarSeccionEcg(actual)
-        agregarPieClienteSiAplica()
     }
 
     /**
@@ -136,7 +135,6 @@ class InformeBuilder(
 
         if (showAlturaPeso) agregarSeccionAlturaPeso(actual, asc)
         if (showComposicion) agregarSeccionComposicion(actual, asc, isMale, age, muscleRate)
-        agregarPieClienteSiAplica()
     }
 
     /** Página 2 del PDF: Presión arterial + Oxígeno + Temperatura corporal */
@@ -155,7 +153,6 @@ class InformeBuilder(
         if (showPresion) agregarSeccionPresion(actual, asc)
         if (showOxigeno) agregarSeccionOxigeno(actual, asc)
         if (showTemperatura) agregarSeccionTemperatura(actual, asc)
-        agregarPieClienteSiAplica()
     }
 
     /** Página 3 del PDF: Electrocardiograma */
@@ -169,7 +166,6 @@ class InformeBuilder(
         agregarCabecera(paciente, actual)
 
         if (showEcg) agregarSeccionEcg(actual)
-        agregarPieClienteSiAplica()
     }
 
     fun mensajeVacio(texto: String) {
@@ -394,58 +390,23 @@ class InformeBuilder(
         container.addView(headerLayout)
     }
 
-    /**
-     * Pie de página con la razón social y dirección del cliente (subrogado).
-     * Se agrega al final del contenido de cada página; no es el pie fijo
-     * "Página X de Y" (ese lo dibuja ResultsActivity directo en el Canvas).
-     */
-    private fun agregarPieClienteSiAplica() {
-        val logo = clienteLogo ?: return
-        val direccion = logo.direccion?.trim().orEmpty()
-        val razonSocial = logo.razonSocial?.trim().orEmpty()
-        if (direccion.isBlank() && razonSocial.isBlank()) return
-
-        val partesDireccion = listOfNotNull(
-            direccion.ifBlank { null },
-            logo.codigoPostal?.trim()?.ifBlank { null }?.let { "C.P. $it" },
-            logo.estado?.trim()?.ifBlank { null }
-        ).joinToString(", ")
-
-        val pie = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(4), dp(10), dp(4), dp(2))
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = dp(8) }
+    companion object {
+        /**
+         * Línea de dirección combinada (dirección + C.P. + estado) del cliente, lista para
+         * el pie de página. El pie en sí NO se dibuja aquí: se ancla al fondo de cada hoja
+         * (junto a "Página X de Y") directo en el Canvas del PDF, en ResultsActivity —
+         * igual que el número de página — para que no dependa de cuánto contenido haya
+         * arriba en esa página.
+         */
+        fun formatearDireccionCliente(logo: ClienteLogoCache.Logos?): String? {
+            logo ?: return null
+            val partes = listOfNotNull(
+                logo.direccion?.trim()?.ifBlank { null },
+                logo.codigoPostal?.trim()?.ifBlank { null }?.let { "C.P. $it" },
+                logo.estado?.trim()?.ifBlank { null }
+            )
+            return partes.joinToString(", ").ifBlank { null }
         }
-
-        pie.addView(View(ctx).apply {
-            setBackgroundColor(Color.parseColor("#E5E7EB"))
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(1)
-            ).apply { bottomMargin = dp(6) }
-        })
-
-        if (razonSocial.isNotBlank()) {
-            pie.addView(TextView(ctx).apply {
-                text = razonSocial
-                textSize = 10f
-                setTypeface(null, Typeface.BOLD)
-                setTextColor(Color.parseColor("#6B7280"))
-                gravity = Gravity.CENTER
-            })
-        }
-        if (partesDireccion.isNotBlank()) {
-            pie.addView(TextView(ctx).apply {
-                text = partesDireccion
-                textSize = 9f
-                setTextColor(Color.parseColor("#9CA3AF"))
-                gravity = Gravity.CENTER
-            })
-        }
-
-        container.addView(pie)
     }
 
     private fun loadLogoBitmapDirect(context: Context, path: String?): Bitmap? {
