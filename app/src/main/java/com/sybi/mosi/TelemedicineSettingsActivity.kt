@@ -491,6 +491,18 @@ class TelemedicineSettingsActivity : BaseActivity() {
                     "sucursal=$idSucursalSeleccionada ($nombreSucursalSeleccionada)"
         )
         Toast.makeText(this, "✅ Configuración guardada", Toast.LENGTH_SHORT).show()
+
+        // Al guardar el cliente/sucursal, sincroniza el logo de marca de la app
+        // (pantalla principal, PDF, etc.) con el logo del cliente activo.
+        if (idClienteSeleccionado.isNotBlank() || idSucursalSeleccionada.isNotBlank()) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                LogoSyncHelper.sincronizarLogoDeCliente(
+                    this@TelemedicineSettingsActivity,
+                    idSucursalSeleccionada,
+                    idClienteSeleccionado
+                )
+            }
+        }
     }
 
     override fun onPause() {
