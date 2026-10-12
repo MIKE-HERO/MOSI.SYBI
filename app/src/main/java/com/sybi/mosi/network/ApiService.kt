@@ -1,5 +1,6 @@
 package com.sybi.mosi.network
 
+import retrofit2.Call
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -39,4 +40,10 @@ interface ApiService {
     suspend fun obtenerSucursales(
         @Query("id_cliente") idCliente: String
     ): Response<SucursalesResponse>
+
+    // ── Logos/razón social del cliente (encabezado y pie de página del PDF) ──
+    @GET("usuariosWeb/logosCliente")
+    fun obtenerLogosCliente(
+        @Query("id_cliente") idCliente: String
+    ): Call<LogosClienteResponse>
 }
