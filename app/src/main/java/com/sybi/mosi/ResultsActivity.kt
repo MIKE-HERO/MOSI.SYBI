@@ -1016,19 +1016,25 @@ class ResultsActivity : BaseActivity() {
 
                 // Escala uniforme aplicada al contenido de las 3 páginas.
                 // Reduce este valor si el contenido se corta; súbelo si sobra espacio.
-                val escalaContenido = 0.88f
+                val escalaMaxima = 0.92f
 
                 // Alto reservado abajo para el pie de página (evita que el contenido lo pise)
-                val altoPie = 50f
+                val altoPie = 105f
 
                 val pdfDocument = android.graphics.pdf.PdfDocument()
                 var pageNumber = 1
 
                 // Paint del pie, reutilizado
                 val piePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                    color = Color.parseColor("#6B7280")
-                    textSize = 20f
+                    color = Color.parseColor("#607789")
+                    textSize = 18f
                     textAlign = android.graphics.Paint.Align.RIGHT
+                }
+                val pieTituloPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.parseColor("#36566C")
+                    textSize = 17f
+                    isFakeBoldText = true
+                    textAlign = android.graphics.Paint.Align.LEFT
                 }
 
                 // Pie de cliente (razón social + dirección), anclado al fondo de cada hoja
@@ -1065,12 +1071,17 @@ class ResultsActivity : BaseActivity() {
 
                     pageContainer.measure(widthSpec, heightSpec)
                     pageContainer.layout(0, 0, targetWidth, pageContainer.measuredHeight)
+                    val altoDisponible = pageHeight - marginTop - altoPie
+                    val escalaPorAlto = if (pageContainer.measuredHeight > 0)
+                        altoDisponible / pageContainer.measuredHeight.toFloat() else escalaMaxima
+                    val escalaContenido = minOf(escalaMaxima, escalaPorAlto).coerceAtLeast(0.68f)
 
                     val pageInfo = android.graphics.pdf.PdfDocument.PageInfo
                         .Builder(pageWidth, pageHeight, pageNumber++)
                         .create()
                     val page = pdfDocument.startPage(pageInfo)
                     val canvas = page.canvas
+                    canvas.drawColor(Color.parseColor("#F7FAFC"))
 
                     // Dibujo del contenido con escala uniforme
                     canvas.save()
@@ -1082,14 +1093,16 @@ class ResultsActivity : BaseActivity() {
                     // Pie de página anclado abajo-derecha de la hoja A4
                     val textoPie = "Página $numPagina de $totalPaginas"
                     val xPie = pageWidth - marginLeft
-                    val yPie = pageHeight - (marginTop / 2f)
+                    val yPie = pageHeight - 34f
                     canvas.drawText(textoPie, xPie, yPie, piePaint)
+                    canvas.drawText("INFORME DE SALUD INTEGRAL", marginLeft, yPie, pieTituloPaint)
+                    canvas.drawLine(marginLeft, yPie - 34f, pageWidth - marginLeft, yPie - 34f, clienteLineaPaint)
 
                     // Pie del cliente (razón social + dirección), centrado y anclado
                     // justo arriba del número de página, en TODAS las hojas.
                     if (clienteRazonSocial != null || clienteDireccion != null) {
                         val xCentro = pageWidth / 2f
-                        var y = yPie - 40f
+                        var y = yPie - 48f
                         if (clienteDireccion != null) {
                             canvas.drawText(clienteDireccion, xCentro, y, clienteDireccionPaint)
                             y -= 26f

@@ -1,146 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F5F5F5">
+    android:layout_width="match_parent" android:layout_height="match_parent" android:background="#EDF4F8">
 
-    <!-- Barra superior -->
-    <RelativeLayout
-        android:id="@+id/topFaceBar"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:background="#0F3E82"
-        android:paddingHorizontal="20dp">
+    <View android:layout_width="0dp" android:layout_height="0dp" android:background="@drawable/bg_login_ambient"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+    <View android:id="@+id/topFaceBar" android:layout_width="0dp" android:layout_height="5dp"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
-        <TextView
-            android:id="@+id/btnCancelFaceRegistration"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:text="Cancelar"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:gravity="center_vertical"
-            android:clickable="true"
-            android:focusable="true" />
+    <TextView android:id="@+id/btnCancelFaceRegistration" android:layout_width="58dp" android:layout_height="58dp"
+        android:layout_marginStart="30dp" android:layout_marginTop="24dp" android:background="@drawable/bg_login_back"
+        android:clickable="true" android:contentDescription="Cancelar" android:focusable="true" android:gravity="center"
+        android:text="×" android:textColor="#31536A" android:textSize="30sp"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout_centerInParent="true"
-            android:text="Registro Facial"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:gravity="center" />
-    </RelativeLayout>
+    <TextView android:id="@+id/photoStep" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="26dp" android:fontFamily="sans-serif-medium" android:letterSpacing="0.1"
+        android:text="PASO 1 DE 2  •  FOTOGRAFÍA" android:textColor="#668296" android:textSize="12sp"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+    <TextView android:id="@+id/photoTitle" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="7dp" android:text="Prepara tu identificación facial" android:textColor="#102A43"
+        android:textSize="30sp" android:textStyle="bold" app:layout_constraintTop_toBottomOf="@id/photoStep"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Contenido principal -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:padding="20dp"
-        android:gravity="center">
+    <LinearLayout android:layout_width="1120dp" android:layout_height="510dp" android:layout_marginTop="22dp"
+        android:background="@drawable/bg_auth_panel" android:elevation="8dp" android:gravity="center_vertical"
+        android:orientation="horizontal" android:padding="30dp" app:layout_constraintTop_toBottomOf="@id/photoTitle"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Mensaje de estado -->
-        <TextView
-            android:id="@+id/tvFaceStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Coloque su rostro frente a la cámara del quiosco"
-            android:textSize="16sp"
-            android:textColor="#FF9800"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:layout_marginBottom="20dp" />
-
-        <!-- Contenedor de la cámara con ancho DEFINIDO -->
-        <FrameLayout
-            android:layout_width="400dp"
-            android:layout_height="300dp"
-            android:layout_gravity="center"
-            android:background="#000000">
-
-            <TextureView
-                android:id="@+id/textureView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleX="-1" />
-
-            <ImageView
-                android:id="@+id/imgPhotoPreview"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="fitCenter"
-                android:background="#000000"
-                android:visibility="gone" />
-
+        <FrameLayout android:layout_width="650dp" android:layout_height="425dp" android:background="@drawable/bg_auth_camera" android:padding="5dp">
+            <TextureView android:id="@+id/textureView" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleX="-1" />
+            <ImageView android:id="@+id/imgPhotoPreview" android:layout_width="match_parent" android:layout_height="match_parent"
+                android:background="#101820" android:scaleType="centerCrop" android:visibility="gone" />
+            <View android:id="@+id/faceRegistrationGuide" android:layout_width="270dp" android:layout_height="330dp" android:layout_gravity="center"
+                android:background="@drawable/face_guide_border" />
         </FrameLayout>
 
-        <!-- Botones -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_marginTop="20dp">
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="34dp"
+            android:layout_weight="1" android:gravity="center_vertical" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Antes de tomar la foto"
+                android:textColor="#17324A" android:textSize="21sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="15dp"
+                android:background="@drawable/bg_auth_instruction" android:padding="14dp" android:text="1   Mira de frente y centra tu rostro"
+                android:textColor="#36566C" android:textSize="14sp" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp"
+                android:background="@drawable/bg_auth_instruction" android:padding="14dp" android:text="2   Mantente quieto y evita contraluz"
+                android:textColor="#36566C" android:textSize="14sp" />
+            <TextView android:id="@+id/tvFaceStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="14dp" android:gravity="center" android:minHeight="52dp"
+                android:text="Coloca tu rostro frente a la cámara" android:textColor="#C47A16" android:textSize="14sp" android:textStyle="bold" />
 
-            <!-- Botón omitir foto -->
-            <Button
-                android:id="@+id/btnSkipPhoto"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="⏭️ Omitir"
-                android:textSize="16sp"
-                android:backgroundTint="#757575"
-                android:textColor="#FFFFFF"
-                android:layout_marginEnd="10dp" />
+            <Button android:id="@+id/btnTakePhoto" android:layout_width="match_parent" android:layout_height="58dp"
+                android:backgroundTint="#163F5B" android:drawableStart="@drawable/ic_face" android:drawablePadding="12dp"
+                android:drawableTint="#FFFFFF" android:text="Tomar fotografía" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="16sp" />
 
-            <!-- Botón tomar foto -->
-            <Button
-                android:id="@+id/btnTakePhoto"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="📸 Tomar Foto"
-                android:textSize="16sp"
-                android:backgroundTint="#0F3E82"
-                android:textColor="#FFFFFF"
-                android:layout_marginEnd="10dp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="10dp" android:orientation="horizontal">
+                <Button android:id="@+id/btnRetakePhoto" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginEnd="6dp"
+                    android:layout_weight="1" android:backgroundTint="#E8EFF3" android:text="Repetir foto" android:textAllCaps="false"
+                    android:textColor="#294C62" android:textSize="14sp" android:visibility="gone" />
+                <Button android:id="@+id/btnSavePhoto" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="6dp"
+                    android:layout_weight="1" android:backgroundTint="#163F5B" android:text="Usar y continuar" android:textAllCaps="false"
+                    android:textColor="#FFFFFF" android:textSize="14sp" android:visibility="gone" />
+            </LinearLayout>
 
-
-
-            <!-- Botón repetir foto -->
-            <Button
-                android:id="@+id/btnRetakePhoto"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="🔄 Repetir"
-                android:textSize="16sp"
-                android:backgroundTint="#FF9800"
-                android:textColor="#FFFFFF"
-                android:visibility="gone"
-                android:layout_marginEnd="10dp" />
-
-            <!-- Botón guardar foto -->
-            <Button
-                android:id="@+id/btnSavePhoto"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="💾 Guardar"
-                android:textSize="16sp"
-                android:backgroundTint="#4CAF50"
-                android:textColor="#FFFFFF"
-                android:visibility="gone" />
-
+            <Button android:id="@+id/btnSkipPhoto" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="4dp"
+                android:backgroundTint="#00FFFFFF" android:text="Continuar sin fotografía" android:textAllCaps="false"
+                android:textColor="#688092" android:textSize="13sp" />
         </LinearLayout>
-
     </LinearLayout>
-
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
