@@ -412,13 +412,22 @@ class InformeBuilder(
     private fun loadLogoBitmapDirect(context: Context, path: String?): Bitmap? {
         val original: Bitmap? = try {
             if (!path.isNullOrBlank()) {
-                val file = File(path)
-                if (file.exists()) {
-                    BitmapFactory.decodeFile(file.absolutePath)
+                val esSvg = path.substringAfterLast('.', "").equals("svg", ignoreCase = true)
+                if (esSvg) {
+                    // BitmapFactory no decodifica SVG; se usa Coil (mismo decoder que
+                    // ya usa cargarLogoAsincrono) en su variante SÍNCRONA, porque el
+                    // archivo ya está en disco (sin red de por medio) y el PDF
+                    // necesita el bitmap ya, no en un callback posterior.
+                    decodificarSvgSincrono(context, path)
                 } else {
-                    val uri = Uri.parse(path)
-                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                        BitmapFactory.decodeStream(inputStream)
+                    val file = File(path)
+                    if (file.exists()) {
+                        BitmapFactory.decodeFile(file.absolutePath)
+                    } else {
+                        val uri = Uri.parse(path)
+                        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                            BitmapFactory.decodeStream(inputStream)
+                        }
                     }
                 }
             } else {
@@ -433,6 +442,21 @@ class InformeBuilder(
         }
 
         return original?.let { aplanarSobreBlanco(it) }
+    }
+
+    private fun decodificarSvgSincrono(context: Context, path: String): Bitmap? {
+        return try {
+            val imageLoader = ImageLoader.Builder(context)
+                .components { add(SvgDecoder.Factory()) }
+                .build()
+            val file = File(path)
+            val data: Any = if (file.exists()) file else Uri.parse(path)
+            val request = ImageRequest.Builder(context).data(data).build()
+            val resultado = kotlinx.coroutines.runBlocking { imageLoader.execute(request) }
+            resultado.drawable?.toBitmap()
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun aplanarSobreBlanco(src: Bitmap): Bitmap {
