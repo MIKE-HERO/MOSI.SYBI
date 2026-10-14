@@ -83,7 +83,14 @@ class ProfileActivity : BaseActivity() {
         findViewById<TextView>(R.id.tvPatientPhone).text = telefono
         findViewById<TextView>(R.id.tvPatientBirthDate).text = fechaNacimiento
         findViewById<TextView>(R.id.tvPatientGender).text = generoDisplay(genero)
-        findViewById<TextView>(R.id.tvPatientAge).text = calcularEdad(fechaNacimiento).toString()
+        val edadCalculada = calcularEdad(fechaNacimiento)
+        findViewById<TextView>(R.id.tvPatientAge).text = if (edadCalculada > 0) "$edadCalculada años" else "No disponible"
+        findViewById<TextView>(R.id.tvProfileContext).text = if (sessionType == "telemedicine") {
+            "Acceso para consulta médica"
+        } else {
+            "Acceso para nueva medición"
+        }
+        btnAccess.text = if (sessionType == "telemedicine") "Entrar a consulta" else "Comenzar medición"
 
         val btnNotMe = findViewById<Button>(R.id.btnNotMe)
 
@@ -133,10 +140,10 @@ class ProfileActivity : BaseActivity() {
         dialog.window?.setGravity(android.view.Gravity.CENTER)
 
         val headerBar = dialog.findViewById<View>(R.id.headerConsentBar)
-        headerBar.setBackgroundColor(Color.parseColor(currentColor))
+        headerBar.setBackgroundColor(Color.parseColor("#193447"))
 
         val btnConfirm = dialog.findViewById<Button>(R.id.btnConfirmConsent)
-        btnConfirm.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor(currentColor))
+        btnConfirm.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#193447"))
 
         val btnCancel = dialog.findViewById<Button>(R.id.btnCancelConsent)
 
@@ -150,6 +157,7 @@ class ProfileActivity : BaseActivity() {
         }
 
         dialog.show()
+        dialog.window?.setLayout(width, height)
 
         // ✅ Reforzar después de show()
         dialog.window?.setGravity(android.view.Gravity.CENTER)
@@ -241,20 +249,20 @@ class ProfileActivity : BaseActivity() {
                                 if (bitmap != null) {
                                     imageView.setImageBitmap(bitmap)
                                 } else {
-                                    imageView.setImageResource(R.drawable.ic_launcher_background)
+                                    imageView.setImageResource(R.drawable.ic_face)
                                 }
                             } catch (e: Exception) {
-                                imageView.setImageResource(R.drawable.ic_launcher_background)
+                                imageView.setImageResource(R.drawable.ic_face)
                             }
                         }
                     } else {
                         runOnUiThread {
-                            imageView.setImageResource(R.drawable.ic_launcher_background)
+                            imageView.setImageResource(R.drawable.ic_face)
                         }
                     }
                 } catch (e: Exception) {
                     runOnUiThread {
-                        imageView.setImageResource(R.drawable.ic_launcher_background)
+                        imageView.setImageResource(R.drawable.ic_face)
                     }
                 }
             }
@@ -281,13 +289,13 @@ class ProfileActivity : BaseActivity() {
         val color = Color.parseColor(colorHex)
 
         topProfileBar.setBackgroundColor(color)
-        btnAccess.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
+        btnAccess.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#163F5B"))
 
         val imgProfile = findViewById<ShapeableImageView>(R.id.imgProfile)
         imgProfile.strokeColor = android.content.res.ColorStateList.valueOf(color)
 
         val rootView = findViewById<View>(android.R.id.content)
-        rootView.setBackgroundColor(Color.parseColor("#F5F5F5"))
+        rootView.setBackgroundColor(Color.parseColor("#EDF4F8"))
     }
 
     private fun calcularEdad(fechaNacimiento: String): Int {

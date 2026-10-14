@@ -1,93 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="horizontal"
-    android:background="#F5F5F5">
+    android:layout_width="match_parent" android:layout_height="match_parent" android:background="#EDF4F8">
 
-    <!-- BARRA LATERAL AZUL -->
-    <LinearLayout
-        android:id="@+id/sideBarLayout"
-        android:layout_width="150dp"
-        android:layout_height="match_parent"
-        android:background="#0F3E82"
-        android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:paddingTop="20dp">
+    <View android:layout_width="0dp" android:layout_height="0dp" android:background="@drawable/bg_login_ambient"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+    <View android:id="@+id/sideBarLayout" android:layout_width="0dp" android:layout_height="5dp"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
-        <LinearLayout
-            android:id="@+id/btnBackFaceLogin"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:paddingBottom="20dp"
-            android:clickable="true"
-            android:focusable="true">
+    <ImageButton android:id="@+id/btnBackFaceLogin" android:layout_width="58dp" android:layout_height="58dp"
+        android:layout_marginStart="30dp" android:layout_marginTop="24dp" android:background="@drawable/bg_login_back"
+        android:contentDescription="Regresar" android:padding="16dp" android:rotation="180"
+        android:src="@drawable/ic_regresar" app:tint="#31536A"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
 
-            <ImageView
-                android:layout_width="80dp"
-                android:layout_height="80dp"
-                android:src="@drawable/ic_regresar"
-                android:rotation="180"
-                app:tint="#FFFFFF" />
+    <TextView android:id="@+id/faceEyebrow" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="30dp" android:fontFamily="sans-serif-medium" android:letterSpacing="0.12"
+        android:text="IDENTIFICACIÓN BIOMÉTRICA" android:textColor="#668296" android:textSize="12sp"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+    <TextView android:id="@+id/faceTitle" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:fontFamily="sans-serif-medium" android:text="Reconocimiento facial"
+        android:textColor="#102A43" android:textSize="31sp" android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/faceEyebrow" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Regresar"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp" />
-        </LinearLayout>
+    <LinearLayout android:layout_width="1120dp" android:layout_height="500dp" android:layout_marginTop="24dp"
+        android:background="@drawable/bg_auth_panel" android:elevation="8dp" android:gravity="center_vertical"
+        android:orientation="horizontal" android:padding="30dp"
+        app:layout_constraintTop_toBottomOf="@id/faceTitle" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
 
-        <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
-
-    </LinearLayout>
-
-    <!-- CONTENIDO PRINCIPAL -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:padding="20dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Reconocimiento Facial"
-            android:textSize="22sp"
-            android:textColor="#333333"
-            android:textStyle="bold"
-            android:layout_marginBottom="20dp"/>
-
-        <!-- Mensaje de estado -->
-        <TextView
-            android:id="@+id/tvFaceLoginStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Coloque su rostro frente a la cámara"
-            android:textSize="16sp"
-            android:textColor="#4CAF50"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:layout_marginBottom="15dp" />
-
-        <!-- Contenedor de la cámara con ancho DEFINIDO -->
-        <FrameLayout
-            android:layout_width="400dp"
-            android:layout_height="300dp"
-            android:layout_gravity="center"
-            android:background="#000000">
-
-            <TextureView
-                android:id="@+id/textureView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleX="-1" />
-
+        <FrameLayout android:layout_width="650dp" android:layout_height="420dp" android:background="@drawable/bg_auth_camera" android:padding="5dp">
+            <TextureView android:id="@+id/textureView" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleX="-1" />
+            <View android:layout_width="270dp" android:layout_height="330dp" android:layout_gravity="center"
+                android:background="@drawable/face_guide_border" android:importantForAccessibility="no" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="16dp" android:background="#B3122533" android:paddingStart="18dp" android:paddingTop="8dp"
+                android:paddingEnd="18dp" android:paddingBottom="8dp" android:text="Centra tu rostro dentro de la guía"
+                android:textColor="#FFFFFF" android:textSize="13sp" />
         </FrameLayout>
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="34dp"
+            android:layout_weight="1" android:gravity="center_vertical" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sigue estas indicaciones"
+                android:textColor="#17324A" android:textSize="21sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp"
+                android:background="@drawable/bg_auth_instruction" android:drawableStart="@drawable/ic_face" android:drawablePadding="13dp"
+                android:gravity="center_vertical" android:padding="15dp" android:text="Mira de frente a la cámara" android:textColor="#36566C" android:textSize="14sp" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp"
+                android:background="@drawable/bg_auth_instruction" android:drawableStart="@drawable/ic_screen" android:drawablePadding="13dp"
+                android:gravity="center_vertical" android:padding="15dp" android:text="Mantén el rostro dentro de la guía" android:textColor="#36566C" android:textSize="14sp" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp"
+                android:background="@drawable/bg_auth_instruction" android:drawableStart="@drawable/ic_check_circle" android:drawablePadding="13dp"
+                android:gravity="center_vertical" android:padding="15dp" android:text="Permanece quieto unos segundos" android:textColor="#36566C" android:textSize="14sp" />
+
+            <TextView android:id="@+id/tvFaceLoginStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="18dp" android:background="@drawable/bg_auth_instruction" android:gravity="center"
+                android:minHeight="62dp" android:padding="14dp" android:text="Coloca tu rostro frente a la cámara"
+                android:textColor="#2E8B57" android:textSize="15sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"
+                android:gravity="center" android:text="El proceso es automático; no necesitas tocar la pantalla."
+                android:textColor="#7890A1" android:textSize="12sp" />
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

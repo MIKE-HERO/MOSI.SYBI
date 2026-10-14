@@ -26,6 +26,8 @@ class SettingsActivity : BaseActivity() {
 
     private fun tenirIconosMenu(color: Int) {
         botonesMenu.forEach { id ->
+            if (id == R.id.btnBasicSettings || id == R.id.btnElementsTest ||
+                id == R.id.btnReportSettings || id == R.id.btnMicTest) return@forEach
             val boton = findViewById<LinearLayout>(id) ?: return@forEach
             for (i in 0 until boton.childCount) {
                 (boton.getChildAt(i) as? ImageView)?.setColorFilter(color)
@@ -48,10 +50,10 @@ class SettingsActivity : BaseActivity() {
                 val newColor = intent.getStringExtra("new_color")
                 if (newColor != null) {
                     // 1. Cambia el fondo blanco de la pantalla
-                    rootView.setBackgroundColor(Color.parseColor(newColor))
-                    // 2. Cambia la barra lateral azul (si existe)
+                    rootView.setBackgroundColor(Color.parseColor("#EDF4F8"))
+                    // El color de marca queda como acento en iconos; la cabecera es neutral.
                     if (sideBar != null) {
-                        sideBar.setBackgroundColor(Color.parseColor(newColor))
+                        sideBar.setBackgroundColor(Color.WHITE)
                     }
                     // 3. Tiñe los iconos de las tarjetas del menú
                     tenirIconosMenu(Color.parseColor(newColor))
@@ -63,9 +65,9 @@ class SettingsActivity : BaseActivity() {
         // Cargar el color guardado al inicio
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val savedColor = prefs.getString("BackgroundColor", "#0F3E82")
-        rootView.setBackgroundColor(Color.parseColor(savedColor))
+        rootView.setBackgroundColor(Color.parseColor("#EDF4F8"))
         if (sideBar != null) {
-            sideBar.setBackgroundColor(Color.parseColor(savedColor))
+            sideBar.setBackgroundColor(Color.WHITE)
         }
         tenirIconosMenu(Color.parseColor(savedColor))
         // ------------------------------------------------

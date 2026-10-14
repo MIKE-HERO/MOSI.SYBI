@@ -9,7 +9,9 @@ import android.os.Bundle
 import android.text.InputFilter
 import android.text.TextUtils
 import android.util.Log
+import android.util.Base64
 import android.view.View
+import android.view.MotionEvent
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -63,6 +65,10 @@ class RegisterActivity : BaseActivity() {
     // ✅ Lista de resultados (búsqueda por folio)
     private lateinit var resultadosContainer: LinearLayout
     private lateinit var listaResultados: LinearLayout
+    private var initialPhotoBase64: String? = null
+    private var photoStepCompleted: Boolean = false
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
 
     companion object {
         private const val TAG = "RegisterActivity"
@@ -73,6 +79,13 @@ class RegisterActivity : BaseActivity() {
         setContentView(R.layout.activity_register)
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+
+        photoStepCompleted = intent.getBooleanExtra("photo_step_completed", false)
+        intent.getStringExtra("captured_photo_path")?.let { path ->
+            runCatching {
+                initialPhotoBase64 = Base64.encodeToString(java.io.File(path).readBytes(), Base64.DEFAULT)
+            }
+        }
 
         // ── Referencias ──
         val sideBar = findViewById<View>(R.id.sideBarLayout)
@@ -145,21 +158,13 @@ class RegisterActivity : BaseActivity() {
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val savedColor = prefs.getString("BackgroundColor", "#0F3E82")!!
         currentColor = savedColor
-        sideBar.setBackgroundColor(Color.parseColor(savedColor))
-        btnGuardar.backgroundTintList =
-            android.content.res.ColorStateList.valueOf(Color.parseColor(savedColor))
-        btnSearch.backgroundTintList =
-            android.content.res.ColorStateList.valueOf(Color.parseColor(savedColor))
+        applyElegantTheme(Color.parseColor(savedColor), sideBar)
 
         val colorReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val newColor = intent.getStringExtra("new_color") ?: return
                 currentColor = newColor
-                sideBar.setBackgroundColor(Color.parseColor(newColor))
-                btnGuardar.backgroundTintList =
-                    android.content.res.ColorStateList.valueOf(Color.parseColor(newColor))
-                btnSearch.backgroundTintList =
-                    android.content.res.ColorStateList.valueOf(Color.parseColor(newColor))
+                applyElegantTheme(Color.parseColor(newColor), sideBar)
             }
         }
         LocalBroadcastManager.getInstance(this)
@@ -173,6 +178,53 @@ class RegisterActivity : BaseActivity() {
 
         // ── Configurar spinners y radio buttons ──
         setupFechaSpinners()
+    }
+
+    private fun applyElegantTheme(accent: Int, sideBar: View) {
+        sideBar.setBackgroundColor(accent)
+        btnGuardar.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#163F5B"))
+        btnSearch.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#294F67"))
+        findViewById<TextView>(R.id.tvRegisterTitle).setTextColor(Color.parseColor("#102A43"))
+
+        val fields = listOf(
+            etSearchQuery, etRegNombre, etRegApellidoPaterno, etRegApellidoMaterno,
+            etRegTelefono, etRegCorreo, etRegTarjetaIc, etRegFolio, etRegCurp, etRegDireccion
+        )
+        fields.forEach {
+            it.setBackgroundResource(R.drawable.bg_input_modern)
+            it.setPadding(16.dp, 8.dp, 16.dp, 8.dp)
+            it.minHeight = 52.dp
+        }
+    }
+
+    private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
+
+    override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
+        event?.let {
+            when (it.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    swipeStartX = it.rawX
+                    swipeStartY = it.rawY
+                }
+                MotionEvent.ACTION_UP -> {
+                    val dx = it.rawX - swipeStartX
+                    val dy = it.rawY - swipeStartY
+                    if (dx < -180.dp && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.6f) {
+                        returnToHome()
+                        return true
+                    }
+                }
+            }
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    private fun returnToHome() {
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        })
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        finish()
     }
 
     // ==========================================
@@ -520,7 +572,8 @@ class RegisterActivity : BaseActivity() {
             correo = correo,
             direccion = direccion,
             tarjetaIc = tarjetaIc,
-            fecha_registro = fechaRegistro
+            fecha_registro = fechaRegistro,
+            foto = initialPhotoBase64
         )
 
         btnGuardar.isEnabled = false
@@ -548,7 +601,7 @@ class RegisterActivity : BaseActivity() {
                         val sobrescrito = nuevoPaciente.copy(
                             id_local = existente.id_local,
                             id_usuario_web = existente.id_usuario_web,
-                            foto = existente.foto,
+                            foto = initialPhotoBase64 ?: existente.foto,
                             sincronizado = false
                         )
                         dao.actualizarPaciente(sobrescrito)
@@ -563,7 +616,7 @@ class RegisterActivity : BaseActivity() {
                     val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
                     val faceLoginEnabled = userPrefs.getBoolean("login_face", true)
 
-                    if (faceLoginEnabled) {
+                    if (faceLoginEnabled && !photoStepCompleted) {
                         runOnUiThread {
                             val intent = Intent(this@RegisterActivity, FaceRegistrationActivity::class.java)
                             intent.putExtra("id_local", idLocal)

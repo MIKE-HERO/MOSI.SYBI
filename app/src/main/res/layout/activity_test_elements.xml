@@ -3,78 +3,146 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="horizontal"
-    android:background="#F5F5F5">
+    android:background="#EFF4F8"
+    android:orientation="horizontal">
 
-    <!-- BARRA LATERAL AZUL -->
-    <LinearLayout
-        android:id="@+id/sideBarLayout"
-        android:layout_width="150dp"
+    <FrameLayout
+        android:layout_width="154dp"
         android:layout_height="match_parent"
-        android:background="#0F3E82"
-        android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:paddingTop="20dp">
+        android:elevation="12dp">
 
         <LinearLayout
-            android:id="@+id/btnBackTestElements"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:id="@+id/sideBarLayout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_technical_sidebar"
+            android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:gravity="center"
-            android:paddingBottom="20dp"
-            android:clickable="true"
-            android:focusable="true">
+            android:paddingTop="28dp">
 
-            <ImageView
-                android:layout_width="80dp"
-                android:layout_height="80dp"
-                android:src="@drawable/ic_regresar"
-                android:rotation="180"
-                app:tint="#FFFFFF" />
+            <LinearLayout
+                android:id="@+id/btnBackTestElements"
+                android:layout_width="116dp"
+                android:layout_height="112dp"
+                android:background="@drawable/bg_technical_back"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:rotation="180"
+                    android:src="@drawable/ic_regresar"
+                    app:tint="#FFFFFF" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="REGRESAR"
+                    android:textColor="#E6F5FF"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <View android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Regresar"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp" />
+                android:layout_marginBottom="28dp"
+                android:alpha="0.7"
+                android:gravity="center"
+                android:text="SYBI\nSISTEMA TECNICO"
+                android:textColor="#BFD9EA"
+                android:textSize="10sp" />
         </LinearLayout>
 
-        <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+        <View
+            android:id="@+id/themeAccentBar"
+            android:layout_width="5dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:background="#28A7D2" />
+    </FrameLayout>
 
-    </LinearLayout>
-
-    <!-- CONTENIDO PRINCIPAL (CON SCROLL) -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:orientation="vertical"
-        android:padding="20dp"
-        android:gravity="center_horizontal">
+        android:orientation="vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Elementos de prueba"
-            android:textSize="24sp"
-            android:textColor="#333333"
-            android:textStyle="bold"
-            android:layout_marginBottom="20dp"/>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="112dp"
+            android:background="#F9FCFE"
+            android:elevation="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="38dp"
+            android:paddingEnd="38dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvTestTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Elementos de prueba"
+                    android:textColor="#102A43"
+                    android:textSize="29sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="Configuracion y diagnostico de dispositivos conectados"
+                    android:textColor="#607D92"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_technical_status"
+                android:drawableStart="@drawable/ic_test"
+                android:drawablePadding="10dp"
+                android:fontFamily="sans-serif-medium"
+                android:paddingStart="18dp"
+                android:paddingTop="11dp"
+                android:paddingEnd="18dp"
+                android:paddingBottom="11dp"
+                android:text="PANEL TECNICO"
+                android:textColor="#17648B"
+                android:textSize="12sp" />
+        </LinearLayout>
 
         <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:fillViewport="true"
+            android:paddingStart="34dp"
+            android:paddingTop="24dp"
+            android:paddingEnd="34dp"
+            android:paddingBottom="28dp"
+            android:scrollbarStyle="outsideOverlay">
 
             <LinearLayout
                 android:id="@+id/deviceListContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingBottom="20dp" />
-
+                android:paddingBottom="24dp" />
         </ScrollView>
-
     </LinearLayout>
 </LinearLayout>

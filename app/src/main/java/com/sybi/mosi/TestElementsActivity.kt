@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PorterDuff
+import android.graphics.drawable.GradientDrawable
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.os.Bundle
@@ -46,6 +47,7 @@ class TestElementsActivity : BaseActivity() {
 
     private val allSwitches = mutableListOf<Switch>()
     private val configRowsMap = mutableMapOf<String, View>()
+    private var themeColor: Int = Color.parseColor("#0F3E82")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,12 +56,15 @@ class TestElementsActivity : BaseActivity() {
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
         val sideBar = findViewById<View>(R.id.sideBarLayout)
+        val themeAccentBar = findViewById<View>(R.id.themeAccentBar)
         val colorReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val newColor = intent.getStringExtra("new_color")
                 if (newColor != null) {
-                    sideBar.setBackgroundColor(Color.parseColor(newColor))
-                    applySwitchTint(Color.parseColor(newColor))
+                    themeColor = Color.parseColor(newColor)
+                    themeAccentBar.setBackgroundColor(themeColor)
+                    applySwitchTint(themeColor)
+                    applyCardAccents()
                 }
             }
         }
@@ -67,7 +72,8 @@ class TestElementsActivity : BaseActivity() {
 
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val savedColor = prefs.getString("BackgroundColor", "#0F3E82")
-        sideBar.setBackgroundColor(Color.parseColor(savedColor))
+        themeColor = Color.parseColor(savedColor)
+        themeAccentBar.setBackgroundColor(themeColor)
 
         findViewById<View>(R.id.btnBackTestElements).setOnClickListener {
             saveAllPendingSettings()
@@ -169,6 +175,7 @@ class TestElementsActivity : BaseActivity() {
         val availableCameras = Camera2Helper.getAvailableCameraIds(this).ifEmpty { listOf("0") }
 
         val cameraHeader = TextView(this).apply {
+            tag = "section_header"
             text = "Configuración de Cámaras"
             textSize = 20f
             setTypeface(null, android.graphics.Typeface.BOLD)
@@ -185,6 +192,7 @@ class TestElementsActivity : BaseActivity() {
 
         val initialColor = Color.parseColor(savedColor)
         applySwitchTint(initialColor)
+        applyCardAccents()
     }
 
     override fun onPause() {
@@ -224,11 +232,11 @@ class TestElementsActivity : BaseActivity() {
         return View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                2.dp
+                10.dp
             ).apply {
-                setMargins(0, 8, 0, 8)
+                setMargins(0, 0, 0, 0)
             }
-            setBackgroundColor(Color.parseColor("#E0E0E0"))
+            setBackgroundColor(Color.TRANSPARENT)
         }
     }
 
@@ -241,14 +249,15 @@ class TestElementsActivity : BaseActivity() {
         availablePorts: List<String>
     ): View {
         val row = LinearLayout(this).apply {
+            tag = "device_card"
             orientation = LinearLayout.VERTICAL
-            setPadding(16, 8, 16, 8)
-            setBackgroundResource(android.R.drawable.list_selector_background)
-            elevation = 4f
+            setPadding(22.dp, 17.dp, 22.dp, 17.dp)
+            background = createDeviceCardBackground(themeColor)
+            elevation = 3.dp.toFloat()
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 0) }
+            ).apply { setMargins(0, 0, 0, 2.dp) }
 
             // Ocultar si Altura/Peso no está activado
             val alturaPesoActive = prefs.getBoolean(PREF_DEVICE_ALTURA_PESO, true)
@@ -351,14 +360,15 @@ class TestElementsActivity : BaseActivity() {
         availablePorts: List<String>
     ): View {
         val row = LinearLayout(this).apply {
+            tag = "device_card"
             orientation = LinearLayout.VERTICAL
-            setPadding(16, 8, 16, 8)
-            setBackgroundResource(android.R.drawable.list_selector_background)
-            elevation = 4f
+            setPadding(22.dp, 17.dp, 22.dp, 17.dp)
+            background = createDeviceCardBackground(themeColor)
+            elevation = 3.dp.toFloat()
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 0) }
+            ).apply { setMargins(0, 0, 0, 2.dp) }
         }
 
         // Fila superior con nombre y switch
@@ -701,6 +711,26 @@ class TestElementsActivity : BaseActivity() {
         }
     }
 
+    private fun createDeviceCardBackground(accent: Int): GradientDrawable {
+        val border = Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent))
+        return GradientDrawable().apply {
+            cornerRadius = 18.dp.toFloat()
+            setColor(Color.WHITE)
+            setStroke(1.dp, border)
+        }
+    }
+
+    private fun applyCardAccents() {
+        val container = findViewById<LinearLayout>(R.id.deviceListContainer)
+        for (index in 0 until container.childCount) {
+            val child = container.getChildAt(index)
+            if (child.tag == "device_card") child.background = createDeviceCardBackground(themeColor)
+            if (child.tag == "section_header" && child is TextView) {
+                child.setTextColor(themeColor)
+            }
+        }
+    }
+
     private fun createCameraConfigRow(
         title: String,
         prefIdKey: String,
@@ -710,10 +740,11 @@ class TestElementsActivity : BaseActivity() {
         availableCameras: List<String>
     ): View {
         val row = LinearLayout(this).apply {
+            tag = "device_card"
             orientation = LinearLayout.VERTICAL
             setPadding(16, 16, 16, 16)
-            setBackgroundResource(android.R.drawable.list_selector_background)
-            elevation = 4f
+            background = createDeviceCardBackground(themeColor)
+            elevation = 3.dp.toFloat()
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT

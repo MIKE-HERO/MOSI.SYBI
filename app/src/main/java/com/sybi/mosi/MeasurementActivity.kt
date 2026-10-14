@@ -348,8 +348,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     /** Repinta la pantalla con [color] — llamado al abrir la pantalla y cada vez que cambia
      *  el color de marca en vivo (ajuste manual o ciclo del modo multicolor). */
     private fun applyTheme(color: Int) {
-        findViewById<View>(R.id.topMeasurementBar).setBackgroundColor(color)
-        findViewById<View>(R.id.bottomMeasurementBar).setBackgroundColor(color)
+        // Las superficies principales permanecen sobrias; el color de marca se reserva
+        // para estados, progreso y elementos interactivos.
+        findViewById<View>(R.id.topMeasurementBar).setBackgroundColor(Color.parseColor("#17384D"))
+        findViewById<View>(R.id.bottomMeasurementBar).setBackgroundColor(Color.parseColor("#17384D"))
         btnStarECG.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         btnHeightNext.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         applyPillTheme(color)

@@ -5,7 +5,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
@@ -16,7 +20,6 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class LoginActivity : BaseActivity() {
 
-    private lateinit var sideBar: View
     private lateinit var btnGuestAccess: Button
     private lateinit var btnRegister: Button
     private lateinit var tabMedicion: LinearLayout
@@ -34,6 +37,8 @@ class LoginActivity : BaseActivity() {
 
     private var currentColor: String = "#0F3E82"
     private var isMedicionSelected: Boolean = true
+    private val inactivityHandler = Handler(Looper.getMainLooper())
+    private val returnToHome = Runnable { finish() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,7 +46,6 @@ class LoginActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
-        sideBar = findViewById(R.id.sideBarLayout)
         btnGuestAccess = findViewById(R.id.btnGuestAccess)
         btnRegister = findViewById(R.id.btnRegister)
         tabMedicion = findViewById(R.id.tabMedicion)
@@ -76,14 +80,12 @@ class LoginActivity : BaseActivity() {
 
         tabMedicion.setOnClickListener {
             isMedicionSelected = true
-            selectTab(true)
+            animateTabChange(true)
         }
         tabConsulta.setOnClickListener {
             isMedicionSelected = false
-            selectTab(false)
+            animateTabChange(false)
         }
-
-        findViewById<View>(R.id.btnBackLogin).setOnClickListener { finish() }
 
         val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
 
@@ -104,15 +106,7 @@ class LoginActivity : BaseActivity() {
             return
         }
 
-        val screenWidth = resources.displayMetrics.widthPixels
-        val buttonSize = (screenWidth * 0.25).toInt()
-
-        for (option in visibleOptions) {
-            val params = option.layoutParams
-            params.width = buttonSize
-            params.height = buttonSize
-            option.layoutParams = params
-        }
+        visibleOptions.forEach(::setupCardInteraction)
 
         optionPhone.setOnClickListener {
             val intent = Intent(this, PhoneLoginActivity::class.java)
@@ -142,7 +136,13 @@ class LoginActivity : BaseActivity() {
         }
 
         btnRegister.setOnClickListener {
-            startActivity(Intent(this, RegisterActivity::class.java))
+            val faceEnabled = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+                .getBoolean("login_face", true)
+            val destination = if (faceEnabled) FaceRegistrationActivity::class.java else RegisterActivity::class.java
+            startActivity(Intent(this, destination).apply {
+                putExtra("capture_before_form", faceEnabled)
+                putExtra("photo_step_completed", !faceEnabled)
+            })
         }
     }
 
@@ -150,6 +150,22 @@ class LoginActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
         updateGuestButtonVisibility()
+        resetInactivityTimer()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        inactivityHandler.removeCallbacks(returnToHome)
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        resetInactivityTimer()
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun resetInactivityTimer() {
+        inactivityHandler.removeCallbacks(returnToHome)
+        inactivityHandler.postDelayed(returnToHome, 60_000L)
     }
 
     private fun updateGuestButtonVisibility() {
@@ -159,50 +175,97 @@ class LoginActivity : BaseActivity() {
         // ✅ Solo se muestra en la pestaña de Medición si está activado
         if (isMedicionSelected && guestEnabled) {
             btnGuestAccess.visibility = View.VISIBLE
+            (btnGuestAccess.layoutParams as LinearLayout.LayoutParams).apply {
+                weight = 1f
+                marginEnd = 10.dp
+            }.also { btnGuestAccess.layoutParams = it }
+            (btnRegister.layoutParams as LinearLayout.LayoutParams).apply {
+                weight = 1f
+                width = 0
+                marginStart = 10.dp
+            }.also { btnRegister.layoutParams = it }
         } else {
-            btnGuestAccess.visibility = View.INVISIBLE
+            btnGuestAccess.visibility = View.GONE
+            (btnRegister.layoutParams as LinearLayout.LayoutParams).apply {
+                weight = 0f
+                width = 390.dp
+                marginStart = 0
+            }.also { btnRegister.layoutParams = it }
         }
     }
 
     private fun selectTab(isMedicion: Boolean) {
+        val theme = Color.parseColor(currentColor)
         if (isMedicion) {
-            tabMedicion.setBackgroundColor(Color.WHITE)
-            tvMedicion.setTextColor(Color.parseColor(currentColor))
-
-            tabConsulta.setBackgroundColor(Color.parseColor("#E0E0E0"))
+            tabMedicion.background = roundedBackground(theme, 24f)
+            tvMedicion.setTextColor(Color.WHITE)
+            tabConsulta.background = null
             tvConsulta.setTextColor(Color.parseColor("#757575"))
         } else {
-            tabConsulta.setBackgroundColor(Color.WHITE)
-            tvConsulta.setTextColor(Color.parseColor(currentColor))
-
-            tabMedicion.setBackgroundColor(Color.parseColor("#E0E0E0"))
+            tabConsulta.background = roundedBackground(theme, 24f)
+            tvConsulta.setTextColor(Color.WHITE)
+            tabMedicion.background = null
             tvMedicion.setTextColor(Color.parseColor("#757575"))
         }
         updateGuestButtonVisibility()
     }
 
+    private fun animateTabChange(isMedicion: Boolean) {
+        optionContainer.animate().alpha(0f).scaleX(0.975f).scaleY(0.975f).setDuration(110L)
+            .withEndAction {
+                selectTab(isMedicion)
+                optionContainer.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                    .setDuration(190L).start()
+            }.start()
+    }
+
+    private fun setupCardInteraction(card: View) {
+        card.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> view.animate()
+                    .scaleX(0.97f).scaleY(0.97f).translationZ(2.dp.toFloat())
+                    .setDuration(90L).start()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> view.animate()
+                    .scaleX(1f).scaleY(1f).translationZ(0f)
+                    .setDuration(150L).start()
+            }
+            false
+        }
+    }
+
     private fun applyColorTheme(colorHex: String) {
         val color = Color.parseColor(colorHex)
-        val lightColor = Color.parseColor(lightenColor(colorHex, 0.7f))
-        val tint = android.content.res.ColorStateList.valueOf(color)
+        val cardBorder = Color.argb(90, Color.red(color), Color.green(color), Color.blue(color))
+        listOf(optionPhone, optionFace, optionIc).forEach { card ->
+            card.background = GradientDrawable().apply {
+                cornerRadius = 24.dp.toFloat()
+                setColor(Color.WHITE)
+                setStroke(2.dp, cardBorder)
+            }
+        }
 
-        sideBar.setBackgroundColor(color)
-        btnGuestAccess.backgroundTintList = tint
-        btnRegister.backgroundTintList = tint
+        btnGuestAccess.background = roundedBackground(color, 18f)
+        btnRegister.background = GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            intArrayOf(color, ColorUtils.getTintedColor(color, 0.18f))
+        ).apply { cornerRadius = 18.dp.toFloat() }
 
-        optionContainer.setBackgroundColor(lightColor)
-
-        optionPhone.setBackgroundColor(lightColor)
-        optionFace.setBackgroundColor(lightColor)
-        optionIc.setBackgroundColor(lightColor)
-
-        // ✅ Cambiar el color de los íconos al del tema
-        ivPhone.imageTintList = tint
-        ivFace.imageTintList = tint
-        ivIc.imageTintList = tint
+        // Las ilustraciones 3D conservan sus materiales y color original.
+        ivPhone.imageTintList = null
+        ivFace.imageTintList = null
+        ivIc.imageTintList = null
 
         selectTab(isMedicionSelected)
     }
+
+    private fun roundedBackground(color: Int, radiusDp: Float): GradientDrawable =
+        GradientDrawable().apply {
+            cornerRadius = radiusDp * resources.displayMetrics.density
+            setColor(color)
+        }
+
+    private val Int.dp: Int
+        get() = (this * resources.displayMetrics.density).toInt()
 
     private fun lightenColor(color: String, factor: Float = 0.8f): String {
         val c = Color.parseColor(color)
