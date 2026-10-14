@@ -268,8 +268,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_pacientes"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_patients_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -297,8 +296,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_tema"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_customize_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -326,8 +324,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_login"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_login_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -355,8 +352,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_video"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_advertising_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -393,8 +389,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_historial"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_history_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -422,8 +417,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_password"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_password_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -451,8 +445,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_telemedicina"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_telemedicine_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -480,8 +473,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_info"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_info_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

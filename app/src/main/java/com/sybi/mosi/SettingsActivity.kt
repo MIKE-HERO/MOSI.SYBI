@@ -25,12 +25,12 @@ class SettingsActivity : BaseActivity() {
     )
 
     private fun tenirIconosMenu(color: Int) {
+        // Los iconos del menú son imágenes 3D con transparencia y color propio.
+        // Aplicarles un filtro plano elimina sus luces, volumen y acabado original.
         botonesMenu.forEach { id ->
-            if (id == R.id.btnBasicSettings || id == R.id.btnElementsTest ||
-                id == R.id.btnReportSettings || id == R.id.btnMicTest) return@forEach
             val boton = findViewById<LinearLayout>(id) ?: return@forEach
             for (i in 0 until boton.childCount) {
-                (boton.getChildAt(i) as? ImageView)?.setColorFilter(color)
+                (boton.getChildAt(i) as? ImageView)?.clearColorFilter()
             }
         }
     }
