@@ -1542,6 +1542,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             if (currentMeasurementType in setOf("ALTURA_PESO", "COMPOSICION", "PRESION", "TEMPERATURA", "OXIGENO")) {
                 guideSequenceToken++
                 setHeightWeightPresentation(showResults = true)
+                // No dejamos ocho tarjetas con loaders activos detrás de un error.
+                // El estado y Reintentar permanecen visibles en una superficie limpia.
+                if (currentMeasurementType == "COMPOSICION") groupComposicion.visibility = View.GONE
             }
             layoutResultadosEcg.visibility = View.GONE
             showStatusMessage("Error de medición, favor de repetir", "#F44336")

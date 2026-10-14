@@ -1702,9 +1702,10 @@
                 <com.sybi.mosi.WaveformView
                     android:id="@+id/waveformView"
                     android:layout_width="match_parent"
-                    android:layout_height="75dp"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="6dp"
+                    android:layout_height="150dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="8dp"
+                    android:elevation="3dp"
                     android:visibility="gone" />
 
                 <!-- 4. SECCIÓN INFERIOR: ÚLTIMOS RESULTADOS -->

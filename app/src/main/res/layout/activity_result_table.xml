@@ -38,7 +38,10 @@
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:scrollbars="horizontal"
+        android:overScrollMode="ifContentScrolls">
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -53,6 +56,8 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:background="#E0E0E0"
+                android:minHeight="56dp"
+                android:gravity="center_vertical"
                 android:padding="4dp">
 
                 <!-- ✅ Casilla de selección -->

@@ -90,6 +90,13 @@ class SettingsActivity : BaseActivity() {
             finish()
         }
 
+        findViewById<View>(R.id.btnHomeSettings).setOnClickListener {
+            startActivity(Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            })
+            finish()
+        }
+
         // 1.1 Botón: Ajustes básicos
         val btnBasicSettings = findViewById<LinearLayout>(R.id.btnBasicSettings)
         btnBasicSettings?.setOnClickListener {

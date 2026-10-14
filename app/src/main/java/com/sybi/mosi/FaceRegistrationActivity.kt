@@ -395,14 +395,15 @@ class FaceRegistrationActivity : BaseActivity() {
         btnSavePhoto.isEnabled = false
         btnSavePhoto.text = "Guardando..."
 
-        val base64Image = bitmapToBase64(bitmap)
-
         val database = AppDatabase.getInstance(this)
         val pacienteDao = database.pacienteDao()
 
         Thread {
             runBlocking {
                 try {
+                    // La compresión y codificación de una foto grande es costosa: nunca
+                    // debe ejecutarse en el hilo principal porque congela el botón y la UI.
+                    val base64Image = bitmapToBase64(bitmap)
                     val pacienteLocal = pacienteDao.obtenerPacientePorIdLocal(idLocal)
                     if (pacienteLocal == null) {
                         runOnUiThread {

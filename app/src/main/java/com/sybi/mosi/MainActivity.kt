@@ -52,6 +52,7 @@ class MainActivity : BaseActivity() {
     private lateinit var rootLayout: View
     private lateinit var settingsSurface: View
     private lateinit var bottomBarContainer: View
+    private lateinit var medicalBackground: ImageView
     private var breathingAnimator: ObjectAnimator? = null
 
     // 🔥 Variables para los receivers (para poder desregistrarlos)
@@ -60,6 +61,7 @@ class MainActivity : BaseActivity() {
     private var logoReceiver: BroadcastReceiver? = null
     private var titleReceiver: BroadcastReceiver? = null
     private var connectionReceiver: BroadcastReceiver? = null
+    private var backgroundReceiver: BroadcastReceiver? = null
 
     companion object {
         private const val TAG = "MainActivity"
@@ -87,6 +89,7 @@ class MainActivity : BaseActivity() {
         val btnSettings = findViewById<View>(R.id.btnSettings)
         val touchInterceptor = findViewById<View>(R.id.touchInterceptor)
         shineOverlay = findViewById(R.id.shineOverlay)
+        medicalBackground = findViewById(R.id.medicalBackground)
 
         // --- INICIAR EL SERVICIO SERIAL AL ABRIR LA APP ---
         startService(Intent(this, SerialService::class.java))
@@ -145,6 +148,18 @@ class MainActivity : BaseActivity() {
         LocalBroadcastManager.getInstance(this).registerReceiver(
             titleReceiver!!,
             IntentFilter("ACTION_UPDATE_TITLE")
+        )
+
+        applyMedicalBackground(getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+            .getString("MedicalBackground", "azul"))
+        backgroundReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                applyMedicalBackground(intent.getStringExtra("background"))
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            backgroundReceiver!!,
+            IntentFilter("ACTION_UPDATE_BACKGROUND")
         )
 
         // --- RECEPTOR PARA ESTADO DE CONEXIÓN ---
@@ -213,6 +228,15 @@ class MainActivity : BaseActivity() {
 
         val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         DeviceDefaults.ensureDefaultPorts(devicePrefs)
+    }
+
+    private fun applyMedicalBackground(key: String?) {
+        val drawable = when (key) {
+            "morado" -> R.drawable.bg_medical_morado
+            "turquesa" -> R.drawable.bg_medical_turquesa
+            else -> R.drawable.bg_medical_azul
+        }
+        medicalBackground.setImageResource(drawable)
     }
 
     // ==========================================
@@ -397,6 +421,12 @@ class MainActivity : BaseActivity() {
     // ==========================================
     override fun onResume() {
         super.onResume()
+        if (::medicalBackground.isInitialized) {
+            applyMedicalBackground(
+                getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+                    .getString("MedicalBackground", "azul")
+            )
+        }
         shineOverlay.startSweeping()
         startBreathingEffect()
         // El ciclo del modo multicolor ya lo arranca BaseActivity.onResume(); esta pantalla
@@ -451,6 +481,9 @@ class MainActivity : BaseActivity() {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
             connectionReceiver?.let {
+                LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
+            }
+            backgroundReceiver?.let {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
         } catch (e: Exception) {

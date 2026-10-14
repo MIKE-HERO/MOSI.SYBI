@@ -13,7 +13,6 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
-import android.widget.Filter
 import android.widget.Spinner
 import android.widget.Switch
 import android.widget.Toast
@@ -362,45 +361,16 @@ class TelemedicineSettingsActivity : BaseActivity() {
         }
     }
 
-    /**
-     * ArrayAdapter sin filtro de autocompletado: el AutoCompleteTextView filtra
-     * por defecto su lista según el texto que YA tenga escrito (p. ej. el
-     * cliente/sucursal guardado de una configuración previa). Como aquí el
-     * campo es "tocar y elegir de la lista completa" (showDropDown() al hacer
-     * click/foco), no un buscador por tecleo, el filtro por defecto puede
-     * terminar mostrando solo 1 coincidencia (o ninguna) en vez de todas las
-     * opciones — el síntoma reportado de "no aparecen todos los clientes".
-     */
-    private fun adapterSinFiltro(items: List<String>): ArrayAdapter<String> {
-        return object : ArrayAdapter<String>(
-            this@TelemedicineSettingsActivity,
-            android.R.layout.simple_dropdown_item_1line,
-            items
-        ) {
-            private val sinFiltro = object : Filter() {
-                override fun performFiltering(constraint: CharSequence?): FilterResults {
-                    return FilterResults().apply {
-                        values = items
-                        count = items.size
-                    }
-                }
-
-                override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
-                    // No-op: el adapter ya se construyó con la lista completa;
-                    // nunca se reduce según lo que haya escrito en el campo.
-                }
-            }
-
-            override fun getFilter(): Filter = sinFiltro
-        }
-    }
-
     private fun configurarAutoCompleteClientes() {
         val items = listaClientes.map {
             "${it.nombreCliente ?: "Sin nombre"} (${it.idCliente ?: "-"})"
         }
 
-        val adapter = adapterSinFiltro(items)
+        val adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            items
+        )
         etCliente.setAdapter(adapter)
 
         etCliente.setOnClickListener {
@@ -463,11 +433,18 @@ class TelemedicineSettingsActivity : BaseActivity() {
             "${it.nombreSucursal ?: "Sin nombre"} (${it.idSucursal ?: "-"})"
         }
 
-        val adapter = adapterSinFiltro(items)
+        val adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            items
+        )
         etSucursal.setAdapter(adapter)
 
         etSucursal.setOnClickListener {
             if (listaSucursales.isNotEmpty()) etSucursal.showDropDown()
+        }
+        etSucursal.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus && listaSucursales.isNotEmpty()) etSucursal.showDropDown()
         }
 
         etSucursal.setOnItemClickListener { _, _, _, _ ->
