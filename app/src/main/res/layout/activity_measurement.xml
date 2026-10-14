@@ -510,12 +510,10 @@
                             android:layout_marginVertical="10dp"
                             android:visibility="gone">
 
-                            <ImageView
-                                android:id="@+id/ivTempIcon"
+                            <com.sybi.mosi.measurement.ClinicalThermometerView
+                                android:id="@+id/thermometerView"
                                 android:layout_width="72dp"
-                                android:layout_height="72dp"
-                                android:src="@drawable/ic_measurement_temperature"
-                                android:contentDescription="Termómetro"
+                                android:layout_height="150dp"
                                 android:layout_marginEnd="20dp" />
 
                             <LinearLayout
@@ -1372,6 +1370,17 @@
                                     android:layout_gravity="center"
                                     android:visibility="visible" />
                             </FrameLayout>
+
+                            <TextView
+                                android:id="@+id/tvOxygenStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text=""
+                                android:textColor="#24A36A"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
 
                         </LinearLayout>
 

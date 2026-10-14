@@ -61,7 +61,7 @@ class MeasurementResults(private val activity: Activity) {
 
     // Temperatura
     var layoutResultTempContent: View? = null
-    var ivTempIcon: ImageView? = null
+    var thermometerView: ClinicalThermometerView? = null
     var tvResultTempMain: TextView? = null
     var tvResultTempSub: TextView? = null
     var tvTempStatus: TextView? = null
@@ -71,6 +71,7 @@ class MeasurementResults(private val activity: Activity) {
     var ringSpO2: RingProgressView? = null
     var ringHeartRate: RingProgressView? = null
     var ringPI: RingProgressView? = null
+    var tvOxygenStatus: TextView? = null
     // Los íconos de SpO2/Ritmo/PI ahora se dibujan dentro del propio RingProgressView
     // (RingProgressView.setIcon), no como ImageView aparte.
     var pbSpO2Loading: EqualizerLoaderView? = null
@@ -138,7 +139,7 @@ class MeasurementResults(private val activity: Activity) {
 
         // Temperatura
         layoutResultTempContent = root.findViewById(R.id.layoutResultTempContent)
-        ivTempIcon = root.findViewById(R.id.ivTempIcon)
+        thermometerView = root.findViewById(R.id.thermometerView)
         tvResultTempMain = root.findViewById(R.id.tvResultTempMain)
         tvResultTempSub = root.findViewById(R.id.tvResultTempSub)
         tvTempStatus = root.findViewById(R.id.tvTempStatus)
@@ -148,6 +149,7 @@ class MeasurementResults(private val activity: Activity) {
         ringSpO2 = root.findViewById(R.id.ringSpO2)
         ringHeartRate = root.findViewById(R.id.ringHeartRate)
         ringPI = root.findViewById(R.id.ringPI)
+        tvOxygenStatus = root.findViewById(R.id.tvOxygenStatus)
         pbSpO2Loading = root.findViewById(R.id.pbSpO2Loading)
         pbHeartRateLoading = root.findViewById(R.id.pbHeartRateLoading)
         pbPILoading = root.findViewById(R.id.pbPILoading)
@@ -387,6 +389,12 @@ class MeasurementResults(private val activity: Activity) {
             tvResultTempMain?.text = "%.1f °C".format(tempC)
             val subF = if (tempF > 0) tempF else (tempC * 9 / 5 + 32)
             tvResultTempSub?.text = "%.2f °F".format(subF)
+            thermometerView?.setTemperature(tempC, animated = true)
+
+            val (label, color) = getTempClassification(tempC)
+            tvTempStatus?.text = label
+            tvTempStatus?.setTextColor(color)
+            tvTempStatus?.visibility = View.VISIBLE
 
             layoutResultTempContent?.visibility = View.VISIBLE
             pbTemperaturaLoading?.visibility = View.GONE
@@ -405,6 +413,10 @@ class MeasurementResults(private val activity: Activity) {
             ringSpO2?.setData("SpO2", "$spo2", "%", spo2Ratio, animated = true, showContent = true)
             ringSpO2?.visibility = View.VISIBLE
             pbSpO2Loading?.visibility = View.GONE
+            val (oxygenLabel, oxygenColor) = getSpo2Classification(spo2)
+            tvOxygenStatus?.text = oxygenLabel
+            tvOxygenStatus?.setTextColor(oxygenColor)
+            tvOxygenStatus?.visibility = View.VISIBLE
 
             val pulseRatio = if (pulseRate > 0) (pulseRate / 150f).coerceIn(0f, 1f) else 0f
             val pulseValStr = if (pulseRate > 0) "$pulseRate" else "--"
@@ -433,6 +445,7 @@ class MeasurementResults(private val activity: Activity) {
             ringPI?.setData("PI %", "", "", 0f, animated = false, showContent = false)
             ringPI?.visibility = View.VISIBLE
             pbPILoading?.visibility = View.VISIBLE
+            tvOxygenStatus?.visibility = View.GONE
         }
     }
 
@@ -453,6 +466,10 @@ class MeasurementResults(private val activity: Activity) {
             ringPresionPulse?.setData("BPM", pulseValStr, "", pulseRatio, animated = true, showContent = true)
             ringPresionPulse?.visibility = View.VISIBLE
             pbPulsoLoading?.visibility = View.GONE
+            val (pressureLabel, pressureColor) = getPressureClassification(systolic, diastolic)
+            tvPresionStatus?.text = pressureLabel
+            tvPresionStatus?.setTextColor(pressureColor)
+            tvPresionStatus?.visibility = View.VISIBLE
         } else {
             tvResultSystolicValue?.visibility = View.GONE
             ivSystolicIcon?.visibility = View.GONE
