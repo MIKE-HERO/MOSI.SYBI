@@ -95,6 +95,7 @@
 
         <!-- Guía visual e instrucciones (izquierda) -->
         <LinearLayout
+            android:id="@+id/guidePanel"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
@@ -130,6 +131,7 @@
 
         <!-- CONTENEDOR DE RESULTADOS Y MONITOR (Derecha) -->
         <LinearLayout
+            android:id="@+id/resultsPanel"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"

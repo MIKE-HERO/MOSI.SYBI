@@ -103,6 +103,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private lateinit var imgGuide: ImageView
     private lateinit var tvGuideStep: TextView
+    private lateinit var guidePanel: LinearLayout
+    private lateinit var resultsPanel: LinearLayout
     private lateinit var heightWeightActions: LinearLayout
     private lateinit var btnHeightBack: Button
     private lateinit var btnHeightNext: Button
@@ -254,6 +256,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         cardEcgImage = findViewById(R.id.cardEcgImage)
         imgGuide = findViewById(R.id.imgMeasurementGuide)
         tvGuideStep = findViewById(R.id.tvGuideStep)
+        guidePanel = findViewById(R.id.guidePanel)
+        resultsPanel = findViewById(R.id.resultsPanel)
         heightWeightActions = findViewById(R.id.heightWeightActions)
         btnHeightBack = findViewById(R.id.btnHeightBack)
         btnHeightNext = findViewById(R.id.btnHeightNext)
@@ -546,12 +550,14 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         if (completedMeasurements.contains("ALTURA_PESO") || state.hasHeightWeight()) {
             showHeightWeightStage(3)
+            setHeightWeightPresentation(showResults = true)
             heightWeightActions.visibility = View.VISIBLE
             btnRepeat.visibility = View.VISIBLE
             showStatusMessage("Medición completada correctamente", "#4CAF50")
             showSuccessCheck(true)
             return
         }
+        setHeightWeightPresentation(showResults = false)
         startHeightWeightGuideSequence()
         showReady()
         controller.sendCommand("ALTURA_PESO")
@@ -685,6 +691,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         when (currentMeasurementType) {
             "ALTURA_PESO" -> {
                 heightWeightActions.visibility = View.GONE
+                setHeightWeightPresentation(showResults = false)
                 state.resetHeightWeight()
                 measurementResults.updateHeightWeight(0.0, 0.0, 0.0)
                 showReady(); controller.forceSendCommand("ALTURA_PESO")
@@ -892,6 +899,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             .forEach { it.visibility = View.GONE }
 
         layoutResultadosEcg.visibility = View.GONE
+        guidePanel.visibility = View.VISIBLE
+        resultsPanel.visibility = View.VISIBLE
 
         group?.visibility = View.VISIBLE
 
@@ -909,6 +918,16 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         if (!completedMeasurements.contains(currentMeasurementType)) {
             getAudioName(currentMeasurementType, "start")?.let { playAudio(it) }
         }
+    }
+
+    /**
+     * Altura/Peso usa un flujo de dos momentos: primero una guía visual amplia y limpia;
+     * al terminar, los datos ocupan todo el espacio central durante unos segundos.
+     */
+    private fun setHeightWeightPresentation(showResults: Boolean) {
+        guidePanel.visibility = if (showResults) View.GONE else View.VISIBLE
+        resultsPanel.visibility = if (showResults) View.VISIBLE else View.GONE
+        heightWeightActions.visibility = View.GONE
     }
 
     private fun loadLastResults(key: String) {
@@ -1350,13 +1369,13 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             if (currentMeasurementType == "ALTURA_PESO") {
                 guideSequenceToken++
                 showHeightWeightStage(3)
-                heightWeightActions.visibility = View.VISIBLE
+                setHeightWeightPresentation(showResults = true)
             }
             setRepeatMode(false)
             updateButtonVisibility()
             checkLastMeasurement()
             getAudioName(currentMeasurementType, "exito")?.let { playAudio(it, forceRestart = true) }
-            if (currentMeasurementType != "ALTURA_PESO") startCountdownToNextTab()
+            startCountdownToNextTab()
         }
     }
 
@@ -1375,6 +1394,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             cancelCountdownTimer()
             tvStatusProgress.visibility = View.GONE
             if (currentMeasurementType == "ALTURA_PESO") heightWeightActions.visibility = View.GONE
+            if (currentMeasurementType == "ALTURA_PESO") setHeightWeightPresentation(showResults = true)
             layoutResultadosEcg.visibility = View.GONE
             showStatusMessage("Error de medición, favor de repetir", "#F44336")
             updateButtonVisibility()
