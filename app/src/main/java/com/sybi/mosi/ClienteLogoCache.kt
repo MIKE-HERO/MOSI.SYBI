@@ -92,10 +92,42 @@ object ClienteLogoCache {
         }
     }
 
+    /**
+     * Resuelve el logo de un slot (izq/der/firma) PREFIRIENDO su versión SVG:
+     * se prueba la misma ruta que dio la API pero con extensión .svg antes
+     * que el archivo "normal" (el que realmente trae logoIzquierdo/Derecho);
+     * si el SVG no existe en el servidor, se usa el archivo normal tal cual.
+     * Si ninguno se puede resolver, devuelve null (InformeBuilder cae al logo
+     * por defecto de la app).
+     */
     private fun descargarSiHaceFalta(dir: File, idCliente: String, slot: String, url: String?): String? {
         if (url.isNullOrBlank()) return null
 
+        val urlSvg = construirUrlSvgHermana(url)
+        if (urlSvg != null) {
+            val pathSvg = intentarDescargar(dir, idCliente, slot, urlSvg, "svg")
+            if (pathSvg != null) return pathSvg
+        }
+
         val ext = url.substringAfterLast('.', "png").take(4).ifBlank { "png" }
+        return intentarDescargar(dir, idCliente, slot, url, ext)
+    }
+
+    /**
+     * Misma ruta que [url] pero cambiando su extensión a .svg (p. ej.
+     * ".../archivo.png" -> ".../archivo.svg"). Devuelve null si [url] ya es
+     * un .svg (no hay "hermano" que buscar) o si no tiene extensión real.
+     */
+    private fun construirUrlSvgHermana(url: String): String? {
+        val ultimoPunto = url.lastIndexOf('.')
+        val ultimaBarra = url.lastIndexOf('/')
+        if (ultimoPunto <= ultimaBarra) return null
+        val extensionActual = url.substring(ultimoPunto + 1)
+        if (extensionActual.equals("svg", ignoreCase = true)) return null
+        return url.substring(0, ultimoPunto) + ".svg"
+    }
+
+    private fun intentarDescargar(dir: File, idCliente: String, slot: String, url: String, ext: String): String? {
         val file = File(dir, "${idCliente}_$slot.$ext")
         val marcadorUrl = File(dir, "${idCliente}_$slot.url")
 
@@ -109,12 +141,17 @@ object ClienteLogoCache {
                 connectTimeout = 8000
                 readTimeout = 15000
             }
+            val codigo = conn.responseCode
+            if (codigo !in 200..299) {
+                conn.disconnect()
+                return null
+            }
             conn.inputStream.use { input -> file.outputStream().use { out -> input.copyTo(out) } }
             conn.disconnect()
             marcadorUrl.writeText(url)
             file.absolutePath
         } catch (e: Exception) {
-            Log.w(TAG, "No se pudo descargar logo ($slot) del cliente $idCliente: ${e.message}")
+            Log.w(TAG, "No se pudo descargar logo ($slot, .$ext) del cliente $idCliente: ${e.message}")
             // Si ya había una copia previa (de otra URL), mejor usarla que no mostrar nada.
             if (file.exists()) file.absolutePath else null
         }
