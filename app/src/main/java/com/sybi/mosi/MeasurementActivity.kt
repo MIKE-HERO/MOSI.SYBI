@@ -12,6 +12,8 @@ import android.graphics.Color
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.CountDownTimer
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.*
@@ -100,6 +102,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var cardEcgImage: CardView
 
     private lateinit var imgGuide: ImageView
+    private lateinit var tvGuideStep: TextView
+    private lateinit var heightWeightActions: LinearLayout
+    private lateinit var btnHeightBack: Button
+    private lateinit var btnHeightNext: Button
+    private val guideHandler = Handler(Looper.getMainLooper())
+    private var guideSequenceToken = 0
     private var guideBreathingAnimator: android.animation.ObjectAnimator? = null
     private lateinit var waveformView: WaveformView
     private lateinit var layoutStatusContent: LinearLayout
@@ -245,6 +253,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         ecgImageView = findViewById(R.id.ecgImageView)
         cardEcgImage = findViewById(R.id.cardEcgImage)
         imgGuide = findViewById(R.id.imgMeasurementGuide)
+        tvGuideStep = findViewById(R.id.tvGuideStep)
+        heightWeightActions = findViewById(R.id.heightWeightActions)
+        btnHeightBack = findViewById(R.id.btnHeightBack)
+        btnHeightNext = findViewById(R.id.btnHeightNext)
+        btnHeightBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        btnHeightNext.setOnClickListener { getNextVisibleButton()?.performClick() }
         waveformView = findViewById(R.id.waveformView)
         layoutStatusContent = findViewById(R.id.layoutStatusContent)
         tvStatusMessage = findViewById(R.id.tvStatusMessage)
@@ -337,6 +351,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         findViewById<View>(R.id.topMeasurementBar).setBackgroundColor(color)
         findViewById<View>(R.id.bottomMeasurementBar).setBackgroundColor(color)
         btnStarECG.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
+        btnHeightNext.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         applyPillTheme(color)
     }
 
@@ -528,11 +543,14 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         measurementResults.updateHeightWeight(state.height, state.weight, state.imc)
 
         if (completedMeasurements.contains("ALTURA_PESO") || state.hasHeightWeight()) {
+            showHeightWeightStage(3)
+            heightWeightActions.visibility = View.VISIBLE
             btnRepeat.visibility = View.VISIBLE
             showStatusMessage("Medición completada correctamente", "#4CAF50")
             showSuccessCheck(true)
             return
         }
+        startHeightWeightGuideSequence()
         showReady()
         controller.sendCommand("ALTURA_PESO")
     }
@@ -664,6 +682,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }
         when (currentMeasurementType) {
             "ALTURA_PESO" -> {
+                heightWeightActions.visibility = View.GONE
                 state.resetHeightWeight()
                 measurementResults.updateHeightWeight(0.0, 0.0, 0.0)
                 showReady(); controller.forceSendCommand("ALTURA_PESO")
@@ -861,6 +880,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     // ── UI helpers ────────────────────────────────────────
 
     private fun switchTab(title: String, key: String, group: LinearLayout?) {
+        guideSequenceToken++
         cancelCountdownTimer()
         controller.cancelTimers()
         setRepeatMode(false)
@@ -879,6 +899,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         waveformView.visibility = if (key == "oxigeno") View.VISIBLE else View.GONE
         tvTitle.text = title
         setGuideImage("instruccion_$key")
+        heightWeightActions.visibility = View.GONE
+        tvGuideStep.visibility = if (key == "altura_peso") View.VISIBLE else View.GONE
         updateButtonVisibility()
 
         // Solo reproducir audio "start" si esta medición AÚN NO ha sido completada
@@ -995,6 +1017,44 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             imgGuide.setImageResource(resId)
             imgGuide.animate().alpha(1f).setDuration(200).start()
         }.start()
+    }
+
+    private fun startHeightWeightGuideSequence() {
+        val token = ++guideSequenceToken
+        showHeightWeightStage(1)
+        guideHandler.postDelayed({
+            if (token == guideSequenceToken && currentMeasurementType == "ALTURA_PESO" && !state.hasHeightWeight()) {
+                showHeightWeightStage(2)
+            }
+        }, 2200)
+        guideHandler.postDelayed({
+            if (token == guideSequenceToken && currentMeasurementType == "ALTURA_PESO" && !state.hasHeightWeight()) {
+                showHeightWeightStage(3)
+                showStatusMessage("Un momento, estamos tomando tus mediciones…", "#FF9800")
+            }
+        }, 4800)
+    }
+
+    private fun showHeightWeightStage(stage: Int) {
+        when (stage) {
+            1 -> {
+                setGuideImage("altura_peso_sentado")
+                tvGuideStep.text = "1. Siéntate frente a la máquina y coloca ambos pies sobre la plataforma."
+            }
+            2 -> {
+                setGuideImage("altura_peso_levantando")
+                tvGuideStep.text = "2. Levántate despacio y mantén los pies dentro del área marcada."
+            }
+            else -> {
+                setGuideImage("altura_peso_de_pie")
+                tvGuideStep.text = if (state.hasHeightWeight()) {
+                    "¡Listo! Revisa tus resultados y elige Siguiente o Regresar."
+                } else {
+                    "3. Mira al frente, mantén la espalda recta y permanece inmóvil."
+                }
+            }
+        }
+        tvGuideStep.visibility = View.VISIBLE
     }
 
     /** Pulso lento de escala en la imagen guía, para que no se sienta una foto estática e inerte. */
@@ -1285,11 +1345,16 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         runOnUiThread {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
             showStatusMessage("Medición completada correctamente", "#4CAF50")
+            if (currentMeasurementType == "ALTURA_PESO") {
+                guideSequenceToken++
+                showHeightWeightStage(3)
+                heightWeightActions.visibility = View.VISIBLE
+            }
             setRepeatMode(false)
             updateButtonVisibility()
             checkLastMeasurement()
             getAudioName(currentMeasurementType, "exito")?.let { playAudio(it, forceRestart = true) }
-            startCountdownToNextTab()
+            if (currentMeasurementType != "ALTURA_PESO") startCountdownToNextTab()
         }
     }
 
@@ -1307,6 +1372,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
             cancelCountdownTimer()
             tvStatusProgress.visibility = View.GONE
+            if (currentMeasurementType == "ALTURA_PESO") heightWeightActions.visibility = View.GONE
             layoutResultadosEcg.visibility = View.GONE
             showStatusMessage("Error de medición, favor de repetir", "#F44336")
             updateButtonVisibility()

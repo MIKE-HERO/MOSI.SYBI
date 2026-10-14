@@ -86,17 +86,40 @@
         android:padding="10dp"
         android:gravity="center_vertical">
 
-        <!-- IMAGEN DE INSTRUCCIONES (Izquierda) -->
-        <ImageView
-            android:id="@+id/imgMeasurementGuide"
+        <!-- Guía visual e instrucciones (izquierda) -->
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:scaleType="centerInside"
-            android:src="@mipmap/ic_launcher"
+            android:orientation="vertical"
             android:background="#FFFFFF"
             android:elevation="4dp"
-            android:layout_marginEnd="10dp" />
+            android:padding="10dp"
+            android:layout_marginEnd="10dp">
+
+            <ImageView
+                android:id="@+id/imgMeasurementGuide"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:scaleType="centerInside"
+                android:src="@mipmap/ic_launcher"
+                android:contentDescription="Guía de postura para la medición" />
+
+            <TextView
+                android:id="@+id/tvGuideStep"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_instruction_card"
+                android:gravity="center"
+                android:lineSpacingExtra="3dp"
+                android:maxLines="4"
+                android:text="Sigue las indicaciones para realizar tu medición"
+                android:textColor="#17324D"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
         <!-- CONTENEDOR DE RESULTADOS Y MONITOR (Derecha) -->
         <LinearLayout
@@ -181,6 +204,37 @@
                         android:layout_height="64dp"
                         android:visibility="gone" />
                 </FrameLayout>
+
+                <LinearLayout
+                    android:id="@+id/heightWeightActions"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginBottom="8dp"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <Button
+                        android:id="@+id/btnHeightBack"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="Regresar"
+                        android:textAllCaps="false"
+                        android:textSize="17sp" />
+
+                    <Button
+                        android:id="@+id/btnHeightNext"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="Siguiente"
+                        android:textAllCaps="false"
+                        android:textColor="#FFFFFF"
+                        android:textSize="17sp" />
+                </LinearLayout>
 
                 <!-- 2. SECCIÓN CENTRAL: RESULTADOS ACTUALES -->
                 <LinearLayout

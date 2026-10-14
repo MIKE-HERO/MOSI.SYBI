@@ -52,6 +52,12 @@ class GaugeView @JvmOverloads constructor(
     // Paints
     private val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.BUTT
+    }
+    private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.parseColor("#E4EAF1")
+        strokeCap = Paint.Cap.ROUND
     }
     private val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -88,6 +94,7 @@ class GaugeView @JvmOverloads constructor(
     private val pathMeasure = PathMeasure()
 
     init {
+        setLayerType(LAYER_TYPE_SOFTWARE, null)
         setGaugeType(GaugeType.IMC)
     }
 
@@ -177,6 +184,7 @@ class GaugeView @JvmOverloads constructor(
         val arcStrokeWidth = outerRadius * 0.38f
 
         arcPaint.strokeWidth = arcStrokeWidth
+        trackPaint.strokeWidth = arcStrokeWidth
         val arcRadius = outerRadius - (arcStrokeWidth / 2f)
 
         arcBounds.set(
@@ -188,6 +196,10 @@ class GaugeView @JvmOverloads constructor(
 
         val totalSweep = 180f
         val startBaseAngle = 180f
+
+        trackPaint.setShadowLayer(10f, 0f, 4f, Color.parseColor("#26001B3A"))
+        canvas.drawArc(arcBounds, startBaseAngle, totalSweep, false, trackPaint)
+        trackPaint.clearShadowLayer()
 
         val baseTopTextSize = arcStrokeWidth * 0.25f
         val baseBottomTextSize = arcStrokeWidth * 0.21f
@@ -201,7 +213,7 @@ class GaugeView @JvmOverloads constructor(
             val segSweepAngle = ((segEndRatio - segStartRatio) * totalSweep).toFloat()
 
             arcPaint.color = seg.color
-            canvas.drawArc(arcBounds, segStartAngle, segSweepAngle, false, arcPaint)
+            canvas.drawArc(arcBounds, segStartAngle + 0.8f, segSweepAngle - 1.6f, false, arcPaint)
 
             // Draw divider lines at segment start
             val startRad = Math.toRadians(segStartAngle.toDouble())
@@ -272,7 +284,9 @@ class GaugeView @JvmOverloads constructor(
         val ny = (cy + needleLen * sin(needleRad)).toFloat()
 
         // Needle line & tip
+        needlePaint.setShadowLayer(5f, 0f, 2f, Color.parseColor("#55001B3A"))
         canvas.drawLine(cx, cy, nx, ny, needlePaint)
+        needlePaint.clearShadowLayer()
 
         // Pivot circle
         val pivotR = arcStrokeWidth * 0.32f
