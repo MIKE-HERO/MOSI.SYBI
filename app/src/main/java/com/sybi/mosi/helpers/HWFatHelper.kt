@@ -508,6 +508,7 @@ class HWFatHelper(private val context: Context) {
                                                 (data[index + 6].toInt() and 0xFF)
                                         lastWeight = weightRaw / 1000.0
                                         sendAlturaPesoResult()
+                                        notifyScaleStep()
                                     }
                                 }
                                 0xD2 -> {
@@ -516,6 +517,7 @@ class HWFatHelper(private val context: Context) {
                                                 (data[index + 4].toInt() and 0xFF)
                                         lastHeight = heightRaw / 10.0
                                         sendAlturaPesoResult()
+                                        notifyScaleStep()
                                     }
                                 }
                             }
@@ -548,6 +550,12 @@ class HWFatHelper(private val context: Context) {
 
             Log.d(TAG, "✅ Altura/Peso: $lastHeight cm, $lastWeight kg")
         }
+    }
+
+    private fun notifyScaleStep() {
+        val intent = Intent("DEVICE_DATA_RECEIVED")
+        intent.putExtra("type", "ALTURA_PESO_STEP")
+        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
     }
 
     // ✅ FUNCIÓN COMPLETA CON TODOS LOS CASOS POSIBLES DE COMPOSICIÓN

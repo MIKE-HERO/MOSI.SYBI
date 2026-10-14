@@ -41,6 +41,7 @@ object FaceBiometricsCache {
         val appContext = context.applicationContext
 
         Thread {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
             try {
                 FaceBiometricsHelper.init(appContext)
                 val database = AppDatabase.getInstance(appContext)

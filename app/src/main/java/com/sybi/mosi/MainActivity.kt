@@ -57,6 +57,10 @@ class MainActivity : BaseActivity() {
     private var logoReceiver: BroadcastReceiver? = null
     private var titleReceiver: BroadcastReceiver? = null
     private var connectionReceiver: BroadcastReceiver? = null
+    private var scaleReceiver: BroadcastReceiver? = null
+
+    // Control para evitar abrir LoginActivity múltiples veces por la misma pisada de báscula
+    @Volatile private var isLaunchingLogin = false
 
     companion object {
         private const val TAG = "MainActivity"
@@ -155,6 +159,41 @@ class MainActivity : BaseActivity() {
             connectionReceiver!!,
             IntentFilter("DEVICE_CONNECTION_STATUS")
         )
+
+        // --- RECEPTOR PARA DETECTAR PISADA DE BÁSCULA Y CAMBIAR A LOGIN ---
+        scaleReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (isLaunchingLogin) return
+
+                val action = intent.action
+                if (action == "ACTION_SCALE_STEP") {
+                    Log.d(TAG, "⚖️ Pisada detectada en báscula (ACTION_SCALE_STEP), abriendo LoginActivity")
+                    openLoginActivityFromScale()
+                } else if (action == "SERIAL_RAW_DATA") {
+                    val port = intent.getStringExtra("port")
+                    val type = intent.getStringExtra("type")
+                    val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+                    val scalePort = devicePrefs.getString("device_altura_peso_port", "/dev/ttyS5") ?: "/dev/ttyS5"
+
+                    if (type == "RX" && port == scalePort) {
+                        Log.d(TAG, "⚖️ Trama serial de pisada recibida en $port, abriendo LoginActivity")
+                        openLoginActivityFromScale()
+                    }
+                } else if (action == "DEVICE_DATA_RECEIVED") {
+                    val type = intent.getStringExtra("type")
+                    if (type == "ALTURA_PESO" || type == "ALTURA_PESO_STEP") {
+                        Log.d(TAG, "⚖️ Datos de pisada de báscula recibidos ($type), abriendo LoginActivity")
+                        openLoginActivityFromScale()
+                    }
+                }
+            }
+        }
+        val scaleFilter = IntentFilter().apply {
+            addAction("ACTION_SCALE_STEP")
+            addAction("SERIAL_RAW_DATA")
+            addAction("DEVICE_DATA_RECEIVED")
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(scaleReceiver!!, scaleFilter)
 
         // Nota: el ciclo del modo multicolor ahora lo maneja BaseActivity para toda la app;
         // esta pantalla solo necesita su colorReceiver (arriba) para repintar rootLayout.
@@ -386,6 +425,16 @@ class MainActivity : BaseActivity() {
         dialog.show()
     }
 
+    private fun openLoginActivityFromScale() {
+        if (isLaunchingLogin) return
+        isLaunchingLogin = true
+
+        Log.d(TAG, "⚖️ Abriendo LoginActivity desde pisada de báscula...")
+        val intent = Intent(this@MainActivity, LoginActivity::class.java)
+        startActivity(intent)
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+    }
+
     // ==========================================
     // EFECTOS DE "PANTALLA VIVA" (respiración del logo + brillo diagonal)
     // ==========================================
@@ -393,14 +442,18 @@ class MainActivity : BaseActivity() {
         super.onResume()
         shineOverlay.startSweeping()
         startBreathingEffect()
-        // El ciclo del modo multicolor ya lo arranca BaseActivity.onResume(); esta pantalla
-        // solo necesita su colorReceiver (registrado arriba) para pintarse con cada color.
+
+        // Restablecer flag para estar listo INMEDIATAMENTE para recibir pisadas
+        isLaunchingLogin = false
     }
 
     override fun onPause() {
         super.onPause()
         shineOverlay.stopSweeping()
         stopBreathingEffect()
+
+        // Deshabilitar detecciones en segundo plano mientras no estemos en primer plano
+        isLaunchingLogin = true
     }
 
     /** Pulso suave y lento de escala en el logo, para dar sensación de "respiración". */
@@ -445,6 +498,9 @@ class MainActivity : BaseActivity() {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
             connectionReceiver?.let {
+                LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
+            }
+            scaleReceiver?.let {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
         } catch (e: Exception) {

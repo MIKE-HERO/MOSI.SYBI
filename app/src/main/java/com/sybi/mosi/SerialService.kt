@@ -448,6 +448,8 @@ class SerialService : Service() {
         assemblers[portPath] = assembler
 
         val thread = Thread {
+            // Alta prioridad de hilo para responder instantáneamente al puerto serie
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
             val buffer = ByteArray(4096)
             while (!destroyed && isReadingActive[portPath] == true && openStreams[portPath] === myStream) {
                 try {
@@ -455,6 +457,13 @@ class SerialService : Service() {
 
                     if (bytesRead > 0) {
                         val receivedData = buffer.copyOf(bytesRead)
+
+                        // Notificar pisada inmediata si es el puerto de la báscula
+                        if (portPath == alturaPesoPortPath) {
+                            val stepIntent = Intent("ACTION_SCALE_STEP")
+                            stepIntent.putExtra("port", portPath)
+                            LocalBroadcastManager.getInstance(this).sendBroadcast(stepIntent)
+                        }
 
                         // Enviar datos crudos al monitor
                         val rawIntent = Intent("SERIAL_RAW_DATA")

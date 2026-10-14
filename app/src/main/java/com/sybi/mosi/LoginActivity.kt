@@ -35,6 +35,29 @@ class LoginActivity : BaseActivity() {
     private var currentColor: String = "#0F3E82"
     private var isMedicionSelected: Boolean = true
 
+    // --- TEMPORIZADOR DE INACTIVIDAD (10 SEGUNDOS) ---
+    private val inactivityHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val inactivityRunnable = Runnable {
+        if (!isFinishing && !isDestroyed) {
+            android.util.Log.d(TAG, "⏰ 10 segundos de inactividad en LoginActivity. Regresando a MainActivity.")
+            finish()
+        }
+    }
+
+    companion object {
+        private const val TAG = "LoginActivity"
+        private const val INACTIVITY_TIMEOUT_MS = 10_000L
+    }
+
+    private fun resetInactivityTimer() {
+        inactivityHandler.removeCallbacks(inactivityRunnable)
+        inactivityHandler.postDelayed(inactivityRunnable, INACTIVITY_TIMEOUT_MS)
+    }
+
+    private fun stopInactivityTimer() {
+        inactivityHandler.removeCallbacks(inactivityRunnable)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
@@ -146,10 +169,26 @@ class LoginActivity : BaseActivity() {
         }
     }
 
-    // ✅ RECEPTOR PARA ACTUALIZAR LA VISIBILIDAD DEL BOTÓN DE INVITADO
+    // ✅ RECEPTOR PARA ACTUALIZAR LA VISIBILIDAD DEL BOTÓN DE INVITADO E INICIAR TEMPORIZADOR
     override fun onResume() {
         super.onResume()
         updateGuestButtonVisibility()
+        resetInactivityTimer()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopInactivityTimer()
+    }
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent?): Boolean {
+        resetInactivityTimer()
+        return super.dispatchTouchEvent(ev)
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        resetInactivityTimer()
     }
 
     private fun updateGuestButtonVisibility() {
