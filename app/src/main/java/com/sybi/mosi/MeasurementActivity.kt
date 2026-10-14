@@ -102,6 +102,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var cardEcgImage: CardView
 
     private lateinit var imgGuide: ImageView
+    private lateinit var tvGuideTitle: TextView
     private lateinit var tvGuideStep: TextView
     private lateinit var guidePanel: LinearLayout
     private lateinit var resultsPanel: LinearLayout
@@ -255,6 +256,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         ecgImageView = findViewById(R.id.ecgImageView)
         cardEcgImage = findViewById(R.id.cardEcgImage)
         imgGuide = findViewById(R.id.imgMeasurementGuide)
+        tvGuideTitle = findViewById(R.id.tvGuideTitle)
         tvGuideStep = findViewById(R.id.tvGuideStep)
         guidePanel = findViewById(R.id.guidePanel)
         resultsPanel = findViewById(R.id.resultsPanel)
@@ -568,6 +570,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         switchTab("Composición Corporal", "composicion", groupComposicion)
 
         if (completedMeasurements.contains("COMPOSICION") || state.hasComposition()) {
+            setHeightWeightPresentation(showResults = true)
             tvStatusProgress.visibility = View.GONE
             renderComposition()
             btnRepeat.visibility = View.VISIBLE
@@ -581,6 +584,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }
 
         measurementResults.clearComposition()
+        setHeightWeightPresentation(showResults = false)
+        startCompositionGuideSequence()
         tvStatusProgress.text = "0%"
         tvStatusProgress.visibility = View.VISIBLE
         ivStatusCheck.visibility = View.GONE
@@ -703,6 +708,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 }
                 state.resetComposition()
                 measurementResults.clearComposition()
+                setHeightWeightPresentation(showResults = false)
+                startCompositionGuideSequence()
                 tvStatusProgress.text = "0%"
                 tvStatusProgress.visibility = View.VISIBLE
                 ivStatusCheck.visibility = View.GONE
@@ -909,6 +916,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         waveformView.visibility = if (key == "oxigeno") View.VISIBLE else View.GONE
         tvTitle.text = title
+        tvGuideTitle.text = title
         setGuideImage("instruccion_$key")
         heightWeightActions.visibility = View.GONE
         tvGuideStep.visibility = if (key == "altura_peso") View.VISIBLE else View.GONE
@@ -1051,9 +1059,59 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         guideHandler.postDelayed({
             if (token == guideSequenceToken && currentMeasurementType == "ALTURA_PESO" && !state.hasHeightWeight()) {
                 showHeightWeightStage(3)
-                showStatusMessage("Un momento, estamos tomando tus mediciones…", "#FF9800")
+                startAnalysisMessages(token, "ALTURA_PESO")
             }
         }, 4800)
+    }
+
+    private fun startCompositionGuideSequence() {
+        val token = ++guideSequenceToken
+        showCompositionStage(1)
+        guideHandler.postDelayed({
+            if (token == guideSequenceToken && currentMeasurementType == "COMPOSICION" && !state.hasComposition()) {
+                showCompositionStage(2)
+            }
+        }, 2600)
+        guideHandler.postDelayed({
+            if (token == guideSequenceToken && currentMeasurementType == "COMPOSICION" && !state.hasComposition()) {
+                showCompositionStage(3)
+                startAnalysisMessages(token, "COMPOSICION")
+            }
+        }, 5400)
+    }
+
+    private fun showCompositionStage(stage: Int) {
+        setGuideImage("composicion_sujetando")
+        tvGuideStep.text = when (stage) {
+            1 -> "1. Siéntate con la espalda recta y coloca ambos pies sobre la plataforma."
+            2 -> "2. Sujeta firmemente los electrodos con ambas manos, como se muestra en la imagen."
+            else -> "3. Mantén los brazos estables, no hables y permanece inmóvil."
+        }
+        tvGuideStep.visibility = View.VISIBLE
+    }
+
+    private fun startAnalysisMessages(token: Int, type: String) {
+        val messages = listOf(
+            "Un momento, estamos analizando tus datos…",
+            "Validando la calidad de la medición…",
+            "Calculando tus resultados…",
+            "Casi terminamos, permanece inmóvil…"
+        )
+        fun showMessage(index: Int) {
+            val waiting = when (type) {
+                "ALTURA_PESO" -> !state.hasHeightWeight()
+                "COMPOSICION" -> !state.hasComposition()
+                else -> false
+            }
+            if (token != guideSequenceToken || currentMeasurementType != type || !waiting) return
+            tvGuideStep.animate().alpha(0f).setDuration(160).withEndAction {
+                if (token != guideSequenceToken) return@withEndAction
+                tvGuideStep.text = messages[index % messages.size]
+                tvGuideStep.animate().alpha(1f).setDuration(220).start()
+            }.start()
+            guideHandler.postDelayed({ showMessage(index + 1) }, 2300)
+        }
+        guideHandler.postDelayed({ showMessage(0) }, 2200)
     }
 
     private fun showHeightWeightStage(stage: Int) {
@@ -1370,6 +1428,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 guideSequenceToken++
                 showHeightWeightStage(3)
                 setHeightWeightPresentation(showResults = true)
+            } else if (currentMeasurementType == "COMPOSICION") {
+                guideSequenceToken++
+                setHeightWeightPresentation(showResults = true)
             }
             setRepeatMode(false)
             updateButtonVisibility()
@@ -1394,7 +1455,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             cancelCountdownTimer()
             tvStatusProgress.visibility = View.GONE
             if (currentMeasurementType == "ALTURA_PESO") heightWeightActions.visibility = View.GONE
-            if (currentMeasurementType == "ALTURA_PESO") setHeightWeightPresentation(showResults = true)
+            if (currentMeasurementType == "ALTURA_PESO" || currentMeasurementType == "COMPOSICION") {
+                guideSequenceToken++
+                setHeightWeightPresentation(showResults = true)
+            }
             layoutResultadosEcg.visibility = View.GONE
             showStatusMessage("Error de medición, favor de repetir", "#F44336")
             updateButtonVisibility()
