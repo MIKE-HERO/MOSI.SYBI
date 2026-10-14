@@ -13,7 +13,6 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
-import android.widget.Filter
 import android.widget.Spinner
 import android.widget.Switch
 import android.widget.Toast
@@ -325,13 +324,19 @@ class TelemedicineSettingsActivity : BaseActivity() {
         idClienteSeleccionado = devicePrefs.getString(PREF_CLIENTE, "") ?: ""
         nombreClienteSeleccionado = devicePrefs.getString(PREF_CLIENTE_NOMBRE, "") ?: ""
         if (idClienteSeleccionado.isNotEmpty()) {
-            etCliente.setText("$nombreClienteSeleccionado ($idClienteSeleccionado)")
+            // setText(texto, false): precarga el campo SIN disparar el filtro de
+            // autocompletado. Si se usa el setText de 1 argumento (equivale a
+            // filter=true), el AutoCompleteTextView filtra su adapter contra este
+            // texto como si el usuario lo hubiera tecleado, dejando la lista
+            // "atascada" en 1 coincidencia hasta que se escribe algo nuevo — por
+            // eso antes no aparecían todos los clientes al abrir el desplegable.
+            etCliente.setText("$nombreClienteSeleccionado ($idClienteSeleccionado)", false)
         }
 
         idSucursalSeleccionada = devicePrefs.getString(PREF_SUCURSAL, "") ?: ""
         nombreSucursalSeleccionada = devicePrefs.getString(PREF_SUCURSAL_NOMBRE, "") ?: ""
         if (idSucursalSeleccionada.isNotEmpty()) {
-            etSucursal.setText("$nombreSucursalSeleccionada ($idSucursalSeleccionada)")
+            etSucursal.setText("$nombreSucursalSeleccionada ($idSucursalSeleccionada)", false)
         }
 
         if (idClienteSeleccionado.isNotEmpty()) {
@@ -362,45 +367,20 @@ class TelemedicineSettingsActivity : BaseActivity() {
         }
     }
 
-    /**
-     * ArrayAdapter sin filtro de autocompletado: el AutoCompleteTextView filtra
-     * por defecto su lista según el texto que YA tenga escrito (p. ej. el
-     * cliente/sucursal guardado de una configuración previa). Como aquí el
-     * campo es "tocar y elegir de la lista completa" (showDropDown() al hacer
-     * click/foco), no un buscador por tecleo, el filtro por defecto puede
-     * terminar mostrando solo 1 coincidencia (o ninguna) en vez de todas las
-     * opciones — el síntoma reportado de "no aparecen todos los clientes".
-     */
-    private fun adapterSinFiltro(items: List<String>): ArrayAdapter<String> {
-        return object : ArrayAdapter<String>(
-            this@TelemedicineSettingsActivity,
-            android.R.layout.simple_dropdown_item_1line,
-            items
-        ) {
-            private val sinFiltro = object : Filter() {
-                override fun performFiltering(constraint: CharSequence?): FilterResults {
-                    return FilterResults().apply {
-                        values = items
-                        count = items.size
-                    }
-                }
-
-                override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
-                    // No-op: el adapter ya se construyó con la lista completa;
-                    // nunca se reduce según lo que haya escrito en el campo.
-                }
-            }
-
-            override fun getFilter(): Filter = sinFiltro
-        }
-    }
-
     private fun configurarAutoCompleteClientes() {
         val items = listaClientes.map {
             "${it.nombreCliente ?: "Sin nombre"} (${it.idCliente ?: "-"})"
         }
 
-        val adapter = adapterSinFiltro(items)
+        // ArrayAdapter normal: SÍ filtra al escribir (comportamiento esperado de
+        // autocompletado). El truco para que igual aparezcan todos al abrir el
+        // desplegable sin haber escrito nada está en usar setText(texto, false)
+        // al precargar/seleccionar, en vez del setText de un argumento.
+        val adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            items
+        )
         etCliente.setAdapter(adapter)
 
         etCliente.setOnClickListener {
@@ -419,7 +399,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
             if (cliente != null) {
                 idClienteSeleccionado = cliente.idCliente ?: ""
                 nombreClienteSeleccionado = cliente.nombreCliente ?: ""
-                etCliente.setText("$nombreClienteSeleccionado ($idClienteSeleccionado)")
+                etCliente.setText("$nombreClienteSeleccionado ($idClienteSeleccionado)", false)
                 etCliente.setSelection(etCliente.text.length)
 
                 idSucursalSeleccionada = ""
@@ -463,7 +443,11 @@ class TelemedicineSettingsActivity : BaseActivity() {
             "${it.nombreSucursal ?: "Sin nombre"} (${it.idSucursal ?: "-"})"
         }
 
-        val adapter = adapterSinFiltro(items)
+        val adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            items
+        )
         etSucursal.setAdapter(adapter)
 
         etSucursal.setOnClickListener {
@@ -479,7 +463,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
             if (sucursal != null) {
                 idSucursalSeleccionada = sucursal.idSucursal ?: ""
                 nombreSucursalSeleccionada = sucursal.nombreSucursal ?: ""
-                etSucursal.setText("$nombreSucursalSeleccionada ($idSucursalSeleccionada)")
+                etSucursal.setText("$nombreSucursalSeleccionada ($idSucursalSeleccionada)", false)
                 etSucursal.setSelection(etSucursal.text.length)
 
                 Log.d(TAG, "✅ Sucursal seleccionada: $idSucursalSeleccionada - $nombreSucursalSeleccionada")
