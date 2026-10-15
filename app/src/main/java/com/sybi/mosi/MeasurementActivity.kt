@@ -104,8 +104,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var imgGuide: ImageView
     private lateinit var tvGuideTitle: TextView
     private lateinit var tvGuideStep: TextView
-    private lateinit var guidePanel: LinearLayout
-    private lateinit var resultsPanel: LinearLayout
+    private lateinit var guidePanel: View
+    private lateinit var measuringAnimationHost: View
+    private lateinit var measuringAnimationView: com.sybi.mosi.measurement.EqualizerLoaderView
+    private lateinit var resultsPanel: View
     private lateinit var heightWeightActions: LinearLayout
     private lateinit var btnHeightBack: Button
     private lateinit var btnHeightNext: Button
@@ -259,6 +261,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         tvGuideTitle = findViewById(R.id.tvGuideTitle)
         tvGuideStep = findViewById(R.id.tvGuideStep)
         guidePanel = findViewById(R.id.guidePanel)
+        measuringAnimationHost = findViewById(R.id.measuringAnimationHost)
+        measuringAnimationView = findViewById(R.id.measuringAnimationView)
         resultsPanel = findViewById(R.id.resultsPanel)
         heightWeightActions = findViewById(R.id.heightWeightActions)
         btnHeightBack = findViewById(R.id.btnHeightBack)
@@ -958,6 +962,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         controller.cancelTimers()
         setRepeatMode(false)
         tvStatusProgress.visibility = View.GONE
+        // Por si se cambia de pestaña a medio "esperando resultado": no dejar la
+        // animación grande de la pestaña anterior atascada sobre la guía nueva.
+        mostrarAnimacionMidiendo(false)
         listOf(groupAlturaPeso, groupTemperatura, groupComposicion, groupPresion,
             groupOxigeno, groupEcg, groupAzucar, groupAcidoUrico, groupColesterol)
             .forEach { it.visibility = View.GONE }
@@ -993,12 +1000,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     }
 
     /**
-     * Altura/Peso usa un flujo de dos momentos: primero una guía visual amplia y limpia;
-     * al terminar, los datos ocupan todo el espacio central durante unos segundos.
+     * La guía (izquierda) y los resultados (derecha) permanecen visibles todo el
+     * tiempo, en paralelo; lo que cubre/descubre los datos reales mientras se
+     * espera es únicamente el overlay de [mostrarAnimacionMidiendo], no estos
+     * paneles. `showResults` ya no oculta ningún panel.
      */
     private fun setHeightWeightPresentation(showResults: Boolean) {
-        guidePanel.visibility = if (showResults) View.GONE else View.VISIBLE
-        resultsPanel.visibility = if (showResults) View.VISIBLE else View.GONE
         heightWeightActions.visibility = View.GONE
     }
 
@@ -1277,12 +1284,25 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         statusSweep.visibility = View.VISIBLE
         statusSweep.start()
         startPillPulse()
+        mostrarAnimacionMidiendo(true)
     }
 
     private fun stopStatusShimmer() {
         statusSweep.stop()
         statusSweep.visibility = View.GONE
         stopPillPulse()
+        mostrarAnimacionMidiendo(false)
+    }
+
+    /**
+     * Mitad derecha de la pantalla: mientras se espera el resultado del sensor,
+     * cubre el panel de resultados con una animación grande ("midiendo"). Al
+     * terminar (con éxito o error) se descubre y aparecen los datos reales. La
+     * guía de postura (mitad izquierda) permanece visible todo el tiempo, sin
+     * animaciones de "esperando" mezcladas en las tarjetas de resultado.
+     */
+    private fun mostrarAnimacionMidiendo(midiendo: Boolean) {
+        measuringAnimationHost.visibility = if (midiendo) View.VISIBLE else View.GONE
     }
 
     /** Muestra (con una animación de aparición) o esconde el check verde de medición completada. */

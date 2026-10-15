@@ -19,6 +19,14 @@ class MeasurementResults(private val activity: Activity) {
         val color: Int
     )
 
+    // Los EqualizerLoaderView de "esperando resultado" de cada tarjeta (pbXxxLoading)
+    // ya NO se muestran aquí: esa animación ahora vive centralizada en el panel
+    // izquierdo de MeasurementActivity (ver guideContentGroup/measuringAnimationHost
+    // en activity_measurement.xml), para que el panel derecho sea solo lectura y
+    // visualización de datos (GaugeView, ClinicalThermometerView, valores). Los
+    // campos y su reset a GONE se conservan sin cambios; solo se eliminó el único
+    // camino que los ponía en VISIBLE.
+
     // Altura / Peso / IMC
     var tvResultHeightValue: TextView? = null
     var tvResultWeightValue: TextView? = null
@@ -106,7 +114,7 @@ class MeasurementResults(private val activity: Activity) {
         gaugeIMC?.setGaugeType(GaugeView.GaugeType.IMC)
         gaugeIMC?.setValue(0.0, animated = false)
         gaugeIMC?.visibility = View.VISIBLE
-        pbImcLoading?.visibility = View.VISIBLE
+        pbImcLoading?.visibility = View.GONE
         tvResultIMCValue?.visibility = View.GONE
 
         // Composición
@@ -230,16 +238,16 @@ class MeasurementResults(private val activity: Activity) {
         } else {
             tvResultHeightValue?.visibility = View.GONE
             ivHeightIcon?.visibility = View.GONE
-            pbAlturaLoading?.visibility = View.VISIBLE
+            pbAlturaLoading?.visibility = View.GONE
 
             tvResultWeightValue?.visibility = View.GONE
             ivWeightIcon?.visibility = View.GONE
-            pbPesoLoading?.visibility = View.VISIBLE
+            pbPesoLoading?.visibility = View.GONE
 
             tvResultIMCValue?.visibility = View.GONE
             gaugeIMC?.setValue(0.0, animated = false)
             gaugeIMC?.visibility = View.VISIBLE
-            pbImcLoading?.visibility = View.VISIBLE
+            pbImcLoading?.visibility = View.GONE
             tvImcStatus?.visibility = View.GONE
         }
     }
@@ -284,21 +292,21 @@ class MeasurementResults(private val activity: Activity) {
         ivFatIcon?.visibility = View.GONE
         tvResultFatRate?.visibility = View.GONE
         tvResultFatKg?.visibility = View.GONE
-        pbFatLoading?.visibility = View.VISIBLE
+        pbFatLoading?.visibility = View.GONE
 
         ivMuscleIcon?.visibility = View.GONE
         tvResultMuscleRate?.visibility = View.GONE
         tvResultMuscleKg?.visibility = View.GONE
-        pbMuscleLoading?.visibility = View.VISIBLE
+        pbMuscleLoading?.visibility = View.GONE
 
         ivWaterIcon?.visibility = View.GONE
         tvResultWaterRate?.visibility = View.GONE
         tvResultWaterKg?.visibility = View.GONE
-        pbWaterLoading?.visibility = View.VISIBLE
+        pbWaterLoading?.visibility = View.GONE
 
         ivVisceralIcon?.visibility = View.GONE
         tvResultVisceralFat?.visibility = View.GONE
-        pbVisceralLoading?.visibility = View.VISIBLE
+        pbVisceralLoading?.visibility = View.GONE
 
         tvPillProtein?.visibility = View.GONE
         pbPillProteinLoading?.visibility = View.VISIBLE
@@ -401,7 +409,7 @@ class MeasurementResults(private val activity: Activity) {
         } else {
             layoutResultTempContent?.visibility = View.GONE
             tvTempStatus?.visibility = View.GONE
-            pbTemperaturaLoading?.visibility = View.VISIBLE
+            pbTemperaturaLoading?.visibility = View.GONE
         }
     }
 
@@ -436,15 +444,15 @@ class MeasurementResults(private val activity: Activity) {
         } else {
             ringSpO2?.setData("SpO2", "", "%", 0f, animated = false, showContent = false)
             ringSpO2?.visibility = View.VISIBLE
-            pbSpO2Loading?.visibility = View.VISIBLE
+            pbSpO2Loading?.visibility = View.GONE
 
             ringHeartRate?.setData("BPM", "", "", 0f, animated = false, showContent = false)
             ringHeartRate?.visibility = View.VISIBLE
-            pbHeartRateLoading?.visibility = View.VISIBLE
+            pbHeartRateLoading?.visibility = View.GONE
 
             ringPI?.setData("PI %", "", "", 0f, animated = false, showContent = false)
             ringPI?.visibility = View.VISIBLE
-            pbPILoading?.visibility = View.VISIBLE
+            pbPILoading?.visibility = View.GONE
             tvOxygenStatus?.visibility = View.GONE
         }
     }
@@ -473,15 +481,15 @@ class MeasurementResults(private val activity: Activity) {
         } else {
             tvResultSystolicValue?.visibility = View.GONE
             ivSystolicIcon?.visibility = View.GONE
-            pbSistolicaLoading?.visibility = View.VISIBLE
+            pbSistolicaLoading?.visibility = View.GONE
 
             tvResultDiastolicValue?.visibility = View.GONE
             ivDiastolicIcon?.visibility = View.GONE
-            pbDiastolicaLoading?.visibility = View.VISIBLE
+            pbDiastolicaLoading?.visibility = View.GONE
 
             ringPresionPulse?.setData("BPM", "", "", 0f, animated = false, showContent = false)
             ringPresionPulse?.visibility = View.VISIBLE
-            pbPulsoLoading?.visibility = View.VISIBLE
+            pbPulsoLoading?.visibility = View.GONE
             tvPresionStatus?.visibility = View.GONE
         }
     }

@@ -93,7 +93,10 @@
         android:paddingBottom="16dp"
         android:gravity="center_vertical">
 
-        <!-- Guía visual e instrucciones (izquierda) -->
+        <!-- Guía visual e instrucciones (izquierda): SIEMPRE visible, no se
+             reemplaza por nada. La animación de "midiendo" va en el panel
+             derecho (ver measuringAnimationHost en resultsPanel), para que
+             ambas se vean A LA VEZ, una en cada mitad de la pantalla. -->
         <LinearLayout
             android:id="@+id/guidePanel"
             android:layout_width="0dp"
@@ -139,36 +142,43 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- CONTENEDOR DE RESULTADOS Y MONITOR (Derecha) -->
-        <LinearLayout
+        <!-- CONTENEDOR DE RESULTADOS Y MONITOR (Derecha). FrameLayout porque
+             measuringAnimationHost se SUPERPONE a resultsContainer (uno cubre
+             al otro según el estado), mientras que guidePanel (mitad
+             izquierda) permanece visible todo el tiempo. -->
+        <FrameLayout
             android:id="@+id/resultsPanel"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:orientation="vertical"
             android:background="@drawable/bg_measurement_panel"
             android:elevation="3dp"
             android:padding="20dp">
 
-            <!-- Título de la pantalla -->
-            <TextView
-                android:id="@+id/tvMeasurementTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Medición"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                android:textColor="#17384D"
-                android:layout_marginBottom="12dp" />
-
-            <!-- CONTENEDOR PRINCIPAL DE RESULTADOS -->
             <LinearLayout
-                android:id="@+id/resultsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:background="#F6F9FB"
-                android:padding="12dp">
+                android:orientation="vertical">
+
+                <!-- Título de la pantalla -->
+                <TextView
+                    android:id="@+id/tvMeasurementTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Medición"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="#17384D"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- CONTENEDOR PRINCIPAL DE RESULTADOS -->
+                <LinearLayout
+                    android:id="@+id/resultsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:background="#F6F9FB"
+                    android:padding="12dp">
 
                 <!-- 1. SECCIÓN SUPERIOR: MENSAJE DE ESTADO -->
                 <FrameLayout
@@ -1810,6 +1820,40 @@
             </LinearLayout>
 
         </LinearLayout>
+
+        <!-- Animación grande de "midiendo": cubre resultsContainer mientras se
+             esperan resultados del sensor. Es la misma animación que antes
+             aparecía en miniatura dentro de cada tarjeta de resultado; ahora se
+             centraliza aquí para que la mitad derecha muestre primero "midiendo"
+             y luego los datos, mientras la guía de postura (mitad izquierda)
+             permanece visible todo el tiempo. -->
+        <LinearLayout
+            android:id="@+id/measuringAnimationHost"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_measurement_panel"
+            android:visibility="gone">
+
+            <com.sybi.mosi.measurement.EqualizerLoaderView
+                android:id="@+id/measuringAnimationView"
+                android:layout_width="160dp"
+                android:layout_height="160dp" />
+
+            <TextView
+                android:id="@+id/tvMeasuringAnimationLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center"
+                android:text="Realizando medición…"
+                android:textColor="#17384D"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        </FrameLayout>
 
     </LinearLayout>
 
