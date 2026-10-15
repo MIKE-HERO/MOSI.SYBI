@@ -21,6 +21,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -119,6 +120,12 @@ class LogoSettingsActivity : BaseActivity() {
 
         // 4. Configurar botones de colores predefinidos
         setupColorButtons()
+        setupBackgroundButtons()
+        findViewById<View>(R.id.btnGoToBackgrounds).setOnClickListener {
+            val scroll = findViewById<ScrollView>(R.id.customizationScroll)
+            val card = findViewById<View>(R.id.backgroundSelectorCard)
+            scroll.post { scroll.smoothScrollTo(0, card.top) }
+        }
 
         // 5. Botón Paleta de colores personalizada
         btnCustomColor.setOnClickListener {
@@ -307,6 +314,23 @@ class LogoSettingsActivity : BaseActivity() {
         for ((id, hex) in colorMap) {
             findViewById<View>(id)?.setOnClickListener {
                 changeColor(hex)
+            }
+        }
+    }
+
+    private fun setupBackgroundButtons() {
+        val backgrounds = mapOf(
+            R.id.btnBackgroundAzul to "azul",
+            R.id.btnBackgroundTurquesa to "turquesa",
+            R.id.btnBackgroundMorado to "morado"
+        )
+        backgrounds.forEach { (viewId, key) ->
+            findViewById<View>(viewId).setOnClickListener {
+                prefs.edit().putString("MedicalBackground", key).apply()
+                LocalBroadcastManager.getInstance(this).sendBroadcast(
+                    Intent("ACTION_UPDATE_BACKGROUND").putExtra("background", key)
+                )
+                Toast.makeText(this, "Fondo ${key.replaceFirstChar { it.uppercase() }} seleccionado", Toast.LENGTH_SHORT).show()
             }
         }
     }

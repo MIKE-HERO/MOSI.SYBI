@@ -453,6 +453,9 @@ class TelemedicineSettingsActivity : BaseActivity() {
         etSucursal.setOnClickListener {
             if (listaSucursales.isNotEmpty()) etSucursal.showDropDown()
         }
+        etSucursal.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus && listaSucursales.isNotEmpty()) etSucursal.showDropDown()
+        }
 
         etSucursal.setOnItemClickListener { _, _, _, _ ->
             val textoSeleccionado = etSucursal.text.toString()

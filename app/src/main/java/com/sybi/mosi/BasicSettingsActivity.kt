@@ -10,6 +10,7 @@ import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
+import com.sybi.mosi.network.ConnectivityStatusProvider
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -458,37 +459,17 @@ class BasicSettingsActivity : BaseActivity() {
     // ============================================================
     private fun actualizarEstadoWifi() {
         try {
-            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val status = ConnectivityStatusProvider.get(this)
 
-            if (!wifiManager.isWifiEnabled) {
+            if (!status.wifiEnabled) {
                 txtWifiStatus.text = "Apagado"
                 txtWifiStatus.setTextColor(Color.parseColor("#9E9E9E"))
                 imgWifiIcon.setColorFilter(Color.parseColor("#9E9E9E"))
                 return
             }
 
-            val wifiInfo = wifiManager.connectionInfo
-            val isWifiConnectedByWifiManager = wifiInfo != null && wifiInfo.networkId != -1 && wifiInfo.bssid != null
-
-            var isWifiConnectedByCM = false
-            try {
-                val activeNetwork = cm.activeNetwork
-                val caps = cm.getNetworkCapabilities(activeNetwork)
-                if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                    isWifiConnectedByCM = true
-                }
-            } catch (_: Exception) {}
-
-            if (isWifiConnectedByWifiManager || isWifiConnectedByCM) {
-                val ssidRaw = wifiInfo?.ssid ?: ""
-                val ssid = if (ssidRaw.startsWith("\"") && ssidRaw.endsWith("\"")) {
-                    ssidRaw.substring(1, ssidRaw.length - 1)
-                } else ssidRaw
-
-                val networkName = if (ssid.isNotEmpty() && ssid != "<unknown ssid>") ssid else "Conectado"
-
-                txtWifiStatus.text = networkName
+            if (status.wifiConnected) {
+                txtWifiStatus.text = status.ssid ?: "Conectado"
                 txtWifiStatus.setTextColor(Color.parseColor("#2E7D32"))
                 imgWifiIcon.setColorFilter(Color.parseColor("#4CAF50"))
             } else {
@@ -505,15 +486,7 @@ class BasicSettingsActivity : BaseActivity() {
     }
 
     private fun tieneAccesoInternet(): Boolean {
-        return try {
-            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val network = cm.activeNetwork ?: return false
-            val caps = cm.getNetworkCapabilities(network) ?: return false
-            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                    caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-        } catch (e: Exception) {
-            false
-        }
+        return runCatching { ConnectivityStatusProvider.get(this).internetAvailable }.getOrDefault(false)
     }
 
     private fun actualizarEstadoEthernet() {

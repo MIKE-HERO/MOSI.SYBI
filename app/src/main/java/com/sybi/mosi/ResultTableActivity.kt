@@ -147,9 +147,13 @@ class ResultTableActivity : BaseActivity() {
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
+                minimumHeight = android.util.TypedValue.applyDimension(
+                    android.util.TypedValue.COMPLEX_UNIT_DIP, 48f, resources.displayMetrics
+                ).toInt()
+                gravity = android.view.Gravity.CENTER_VERTICAL
                 setPadding(4, 4, 4, 4)
                 setBackgroundColor(
                     if (resultados.indexOf(resultado) % 2 == 0) Color.WHITE
@@ -391,7 +395,7 @@ class ResultTableActivity : BaseActivity() {
     private fun createCell(text: String, widthDp: Int): TextView {
         return TextView(this).apply {
             this.text = text
-            textSize = 10f
+            textSize = 11f
             setTextColor(Color.parseColor("#333333"))
             gravity = android.view.Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
@@ -402,8 +406,8 @@ class ResultTableActivity : BaseActivity() {
                 ).toInt(),
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
-            setPadding(2, 2, 2, 2)
-            maxLines = 1
+            setPadding(6, 6, 6, 6)
+            maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
     }

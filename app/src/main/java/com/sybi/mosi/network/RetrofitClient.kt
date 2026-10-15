@@ -14,6 +14,11 @@ object RetrofitClient {
     private const val BASE_URL = "https://www.sybiml.com/APIRest/Usuario_mosi/public/"
     //private const val BASE_URL = "https://desarrollo.sybiml3.com/APIRest/Usuario_mosi/public/"
     private const val API_KEY = "dc5cdc3d48c15c6f1130e72e68ffdec3b0b127000fd0d46584b556cce62f86ba"
+    private val dnsExecutor: ExecutorService by lazy {
+        Executors.newCachedThreadPool { runnable ->
+            Thread(runnable, "mosi-dns").apply { isDaemon = true }
+        }
+    }
 
     val apiService: ApiService by lazy {
 
@@ -26,8 +31,7 @@ object RetrofitClient {
         // DNS con timeout manual de 10 segundos
         val timeoutDns = object : Dns {
             override fun lookup(hostname: String): List<InetAddress> {
-                val executor = Executors.newSingleThreadExecutor()
-                val future = executor.submit(Callable {
+                val future = dnsExecutor.submit(Callable {
                     Dns.SYSTEM.lookup(hostname)
                 })
                 return try {
@@ -35,8 +39,6 @@ object RetrofitClient {
                 } catch (e: Exception) {
                     future.cancel(true)
                     throw java.net.UnknownHostException("DNS lookup timeout for $hostname")
-                } finally {
-                    executor.shutdown()
                 }
             }
         }

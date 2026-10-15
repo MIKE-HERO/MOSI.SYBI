@@ -14,6 +14,7 @@ import android.util.Base64
 import android.util.Log
 import android.view.TextureView
 import android.view.View
+import android.view.MotionEvent
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
@@ -28,6 +29,8 @@ import com.sybi.mosi.helpers.MediaPipeFaceHelper
 import com.sybi.mosi.repository.PacienteRemoteRepository
 import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -48,6 +51,9 @@ class FaceRegistrationActivity : BaseActivity() {
     private var currentColor: String = "#0F3E82"
 
     private var idLocal: Long = 0
+    private var captureBeforeForm: Boolean = false
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
 
     companion object {
         private const val CAMERA_PERMISSION_CODE = 100
@@ -94,8 +100,9 @@ class FaceRegistrationActivity : BaseActivity() {
         applyColorTheme(savedColor)
 
         idLocal = intent.getLongExtra("id_local", 0L)
+        captureBeforeForm = intent.getBooleanExtra("capture_before_form", false)
 
-        if (idLocal == 0L) {
+        if (idLocal == 0L && !captureBeforeForm) {
             Toast.makeText(this, "Error: no se recibió el ID del paciente", Toast.LENGTH_LONG).show()
             finish()
             return
@@ -127,9 +134,7 @@ class FaceRegistrationActivity : BaseActivity() {
     private fun applyColorTheme(colorHex: String) {
         val color = Color.parseColor(colorHex)
         topFaceBar.setBackgroundColor(color)
-        btnTakePhoto.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
-        btnRetakePhoto.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
-        btnSavePhoto.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
+        btnTakePhoto.compoundDrawableTintList = android.content.res.ColorStateList.valueOf(color)
     }
 
     private fun hasCameraPermission(): Boolean {
@@ -144,6 +149,7 @@ class FaceRegistrationActivity : BaseActivity() {
 
         textureView.visibility = View.VISIBLE
         imgPhotoPreview.visibility = View.GONE
+        findViewById<View>(R.id.faceRegistrationGuide).visibility = View.VISIBLE
         btnTakePhoto.visibility = View.VISIBLE
         btnSkipPhoto.visibility = View.VISIBLE
         btnRetakePhoto.visibility = View.GONE
@@ -224,6 +230,7 @@ class FaceRegistrationActivity : BaseActivity() {
     private fun showPhotoPreview(bitmap: Bitmap) {
         textureView.visibility = View.GONE
         imgPhotoPreview.visibility = View.VISIBLE
+        findViewById<View>(R.id.faceRegistrationGuide).visibility = View.GONE
         imgPhotoPreview.setImageBitmap(bitmap)
 
         btnTakePhoto.visibility = View.GONE
@@ -231,7 +238,7 @@ class FaceRegistrationActivity : BaseActivity() {
         btnRetakePhoto.visibility = View.VISIBLE
         btnSavePhoto.visibility = View.VISIBLE
 
-        tvStatus.text = "Foto capturada. ¿Desea guardarla, repetir u omitir?"
+        tvStatus.text = "Revisa tu fotografía. Si se ve clara, continúa con el registro."
         tvStatus.setTextColor(Color.parseColor("#4CAF50"))
 
         camera2Helper?.stopCamera()
@@ -268,6 +275,10 @@ class FaceRegistrationActivity : BaseActivity() {
     }
 
     private fun skipPhoto() {
+        if (captureBeforeForm) {
+            openRegistrationForm(null)
+            return
+        }
         btnSkipPhoto.isEnabled = false
         btnTakePhoto.isEnabled = false
         btnRetakePhoto.isEnabled = false
@@ -370,10 +381,19 @@ class FaceRegistrationActivity : BaseActivity() {
             return
         }
 
+        if (captureBeforeForm) {
+            try {
+                val photoFile = File(cacheDir, "pending_patient_photo.jpg")
+                FileOutputStream(photoFile).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 88, it) }
+                openRegistrationForm(photoFile.absolutePath)
+            } catch (_: Exception) {
+                Toast.makeText(this, "No se pudo preparar la fotografía", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+
         btnSavePhoto.isEnabled = false
         btnSavePhoto.text = "Guardando..."
-
-        val base64Image = bitmapToBase64(bitmap)
 
         val database = AppDatabase.getInstance(this)
         val pacienteDao = database.pacienteDao()
@@ -381,6 +401,9 @@ class FaceRegistrationActivity : BaseActivity() {
         Thread {
             runBlocking {
                 try {
+                    // La compresión y codificación de una foto grande es costosa: nunca
+                    // debe ejecutarse en el hilo principal porque congela el botón y la UI.
+                    val base64Image = bitmapToBase64(bitmap)
                     val pacienteLocal = pacienteDao.obtenerPacientePorIdLocal(idLocal)
                     if (pacienteLocal == null) {
                         runOnUiThread {
@@ -467,6 +490,40 @@ class FaceRegistrationActivity : BaseActivity() {
         intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
         startActivity(intent)
         finish()
+    }
+
+    private fun openRegistrationForm(photoPath: String?) {
+        camera2Helper?.stopCamera()
+        startActivity(Intent(this, RegisterActivity::class.java).apply {
+            putExtra("photo_step_completed", true)
+            putExtra("captured_photo_path", photoPath)
+        })
+        finish()
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
+        event?.let {
+            when (it.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    swipeStartX = it.rawX
+                    swipeStartY = it.rawY
+                }
+                MotionEvent.ACTION_UP -> {
+                    val dx = it.rawX - swipeStartX
+                    val dy = it.rawY - swipeStartY
+                    val threshold = 180 * resources.displayMetrics.density
+                    if (dx < -threshold && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.6f) {
+                        startActivity(Intent(this, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        })
+                        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+                        finish()
+                        return true
+                    }
+                }
+            }
+        }
+        return super.dispatchTouchEvent(event)
     }
 
     private fun parsearFechaNacimiento(fechaAPI: String?): String? {
