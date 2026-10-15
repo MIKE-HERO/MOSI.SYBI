@@ -547,7 +547,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun startHeightWeight() {
         currentMeasurementType = "ALTURA_PESO"
-        switchTab("Altura / Peso", "altura_peso", groupAlturaPeso)
+        switchTab("Altura / Peso", "altura_peso", groupAlturaPeso, skipGenericGuide = true)
         measurementResults.updateHeightWeight(state.height, state.weight, state.imc)
 
         if (completedMeasurements.contains("ALTURA_PESO") || state.hasHeightWeight()) {
@@ -567,7 +567,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun startComposition() {
         currentMeasurementType = "COMPOSICION"
-        switchTab("Composición Corporal", "composicion", groupComposicion)
+        switchTab("Composición Corporal", "composicion", groupComposicion, skipGenericGuide = true)
 
         if (completedMeasurements.contains("COMPOSICION") || state.hasComposition()) {
             setHeightWeightPresentation(showResults = true)
@@ -597,7 +597,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun startPressure() {
         currentMeasurementType = "PRESION"
-        switchTab("Presión Arterial", "presion", groupPresion)
+        switchTab("Presión Arterial", "presion", groupPresion, skipGenericGuide = true)
         measurementResults.updatePressure(state.systolic, state.diastolic, state.pulse)
 
         if (completedMeasurements.contains("PRESION") || state.hasPressure()) {
@@ -623,7 +623,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun startTemperature() {
         currentMeasurementType = "TEMPERATURA"
-        switchTab("Temperatura Corporal", "temperatura", groupTemperatura)
+        switchTab("Temperatura Corporal", "temperatura", groupTemperatura, skipGenericGuide = true)
         measurementResults.updateTemperature(state.temperature, state.temperatureF)
 
         if (completedMeasurements.contains("TEMPERATURA") || state.hasTemperature()) {
@@ -651,7 +651,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun startOxygen() {
         currentMeasurementType = "OXIGENO"
         oxygenReadingStarted = false
-        switchTab("Oxígeno en Sangre", "oxigeno", groupOxigeno)
+        switchTab("Oxígeno en Sangre", "oxigeno", groupOxigeno, skipGenericGuide = true)
         measurementResults.updateOxygen(state.spo2, state.pulseRate, state.pi)
 
         if (completedMeasurements.contains("OXIGENO") || state.hasOxygen()) {
@@ -947,7 +947,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     // ── UI helpers ────────────────────────────────────────
 
-    private fun switchTab(title: String, key: String, group: LinearLayout?) {
+    private fun switchTab(
+        title: String,
+        key: String,
+        group: LinearLayout?,
+        skipGenericGuide: Boolean = false
+    ) {
         guideSequenceToken++
         cancelCountdownTimer()
         controller.cancelTimers()
@@ -969,7 +974,14 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         waveformView.visibility = if (key == "oxigeno") View.VISIBLE else View.GONE
         tvTitle.text = title
         tvGuideTitle.text = title
-        setGuideImage("instruccion_$key")
+        // Los tipos con su propia secuencia de guía (altura/peso, composición,
+        // presión, temperatura, oxígeno) la ponen justo después de esta llamada;
+        // si aquí también se pusiera la imagen genérica "instruccion_$key", se
+        // vería un parpadeo: la genérica aparece un instante y luego se
+        // reemplaza por la guía real específica.
+        if (!skipGenericGuide) {
+            setGuideImage("instruccion_$key")
+        }
         heightWeightActions.visibility = View.GONE
         tvGuideStep.visibility = if (key == "altura_peso") View.VISIBLE else View.GONE
         updateButtonVisibility()
