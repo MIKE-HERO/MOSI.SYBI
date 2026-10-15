@@ -1,95 +1,97 @@
 package com.sybi.mosi.measurement
 
-import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import android.util.AttributeSet
-import android.view.Gravity
 import android.view.View
-import android.view.animation.AccelerateDecelerateInterpolator
-import android.widget.LinearLayout
+import android.view.animation.LinearInterpolator
 
 /**
- * Loader estilo ecualizador: barritas verticales que suben y bajan en cascada mientras
- * se espera un dato (altura, peso, presión, etc.).
- *
- * Pensado para un equipo con pocos recursos (2GB de RAM): solo anima `scaleY` con
- * ObjectAnimator (acelerado por GPU, sin redibujar nada a mano en cada frame) y cancela
- * las animaciones en cuanto la vista deja de estar visible, para no gastar CPU de fondo
- * en las tarjetas que ya muestran su valor real.
+ * Indicador clínico de espera. Conserva el nombre histórico para no romper los layouts,
+ * pero reemplaza las barras tipo ecualizador por un anillo fino y sobrio.
  */
 class EqualizerLoaderView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
-) : LinearLayout(context, attrs) {
+) : View(context, attrs) {
 
-    private val barras = mutableListOf<View>()
-    private val animadores = mutableListOf<ObjectAnimator>()
+    private var accentColor = Color.parseColor("#0F5FA8")
+    private var rotationDegrees = 0f
+    private val bounds = RectF()
 
-    init {
-        orientation = HORIZONTAL
-        // Centradas en el propio espacio del loader (cada barra igual crece desde su propia
-        // base gracias al pivotY, así que esto no cambia la animación, solo dónde se ubica
-        // el grupo si el contenedor termina siendo más grande que las barras).
-        gravity = Gravity.CENTER
-        val anchoBarraPx = (4 * resources.displayMetrics.density).toInt()
-        val espacioPx = (4 * resources.displayMetrics.density).toInt()
-        val altoMaxPx = (28 * resources.displayMetrics.density).toInt()
+    private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        color = Color.parseColor("#DCE7EF")
+    }
+    private val progressPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        color = accentColor
+    }
+    private val centerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = accentColor
+    }
 
-        repeat(4) { i ->
-            val barra = View(context).apply {
-                setBackgroundColor(Color.parseColor("#0F3E82"))
-                pivotY = altoMaxPx.toFloat()
-            }
-            val lp = LayoutParams(anchoBarraPx, altoMaxPx).apply {
-                if (i > 0) marginStart = espacioPx
-            }
-            addView(barra, lp)
-            barras += barra
+    private val animator = ValueAnimator.ofFloat(0f, 360f).apply {
+        duration = 1250L
+        repeatCount = ValueAnimator.INFINITE
+        interpolator = LinearInterpolator()
+        addUpdateListener {
+            rotationDegrees = it.animatedValue as Float
+            invalidate()
         }
     }
 
-    /** Recolorea las barras según el color de marca del quiosco (mismo que usan los demás loaders). */
     fun setBarColor(color: Int) {
-        barras.forEach { it.setBackgroundColor(color) }
+        accentColor = color
+        progressPaint.color = color
+        centerPaint.color = color
+        invalidate()
     }
 
-    private fun crearAnimadoresSiHacenFalta() {
-        if (animadores.isNotEmpty()) return
-        barras.forEachIndexed { i, barra ->
-            animadores += ObjectAnimator.ofFloat(barra, "scaleY", 0.25f, 1f).apply {
-                duration = 450
-                startDelay = i * 120L
-                repeatMode = ValueAnimator.REVERSE
-                repeatCount = ValueAnimator.INFINITE
-                interpolator = AccelerateDecelerateInterpolator()
-            }
-        }
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val size = minOf(width, height).toFloat()
+        if (size <= 0f) return
+
+        val stroke = (size * 0.105f).coerceAtLeast(2.5f)
+        val inset = stroke * 1.5f
+        bounds.set(inset, inset, width - inset, height - inset)
+        trackPaint.strokeWidth = stroke
+        progressPaint.strokeWidth = stroke
+
+        canvas.drawArc(bounds, 0f, 360f, false, trackPaint)
+        canvas.drawArc(bounds, rotationDegrees - 90f, 92f, false, progressPaint)
+        canvas.drawCircle(width / 2f, height / 2f, size * 0.075f, centerPaint)
     }
 
-    private fun iniciarAnimacion() {
-        crearAnimadoresSiHacenFalta()
-        animadores.forEach { if (!it.isStarted) it.start() }
+    private fun startAnimation() {
+        if (!animator.isStarted) animator.start()
     }
 
-    private fun detenerAnimacion() {
-        animadores.forEach { it.cancel() }
-        barras.forEach { it.scaleY = 1f }
+    private fun stopAnimation() {
+        animator.cancel()
+        rotationDegrees = 0f
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (visibility == VISIBLE) iniciarAnimacion()
+        if (visibility == VISIBLE) startAnimation()
     }
 
     override fun onDetachedFromWindow() {
-        detenerAnimacion()
+        stopAnimation()
         super.onDetachedFromWindow()
     }
 
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
-        if (visibility == VISIBLE) iniciarAnimacion() else detenerAnimacion()
+        if (visibility == VISIBLE && isAttachedToWindow) startAnimation() else stopAnimation()
     }
 }

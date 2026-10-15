@@ -3,46 +3,80 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="horizontal"
-    android:background="#F5F5F5">
+    android:orientation="vertical"
+    android:background="#EDF4F8">
 
     <!-- BARRA LATERAL AZUL IZQUIERDA -->
     <LinearLayout
         android:id="@+id/sideBarLayout"
-        android:layout_width="150dp"
-        android:layout_height="match_parent"
-        android:background="#0F3E82"
-        android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:paddingTop="20dp">
+        android:layout_width="match_parent"
+        android:layout_height="84dp"
+        android:background="#FFFFFF"
+        android:elevation="5dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp">
 
         <LinearLayout
             android:id="@+id/btnBackSettings"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:orientation="horizontal"
             android:gravity="center"
-            android:paddingBottom="20dp"
+            android:padding="8dp"
             android:clickable="true"
             android:focusable="true">
 
             <ImageView
-                android:layout_width="80dp"
-                android:layout_height="80dp"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
                 android:src="@drawable/ic_regresar"
                 android:rotation="180"
-                app:tint="#FFFFFF" />
+                app:tint="#31536A" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Regresar"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp" />
+                android:layout_marginStart="8dp"
+                android:textColor="#31536A"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnHomeSettings"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/bg_home_button"
+            android:clickable="true"
+            android:elevation="1dp"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="13dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="8dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:contentDescription="Inicio"
+                android:src="@drawable/ic_home" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="Inicio"
+                android:textColor="#31536A"
+                android:textSize="13sp" />
         </LinearLayout>
 
         <View
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_weight="1"/>
 
@@ -51,22 +85,23 @@
             android:id="@+id/btnRebootDevice"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:orientation="horizontal"
             android:gravity="center"
-            android:paddingBottom="15dp"
+            android:padding="10dp"
             android:clickable="true"
             android:focusable="true">
             <ImageView
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:src="@drawable/ic_restart"
-                app:tint="#FFFFFF" />
+                app:tint="#647D8F" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Reiniciar"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"/>
+                android:layout_marginStart="7dp"
+                android:textColor="#526C7E"
+                android:textSize="13sp"/>
         </LinearLayout>
 
         <!-- BOTÓN CERRAR APP -->
@@ -74,43 +109,48 @@
             android:id="@+id/btnCloseApp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:orientation="horizontal"
             android:gravity="center"
-            android:paddingBottom="15dp"
+            android:layout_marginStart="16dp"
+            android:padding="10dp"
             android:clickable="true"
             android:focusable="true">
             <ImageView
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:src="@drawable/ic_close_app"
-                app:tint="#FFFFFF" />
+                app:tint="#9A5360" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Cerrar app"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"/>
+                android:layout_marginStart="7dp"
+                android:textColor="#7F4550"
+                android:textSize="13sp"/>
         </LinearLayout>
 
     </LinearLayout>
 
     <!-- CONTENIDO DE LA DERECHA -->
     <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
         android:layout_weight="1"
         android:orientation="vertical"
-        android:padding="15dp">
+        android:paddingStart="34dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="34dp"
+        android:paddingBottom="24dp">
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Configuración"
-            android:textSize="26sp"
-            android:textColor="#333333"
+            android:textSize="30sp"
+            android:textColor="#102A43"
             android:textStyle="bold"
             android:gravity="center"
-            android:layout_marginBottom="10dp"/>
+            android:layout_marginBottom="16dp"/>
 
         <!-- FILA 1 -->
         <LinearLayout
@@ -127,7 +167,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -135,10 +175,9 @@
                 android:focusable="true"
                 android:padding="5dp">
                 <ImageView
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
-                    android:src="@drawable/ic_ajustes"
-                    app:tint="#0F3E82"/>
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:src="@drawable/settings_basic_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -156,7 +195,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -164,10 +203,9 @@
                 android:focusable="true"
                 android:padding="5dp">
                 <ImageView
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
-                    android:src="@drawable/ic_medicion"
-                    app:tint="#0F3E82"/>
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:src="@drawable/settings_devices_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -185,7 +223,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -193,10 +231,9 @@
                 android:focusable="true"
                 android:padding="5dp">
                 <ImageView
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
-                    android:src="@drawable/ic_informes"
-                    app:tint="#0F3E82"/>
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:src="@drawable/settings_reports_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -214,7 +251,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -222,10 +259,9 @@
                 android:focusable="true"
                 android:padding="5dp">
                 <ImageView
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
-                    android:src="@drawable/ic_test"
-                    app:tint="#0F3E82"/>
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:src="@drawable/settings_calibration_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -253,7 +289,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -263,8 +299,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_pacientes"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_patients_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -282,7 +317,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -292,8 +327,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_tema"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_customize_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -311,7 +345,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -321,8 +355,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_login"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_login_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -340,7 +373,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -350,8 +383,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_video"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_advertising_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -378,7 +410,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -388,8 +420,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_historial"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_history_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -407,7 +438,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -417,8 +448,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_password"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_password_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -436,7 +466,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -446,8 +476,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_telemedicina"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_telemedicine_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -465,7 +494,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_margin="4dp"
-                android:background="#FFFFFF"
+                android:background="@drawable/bg_settings_card"
                 android:elevation="4dp"
                 android:orientation="vertical"
                 android:gravity="center"
@@ -475,8 +504,7 @@
                 <ImageView
                     android:layout_width="80dp"
                     android:layout_height="80dp"
-                    android:src="@drawable/ic_info"
-                    app:tint="#0F3E82"/>
+                    android:src="@drawable/settings_info_3d"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

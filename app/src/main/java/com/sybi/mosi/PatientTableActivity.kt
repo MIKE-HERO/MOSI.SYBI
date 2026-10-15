@@ -201,6 +201,8 @@ class PatientTableActivity : BaseActivity() {
     private fun createPatientRow(paciente: Paciente): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
+            minimumHeight = dpToPx(48)
+            gravity = android.view.Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -271,15 +273,15 @@ class PatientTableActivity : BaseActivity() {
     private fun cell(text: String): TextView {
         return TextView(this).apply {
             this.text = text
-            textSize = 10f
+            textSize = 12f
             setTextColor(Color.parseColor("#333333"))
             gravity = android.view.Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 dpToPx(CELL_WIDTH_DP),
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
-            setPadding(4, 4, 4, 4)
-            maxLines = 1
+            setPadding(8, 8, 8, 8)
+            maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
     }

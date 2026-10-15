@@ -1,232 +1,104 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F5F5F5">
+    android:layout_width="match_parent" android:layout_height="match_parent" android:background="#EDF4F8">
 
-    <!-- ✅ BARRA SUPERIOR -->
-    <RelativeLayout
-        android:id="@+id/topProfileBar"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:background="#0F3E82">
+    <View android:layout_width="0dp" android:layout_height="0dp" android:background="@drawable/bg_login_ambient"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+    <View android:id="@+id/topProfileBar" android:layout_width="0dp" android:layout_height="5dp"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
-        <ImageView
-            android:id="@+id/btnBackProfile"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_alignParentStart="true"
-            android:layout_centerVertical="true"
-            android:src="@android:drawable/ic_menu_revert"
-            android:padding="8dp"
-            android:clickable="true"
-            android:focusable="true" />
+    <ImageButton android:id="@+id/btnBackProfile" android:layout_width="58dp" android:layout_height="58dp"
+        android:layout_marginStart="30dp" android:layout_marginTop="24dp" android:background="@drawable/bg_login_back"
+        android:contentDescription="Regresar" android:padding="16dp" android:rotation="180" android:src="@drawable/ic_regresar"
+        app:tint="#31536A" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout_centerInParent="true"
-            android:text="Información del paciente"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:gravity="center" />
-    </RelativeLayout>
+    <TextView android:id="@+id/profileEyebrow" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="26dp" android:fontFamily="sans-serif-medium" android:letterSpacing="0.1"
+        android:text="CONFIRMACIÓN DE IDENTIDAD" android:textColor="#668296" android:textSize="12sp"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+    <TextView android:id="@+id/profileTitle" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="6dp" android:text="Información del paciente" android:textColor="#102A43"
+        android:textSize="30sp" android:textStyle="bold" app:layout_constraintTop_toBottomOf="@id/profileEyebrow"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Contenido -->
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:padding="20dp">
+    <LinearLayout android:layout_width="1080dp" android:layout_height="0dp" android:layout_marginTop="24dp"
+        android:layout_marginBottom="54dp" android:clipToOutline="true" android:outlineProvider="background"
+        android:background="@drawable/bg_auth_panel" android:elevation="8dp" android:gravity="center_vertical"
+        android:orientation="horizontal" android:padding="34dp" app:layout_constraintTop_toBottomOf="@id/profileTitle"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <!-- Imagen de perfil circular -->
-            <com.google.android.material.imageview.ShapeableImageView
-                android:id="@+id/imgProfile"
-                android:layout_width="140dp"
-                android:layout_height="140dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="10dp"
-                android:padding="8dp"
-                android:scaleType="centerCrop"
-                android:src="@drawable/ic_launcher_background"
-                app:shapeAppearanceOverlay="@style/CircularImageView"
-                app:strokeWidth="4dp"
-                app:strokeColor="#0F3E82" />
-
-            <!-- Nombre completo -->
-            <TextView
-                android:id="@+id/tvUserName"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="15dp"
-                android:text="Nombre del Paciente"
-                android:textStyle="bold"
-                android:textSize="20sp"
-                android:textColor="#333333"/>
-
-            <!-- Contenedor de datos -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="#FFFFFF"
-                android:elevation="4dp"
-                android:padding="16dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="20dp"
-                android:minWidth="500dp">
-
-
-
-                <!-- Teléfono -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="8dp">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Teléfono:"
-                        android:textSize="14sp"
-                        android:textColor="#757575"/>
-                    <TextView
-                        android:id="@+id/tvPatientPhone"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=""
-                        android:textSize="14sp"
-                        android:textColor="#333333"/>
-                </LinearLayout>
-
-                <!-- Fecha de Nacimiento -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="8dp">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Fecha de Nacimiento:"
-                        android:textSize="14sp"
-                        android:textColor="#757575"/>
-                    <TextView
-                        android:id="@+id/tvPatientBirthDate"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=""
-                        android:textSize="14sp"
-                        android:textColor="#333333"/>
-                </LinearLayout>
-
-                <!-- Género -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="8dp">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Género:"
-                        android:textSize="14sp"
-                        android:textColor="#757575"/>
-                    <TextView
-                        android:id="@+id/tvPatientGender"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=""
-                        android:textSize="14sp"
-                        android:textColor="#333333"/>
-                </LinearLayout>
-
-                <!-- Edad (calculada) -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="8dp">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Edad:"
-                        android:textSize="14sp"
-                        android:textColor="#757575"/>
-                    <TextView
-                        android:id="@+id/tvPatientAge"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=""
-                        android:textSize="14sp"
-                        android:textColor="#333333"/>
-                </LinearLayout>
-
-                <!-- Última Medición -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="8dp">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Última Medición:"
-                        android:textSize="14sp"
-                        android:textColor="#757575"/>
-                    <TextView
-                        android:id="@+id/tvLastMeasurementDate"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Cargando..."
-                        android:textSize="14sp"
-                        android:textColor="#333333"/>
-                </LinearLayout>
-
-            </LinearLayout>
-
-            <!-- Botones de acción -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="20dp"
-                android:gravity="center">
-
-                <Button
-                    android:id="@+id/btnNotMe"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:text="No soy yo"
-                    android:backgroundTint="#E0E0E0"
-                    android:textColor="#000000"/>
-
-                <Button
-                    android:id="@+id/btnAccess"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="20dp"
-                    android:text="Acceso"
-                    android:backgroundTint="#2196F3"
-                    android:textColor="#FFFFFF"/>
-            </LinearLayout>
-
+        <LinearLayout android:layout_width="350dp" android:layout_height="match_parent" android:gravity="center"
+            android:orientation="vertical" android:paddingEnd="30dp">
+            <com.google.android.material.imageview.ShapeableImageView android:id="@+id/imgProfile"
+                android:layout_width="210dp" android:layout_height="210dp" android:padding="5dp"
+                android:scaleType="centerCrop" android:src="@drawable/ic_face"
+                app:shapeAppearanceOverlay="@style/CircularImageView" app:strokeColor="#0F3E82" app:strokeWidth="4dp" />
+            <TextView android:id="@+id/tvUserName" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="20dp" android:ellipsize="end" android:gravity="center" android:maxLines="2"
+                android:text="Nombre del paciente" android:textColor="#17324A" android:textSize="23sp" android:textStyle="bold" />
+            <TextView android:id="@+id/tvProfileContext" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" android:background="@drawable/bg_auth_instruction" android:paddingStart="16dp"
+                android:paddingTop="8dp" android:paddingEnd="16dp" android:paddingBottom="8dp"
+                android:text="Paciente identificado" android:textColor="#567185" android:textSize="12sp" />
         </LinearLayout>
-    </ScrollView>
-</LinearLayout>
+
+        <View android:layout_width="1dp" android:layout_height="390dp" android:background="#DCE8EF" />
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="38dp"
+            android:layout_weight="1" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Revisa que tus datos sean correctos"
+                android:textColor="#17324A" android:textSize="20sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp"
+                android:text="Esta información se utilizará para tu atención y resultados."
+                android:textColor="#71879A" android:textSize="13sp" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="108dp" android:layout_marginTop="22dp" android:orientation="horizontal">
+                <LinearLayout style="@style/ProfileDataCard" android:layout_marginEnd="7dp">
+                    <TextView style="@style/ProfileDataLabel" android:text="TELÉFONO" />
+                    <TextView android:id="@+id/tvPatientPhone" style="@style/ProfileDataValue" android:text="-" />
+                </LinearLayout>
+                <LinearLayout style="@style/ProfileDataCard" android:layout_marginStart="7dp">
+                    <TextView style="@style/ProfileDataLabel" android:text="FECHA DE NACIMIENTO" />
+                    <TextView android:id="@+id/tvPatientBirthDate" style="@style/ProfileDataValue" android:text="-" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="108dp" android:layout_marginTop="14dp" android:orientation="horizontal">
+                <LinearLayout style="@style/ProfileDataCard" android:layout_marginEnd="7dp">
+                    <TextView style="@style/ProfileDataLabel" android:text="GÉNERO" />
+                    <TextView android:id="@+id/tvPatientGender" style="@style/ProfileDataValue" android:text="-" />
+                </LinearLayout>
+                <LinearLayout style="@style/ProfileDataCard" android:layout_marginStart="7dp">
+                    <TextView style="@style/ProfileDataLabel" android:text="EDAD" />
+                    <TextView android:id="@+id/tvPatientAge" style="@style/ProfileDataValue" android:text="-" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="68dp" android:layout_marginTop="14dp"
+                android:background="@drawable/bg_profile_value" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="18dp" android:paddingEnd="18dp">
+                <ImageView android:layout_width="28dp" android:layout_height="28dp" android:src="@drawable/ic_historial" app:tint="#57758A" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="14dp" android:layout_weight="1" android:orientation="vertical">
+                    <TextView style="@style/ProfileDataLabel" android:text="ÚLTIMA MEDICIÓN" />
+                    <TextView android:id="@+id/tvLastMeasurementDate" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp" android:text="Cargando..." android:textColor="#29485D" android:textSize="14sp" android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="64dp" android:layout_marginTop="17dp" android:orientation="horizontal">
+                <Button android:id="@+id/btnNotMe" android:layout_width="0dp" android:layout_height="match_parent"
+                    android:layout_weight="0.38"
+                    android:backgroundTint="#E7EEF2" android:text="No soy yo" android:textAllCaps="false"
+                    android:textColor="#36566C" android:textSize="15sp" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnAccess" android:layout_width="0dp" android:layout_height="match_parent"
+                    android:layout_marginStart="14dp" android:layout_weight="0.62" android:backgroundTint="#163F5B"
+                    android:gravity="center" android:insetTop="0dp" android:insetBottom="0dp"
+                    android:text="Continuar" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="16sp"
+                    app:cornerRadius="16dp" app:icon="@drawable/ic_medicion" app:iconGravity="textStart"
+                    app:iconPadding="12dp" app:iconSize="24dp" app:iconTint="#FFFFFF" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

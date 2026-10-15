@@ -13,6 +13,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -49,6 +50,9 @@ class MainActivity : BaseActivity() {
     private lateinit var shineOverlay: ShineSweepView
     private lateinit var imgLogo: ImageView
     private lateinit var rootLayout: View
+    private lateinit var settingsSurface: View
+    private lateinit var bottomBarContainer: View
+    private lateinit var medicalBackground: ImageView
     private var breathingAnimator: ObjectAnimator? = null
 
     // 🔥 Variables para los receivers (para poder desregistrarlos)
@@ -58,6 +62,7 @@ class MainActivity : BaseActivity() {
     private var titleReceiver: BroadcastReceiver? = null
     private var connectionReceiver: BroadcastReceiver? = null
     private var scaleReceiver: BroadcastReceiver? = null
+    private var backgroundReceiver: BroadcastReceiver? = null
 
     // Control para evitar abrir LoginActivity múltiples veces por la misma pisada de báscula
     @Volatile private var isLaunchingLogin = false
@@ -81,11 +86,14 @@ class MainActivity : BaseActivity() {
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
         rootLayout = findViewById(R.id.mainRootLayout)
+        settingsSurface = findViewById(R.id.settingsSurface)
+        bottomBarContainer = findViewById(R.id.bottomBarContainer)
         imgLogo = findViewById(R.id.imgLogo)
         val tvTitle = findViewById<TextView>(R.id.tvTitle)
         val btnSettings = findViewById<View>(R.id.btnSettings)
         val touchInterceptor = findViewById<View>(R.id.touchInterceptor)
         shineOverlay = findViewById(R.id.shineOverlay)
+        medicalBackground = findViewById(R.id.medicalBackground)
 
         // --- INICIAR EL SERVICIO SERIAL AL ABRIR LA APP ---
         startService(Intent(this, SerialService::class.java))
@@ -109,7 +117,7 @@ class MainActivity : BaseActivity() {
                 val newColor = intent.getStringExtra("new_color")
                 if (newColor != null) {
                     currentColor = newColor
-                    rootLayout.setBackgroundColor(Color.parseColor(newColor))
+                    applyThemeAccents(Color.parseColor(newColor))
                 }
             }
         }
@@ -144,6 +152,18 @@ class MainActivity : BaseActivity() {
         LocalBroadcastManager.getInstance(this).registerReceiver(
             titleReceiver!!,
             IntentFilter("ACTION_UPDATE_TITLE")
+        )
+
+        applyMedicalBackground(getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+            .getString("MedicalBackground", "azul"))
+        backgroundReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                applyMedicalBackground(intent.getStringExtra("background"))
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            backgroundReceiver!!,
+            IntentFilter("ACTION_UPDATE_BACKGROUND")
         )
 
         // --- RECEPTOR PARA ESTADO DE CONEXIÓN ---
@@ -201,7 +221,8 @@ class MainActivity : BaseActivity() {
         val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val defaultColor = "#0F3E82"
         currentColor = appPrefs.getString("BackgroundColor", defaultColor) ?: defaultColor
-        rootLayout.setBackgroundColor(Color.parseColor(currentColor))
+        rootLayout.setBackgroundColor(Color.parseColor("#07182B"))
+        applyThemeAccents(Color.parseColor(currentColor))
 
         // Cargar título guardado
         val defaultTitle = "MÓDULO DE SALUD INTEGRAL"
@@ -246,6 +267,15 @@ class MainActivity : BaseActivity() {
 
         val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         DeviceDefaults.ensureDefaultPorts(devicePrefs)
+    }
+
+    private fun applyMedicalBackground(key: String?) {
+        val drawable = when (key) {
+            "morado" -> R.drawable.bg_medical_morado
+            "turquesa" -> R.drawable.bg_medical_turquesa
+            else -> R.drawable.bg_medical_azul
+        }
+        medicalBackground.setImageResource(drawable)
     }
 
     // ==========================================
@@ -440,6 +470,12 @@ class MainActivity : BaseActivity() {
     // ==========================================
     override fun onResume() {
         super.onResume()
+        if (::medicalBackground.isInitialized) {
+            applyMedicalBackground(
+                getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+                    .getString("MedicalBackground", "azul")
+            )
+        }
         shineOverlay.startSweeping()
         startBreathingEffect()
 
@@ -503,6 +539,9 @@ class MainActivity : BaseActivity() {
             scaleReceiver?.let {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
+            backgroundReceiver?.let {
+                LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error desregistrando receivers: ${e.message}")
         }
@@ -543,5 +582,36 @@ class MainActivity : BaseActivity() {
         navAcidoUrico.visibility = if (isDeviceActive("device_acido_urico")) View.VISIBLE else View.GONE
         navColesterol.visibility = if (isDeviceActive("device_colesterol")) View.VISIBLE else View.GONE
     }
+
+    /** Mantiene intacto el fondo medico y aplica el tema solo a detalles luminosos. */
+    private fun applyThemeAccents(themeColor: Int) {
+        val softColor = Color.argb(115, Color.red(themeColor), Color.green(themeColor), Color.blue(themeColor))
+
+        settingsSurface.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(Color.argb(45, 255, 255, 255))
+            setStroke(2.dp, softColor)
+        }
+        bottomBarContainer.background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(Color.argb(230, 12, 35, 61), Color.argb(242, 4, 17, 34))
+        ).apply {
+            cornerRadius = 24.dp.toFloat()
+            setStroke(1.dp, Color.parseColor("#668BC8DC"))
+        }
+        val nav = bottomBarContainer as? LinearLayout ?: return
+        for (index in 0 until nav.childCount) {
+            val item = nav.getChildAt(index) as? LinearLayout ?: continue
+            (item.getChildAt(0) as? ImageView)?.setColorFilter(
+                ColorUtils.getTintedColor(themeColor, 0.55f),
+                android.graphics.PorterDuff.Mode.SRC_IN
+            )
+            // El color personalizado vive solo en la figura; cada celda permanece limpia.
+            item.foreground = null
+        }
+    }
+
+    private val Int.dp: Int
+        get() = (this * resources.displayMetrics.density).toInt()
 
 }

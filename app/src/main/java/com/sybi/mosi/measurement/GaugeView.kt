@@ -52,6 +52,12 @@ class GaugeView @JvmOverloads constructor(
     // Paints
     private val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.BUTT
+    }
+    private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.parseColor("#E4EAF1")
+        strokeCap = Paint.Cap.ROUND
     }
     private val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -88,6 +94,7 @@ class GaugeView @JvmOverloads constructor(
     private val pathMeasure = PathMeasure()
 
     init {
+        setLayerType(LAYER_TYPE_SOFTWARE, null)
         setGaugeType(GaugeType.IMC)
     }
 
@@ -171,13 +178,14 @@ class GaugeView @JvmOverloads constructor(
         if (width <= 0 || height <= 0 || segments.isEmpty()) return
 
         val cx = width / 2f
-        val cy = height * 0.76f
-        val maxRadius = min(width / 2f, height * 0.72f)
-        val outerRadius = maxRadius * 0.88f
-        val arcStrokeWidth = outerRadius * 0.38f
+        val cy = height * 0.70f
+        val outerRadius = min(width * 0.43f, height * 0.58f)
+        val arcStrokeWidth = (outerRadius * 0.16f).coerceAtLeast(12f)
 
         arcPaint.strokeWidth = arcStrokeWidth
-        val arcRadius = outerRadius - (arcStrokeWidth / 2f)
+        arcPaint.strokeCap = Paint.Cap.ROUND
+        trackPaint.strokeWidth = arcStrokeWidth
+        val arcRadius = outerRadius - arcStrokeWidth
 
         arcBounds.set(
             cx - arcRadius,
@@ -189,10 +197,12 @@ class GaugeView @JvmOverloads constructor(
         val totalSweep = 180f
         val startBaseAngle = 180f
 
-        val baseTopTextSize = arcStrokeWidth * 0.25f
-        val baseBottomTextSize = arcStrokeWidth * 0.21f
+        trackPaint.color = Color.parseColor("#E8EEF3")
+        trackPaint.setShadowLayer(8f, 0f, 3f, Color.parseColor("#18001B3A"))
+        canvas.drawArc(arcBounds, startBaseAngle, totalSweep, false, trackPaint)
+        trackPaint.clearShadowLayer()
 
-        // Draw segments
+        // Segmentos delgados, separados y sin texto curvo: se leen con mucha más claridad.
         for (seg in segments) {
             val segStartRatio = ((seg.minVal - minGaugeVal) / (maxGaugeVal - minGaugeVal)).coerceIn(0.0, 1.0)
             val segEndRatio = ((seg.maxVal - minGaugeVal) / (maxGaugeVal - minGaugeVal)).coerceIn(0.0, 1.0)
@@ -201,83 +211,54 @@ class GaugeView @JvmOverloads constructor(
             val segSweepAngle = ((segEndRatio - segStartRatio) * totalSweep).toFloat()
 
             arcPaint.color = seg.color
-            canvas.drawArc(arcBounds, segStartAngle, segSweepAngle, false, arcPaint)
-
-            // Draw divider lines at segment start
-            val startRad = Math.toRadians(segStartAngle.toDouble())
-            val innerR = outerRadius - arcStrokeWidth
-            val x1 = (cx + innerR * cos(startRad)).toFloat()
-            val y1 = (cy + innerR * sin(startRad)).toFloat()
-            val x2 = (cx + outerRadius * cos(startRad)).toFloat()
-            val y2 = (cy + outerRadius * sin(startRad)).toFloat()
-            canvas.drawLine(x1, y1, x2, y2, dividerPaint)
-
-            // Curved text for labelTop
-            val rTop = arcRadius + (arcStrokeWidth * 0.12f)
-            textBounds.set(cx - rTop, cy - rTop, cx + rTop, cy + rTop)
-            pathSegment.reset()
-            pathSegment.addArc(textBounds, segStartAngle, segSweepAngle)
-            pathMeasure.setPath(pathSegment, false)
-            val pathLenTop = pathMeasure.length
-            val maxAllowedWidthTop = pathLenTop * 0.88f
-
-            drawCurvedText(
-                canvas = canvas,
-                text = seg.labelTop,
-                path = pathSegment,
-                pathLength = pathLenTop,
-                paint = textTopPaint,
-                targetTextSize = baseTopTextSize,
-                vOffset = 0f,
-                maxAllowedWidth = maxAllowedWidthTop
-            )
-
-            // Curved text for labelBottom
-            val rBottom = arcRadius - (arcStrokeWidth * 0.22f)
-            textBounds.set(cx - rBottom, cy - rBottom, cx + rBottom, cy + rBottom)
-            pathSegment.reset()
-            pathSegment.addArc(textBounds, segStartAngle, segSweepAngle)
-            pathMeasure.setPath(pathSegment, false)
-            val pathLenBottom = pathMeasure.length
-            val maxAllowedWidthBottom = pathLenBottom * 0.88f
-
-            drawCurvedText(
-                canvas = canvas,
-                text = seg.labelBottom,
-                path = pathSegment,
-                pathLength = pathLenBottom,
-                paint = textBottomPaint,
-                targetTextSize = baseBottomTextSize,
-                vOffset = 0f,
-                maxAllowedWidth = maxAllowedWidthBottom
-            )
+            val gap = if (segSweepAngle > 8f) 2.2f else 0.8f
+            canvas.drawArc(arcBounds, segStartAngle + gap, segSweepAngle - gap * 2f, false, arcPaint)
         }
 
-        // End divider line
-        val endRad = Math.toRadians((startBaseAngle + totalSweep).toDouble())
-        val innerR = outerRadius - arcStrokeWidth
-        val ex1 = (cx + innerR * cos(endRad)).toFloat()
-        val ey1 = (cy + innerR * sin(endRad)).toFloat()
-        val ex2 = (cx + outerRadius * cos(endRad)).toFloat()
-        val ey2 = (cy + outerRadius * sin(endRad)).toFloat()
-        canvas.drawLine(ex1, ey1, ex2, ey2, dividerPaint)
-
-        // Draw Needle
+        // Indicador corto y discreto, con punto de lectura sobre el arco.
         val needleRatio = ((animatedValue - minGaugeVal) / (maxGaugeVal - minGaugeVal)).coerceIn(0.0, 1.0)
         val needleAngle = (startBaseAngle + needleRatio * totalSweep).toFloat()
         val needleRad = Math.toRadians(needleAngle.toDouble())
 
-        val needleLen = outerRadius * 0.95f
+        val needleLen = arcRadius
         val nx = (cx + needleLen * cos(needleRad)).toFloat()
         val ny = (cy + needleLen * sin(needleRad)).toFloat()
 
-        // Needle line & tip
+        needlePaint.strokeWidth = (arcStrokeWidth * 0.28f).coerceAtLeast(4f)
+        needlePaint.strokeCap = Paint.Cap.ROUND
+        needlePaint.setShadowLayer(4f, 0f, 2f, Color.parseColor("#40001B3A"))
         canvas.drawLine(cx, cy, nx, ny, needlePaint)
+        needlePaint.clearShadowLayer()
 
-        // Pivot circle
-        val pivotR = arcStrokeWidth * 0.32f
+        val pivotR = arcStrokeWidth * 0.48f
         canvas.drawCircle(cx, cy, pivotR, pivotPaint)
-        canvas.drawCircle(cx, cy, pivotR * 0.45f, pivotInnerPaint)
+        canvas.drawCircle(cx, cy, pivotR * 0.38f, pivotInnerPaint)
+        canvas.drawCircle(nx, ny, arcStrokeWidth * 0.22f, pivotInnerPaint)
+
+        val activeSegment = segments.firstOrNull { animatedValue >= it.minVal && animatedValue <= it.maxVal }
+            ?: segments.last()
+        val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#17384D")
+            textAlign = Paint.Align.CENTER
+            isFakeBoldText = true
+            textSize = (outerRadius * 0.25f).coerceIn(22f, 42f)
+        }
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = activeSegment.color
+            textAlign = Paint.Align.CENTER
+            isFakeBoldText = true
+            textSize = (outerRadius * 0.12f).coerceIn(13f, 20f)
+        }
+        val captionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#6B7F8F")
+            textAlign = Paint.Align.CENTER
+            textSize = (outerRadius * 0.09f).coerceIn(11f, 16f)
+        }
+
+        val displayValue = if (currentValue > 0.0) String.format("%.1f", currentValue) else "—"
+        canvas.drawText(displayValue, cx, cy + outerRadius * 0.28f, valuePaint)
+        canvas.drawText(activeSegment.labelTop, cx, cy + outerRadius * 0.49f, labelPaint)
+        canvas.drawText(activeSegment.labelBottom, cx, cy + outerRadius * 0.65f, captionPaint)
     }
 
     private fun drawCurvedText(

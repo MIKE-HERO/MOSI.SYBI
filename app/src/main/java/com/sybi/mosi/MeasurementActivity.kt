@@ -12,6 +12,8 @@ import android.graphics.Color
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.CountDownTimer
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.*
@@ -100,6 +102,17 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var cardEcgImage: CardView
 
     private lateinit var imgGuide: ImageView
+    private lateinit var tvGuideTitle: TextView
+    private lateinit var tvGuideStep: TextView
+    private lateinit var guidePanel: View
+    private lateinit var measuringAnimationHost: View
+    private lateinit var measuringAnimationView: com.sybi.mosi.measurement.EqualizerLoaderView
+    private lateinit var resultsPanel: View
+    private lateinit var heightWeightActions: LinearLayout
+    private lateinit var btnHeightBack: Button
+    private lateinit var btnHeightNext: Button
+    private val guideHandler = Handler(Looper.getMainLooper())
+    private var guideSequenceToken = 0
     private var guideBreathingAnimator: android.animation.ObjectAnimator? = null
     private lateinit var waveformView: WaveformView
     private lateinit var layoutStatusContent: LinearLayout
@@ -245,6 +258,17 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         ecgImageView = findViewById(R.id.ecgImageView)
         cardEcgImage = findViewById(R.id.cardEcgImage)
         imgGuide = findViewById(R.id.imgMeasurementGuide)
+        tvGuideTitle = findViewById(R.id.tvGuideTitle)
+        tvGuideStep = findViewById(R.id.tvGuideStep)
+        guidePanel = findViewById(R.id.guidePanel)
+        measuringAnimationHost = findViewById(R.id.measuringAnimationHost)
+        measuringAnimationView = findViewById(R.id.measuringAnimationView)
+        resultsPanel = findViewById(R.id.resultsPanel)
+        heightWeightActions = findViewById(R.id.heightWeightActions)
+        btnHeightBack = findViewById(R.id.btnHeightBack)
+        btnHeightNext = findViewById(R.id.btnHeightNext)
+        btnHeightBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        btnHeightNext.setOnClickListener { getNextVisibleButton()?.performClick() }
         waveformView = findViewById(R.id.waveformView)
         layoutStatusContent = findViewById(R.id.layoutStatusContent)
         tvStatusMessage = findViewById(R.id.tvStatusMessage)
@@ -334,9 +358,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     /** Repinta la pantalla con [color] — llamado al abrir la pantalla y cada vez que cambia
      *  el color de marca en vivo (ajuste manual o ciclo del modo multicolor). */
     private fun applyTheme(color: Int) {
-        findViewById<View>(R.id.topMeasurementBar).setBackgroundColor(color)
-        findViewById<View>(R.id.bottomMeasurementBar).setBackgroundColor(color)
+        // Las superficies principales permanecen sobrias; el color de marca se reserva
+        // para estados, progreso y elementos interactivos.
+        findViewById<View>(R.id.topMeasurementBar).setBackgroundColor(Color.parseColor("#17384D"))
+        findViewById<View>(R.id.bottomMeasurementBar).setBackgroundColor(Color.parseColor("#17384D"))
         btnStarECG.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
+        btnHeightNext.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         applyPillTheme(color)
     }
 
@@ -524,24 +551,30 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun startHeightWeight() {
         currentMeasurementType = "ALTURA_PESO"
-        switchTab("Altura / Peso", "altura_peso", groupAlturaPeso)
+        switchTab("Altura / Peso", "altura_peso", groupAlturaPeso, skipGenericGuide = true)
         measurementResults.updateHeightWeight(state.height, state.weight, state.imc)
 
         if (completedMeasurements.contains("ALTURA_PESO") || state.hasHeightWeight()) {
+            showHeightWeightStage(3)
+            setHeightWeightPresentation(showResults = true)
+            heightWeightActions.visibility = View.VISIBLE
             btnRepeat.visibility = View.VISIBLE
             showStatusMessage("Medición completada correctamente", "#4CAF50")
             showSuccessCheck(true)
             return
         }
+        setHeightWeightPresentation(showResults = false)
+        startHeightWeightGuideSequence()
         showReady()
         controller.sendCommand("ALTURA_PESO")
     }
 
     private fun startComposition() {
         currentMeasurementType = "COMPOSICION"
-        switchTab("Composición Corporal", "composicion", groupComposicion)
+        switchTab("Composición Corporal", "composicion", groupComposicion, skipGenericGuide = true)
 
         if (completedMeasurements.contains("COMPOSICION") || state.hasComposition()) {
+            setHeightWeightPresentation(showResults = true)
             tvStatusProgress.visibility = View.GONE
             renderComposition()
             btnRepeat.visibility = View.VISIBLE
@@ -555,6 +588,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }
 
         measurementResults.clearComposition()
+        setHeightWeightPresentation(showResults = false)
+        startCompositionGuideSequence()
         tvStatusProgress.text = "0%"
         tvStatusProgress.visibility = View.VISIBLE
         ivStatusCheck.visibility = View.GONE
@@ -566,30 +601,53 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun startPressure() {
         currentMeasurementType = "PRESION"
-        switchTab("Presión Arterial", "presion", groupPresion)
+        switchTab("Presión Arterial", "presion", groupPresion, skipGenericGuide = true)
         measurementResults.updatePressure(state.systolic, state.diastolic, state.pulse)
 
         if (completedMeasurements.contains("PRESION") || state.hasPressure()) {
+            setHeightWeightPresentation(showResults = true)
             btnRepeat.visibility = View.VISIBLE
             showStatusMessage("Medición completada correctamente", "#4CAF50")
             showSuccessCheck(true)
             return
         }
+        setHeightWeightPresentation(showResults = false)
+        startClinicalGuideSequence(
+            type = "PRESION",
+            imageName = "guia_presion",
+            steps = listOf(
+                "1. Siéntate con la espalda apoyada y coloca ambos pies sobre la plataforma.",
+                "2. Introduce el brazo en el brazalete y apóyalo sin hacer fuerza.",
+                "3. Presiona el botón azul, no hables y permanece inmóvil."
+            )
+        )
         showReady()
         controller.sendCommand("PRESION")
     }
 
     private fun startTemperature() {
         currentMeasurementType = "TEMPERATURA"
-        switchTab("Temperatura Corporal", "temperatura", groupTemperatura)
+        switchTab("Temperatura Corporal", "temperatura", groupTemperatura, skipGenericGuide = true)
         measurementResults.updateTemperature(state.temperature, state.temperatureF)
 
         if (completedMeasurements.contains("TEMPERATURA") || state.hasTemperature()) {
+            setHeightWeightPresentation(showResults = true)
             btnRepeat.visibility = View.VISIBLE
             showStatusMessage("Medición completada correctamente", "#4CAF50")
             showSuccessCheck(true)
             return
         }
+        setHeightWeightPresentation(showResults = false)
+        startClinicalGuideSequence(
+            type = "TEMPERATURA",
+            imageName = "guia_temperatura",
+            steps = listOf(
+                "1. Toma el termómetro por el mango.",
+                "2. Acércalo al centro de la frente sin tocar la piel.",
+                "3. Mantén la posición un instante mientras se registra la temperatura."
+            ),
+            stepDurationMs = 1700L
+        )
         showReady()
         controller.sendCommand("TEMPERATURA")
     }
@@ -597,15 +655,26 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun startOxygen() {
         currentMeasurementType = "OXIGENO"
         oxygenReadingStarted = false
-        switchTab("Oxígeno en Sangre", "oxigeno", groupOxigeno)
+        switchTab("Oxígeno en Sangre", "oxigeno", groupOxigeno, skipGenericGuide = true)
         measurementResults.updateOxygen(state.spo2, state.pulseRate, state.pi)
 
         if (completedMeasurements.contains("OXIGENO") || state.hasOxygen()) {
+            setHeightWeightPresentation(showResults = true)
             btnRepeat.visibility = View.VISIBLE
             showStatusMessage("Medición completada correctamente", "#4CAF50")
             showSuccessCheck(true)
             return
         }
+        setHeightWeightPresentation(showResults = false)
+        startClinicalGuideSequence(
+            type = "OXIGENO",
+            imageName = "guia_oximetro",
+            steps = listOf(
+                "1. Siéntate cómodamente y relaja la mano.",
+                "2. Introduce completamente el dedo índice en el oxímetro.",
+                "3. Mantén la mano quieta hasta que termine la lectura."
+            )
+        )
         waveformView.clear()
         waveformView.visibility = View.VISIBLE
         controller.startOxygenMeasurement()
@@ -664,6 +733,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }
         when (currentMeasurementType) {
             "ALTURA_PESO" -> {
+                heightWeightActions.visibility = View.GONE
+                setHeightWeightPresentation(showResults = false)
                 state.resetHeightWeight()
                 measurementResults.updateHeightWeight(0.0, 0.0, 0.0)
                 showReady(); controller.forceSendCommand("ALTURA_PESO")
@@ -675,6 +746,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 }
                 state.resetComposition()
                 measurementResults.clearComposition()
+                setHeightWeightPresentation(showResults = false)
+                startCompositionGuideSequence()
                 tvStatusProgress.text = "0%"
                 tvStatusProgress.visibility = View.VISIBLE
                 ivStatusCheck.visibility = View.GONE
@@ -682,16 +755,34 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 sendPatientDataToService(); showReady(); controller.forceSendCommand("COMPOSICION")
             }
             "PRESION" -> {
+                setHeightWeightPresentation(showResults = false)
+                startClinicalGuideSequence("PRESION", "guia_presion", listOf(
+                    "1. Siéntate con la espalda apoyada y coloca ambos pies sobre la plataforma.",
+                    "2. Introduce el brazo en el brazalete y apóyalo sin hacer fuerza.",
+                    "3. Presiona el botón azul, no hables y permanece inmóvil."
+                ))
                 state.resetPressure()
                 measurementResults.updatePressure(0, 0, 0)
                 showReady(); controller.forceSendCommand("PRESION")
             }
             "TEMPERATURA" -> {
+                setHeightWeightPresentation(showResults = false)
+                startClinicalGuideSequence("TEMPERATURA", "guia_temperatura", listOf(
+                    "1. Toma el termómetro por el mango.",
+                    "2. Acércalo al centro de la frente sin tocar la piel.",
+                    "3. Mantén la posición un instante mientras se registra la temperatura."
+                ), 1700L)
                 state.resetTemperature()
                 measurementResults.updateTemperature(0.0, 0.0)
                 showReady(); controller.forceSendCommand("TEMPERATURA")
             }
             "OXIGENO" -> {
+                setHeightWeightPresentation(showResults = false)
+                startClinicalGuideSequence("OXIGENO", "guia_oximetro", listOf(
+                    "1. Siéntate cómodamente y relaja la mano.",
+                    "2. Introduce completamente el dedo índice en el oxímetro.",
+                    "3. Mantén la mano quieta hasta que termine la lectura."
+                ))
                 state.resetOxygen()
                 oxygenReadingStarted = false
                 measurementResults.updateOxygen(0, 0, 0.0)
@@ -860,16 +951,27 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     // ── UI helpers ────────────────────────────────────────
 
-    private fun switchTab(title: String, key: String, group: LinearLayout?) {
+    private fun switchTab(
+        title: String,
+        key: String,
+        group: LinearLayout?,
+        skipGenericGuide: Boolean = false
+    ) {
+        guideSequenceToken++
         cancelCountdownTimer()
         controller.cancelTimers()
         setRepeatMode(false)
         tvStatusProgress.visibility = View.GONE
+        // Por si se cambia de pestaña a medio "esperando resultado": no dejar la
+        // animación grande de la pestaña anterior atascada sobre la guía nueva.
+        mostrarAnimacionMidiendo(false)
         listOf(groupAlturaPeso, groupTemperatura, groupComposicion, groupPresion,
             groupOxigeno, groupEcg, groupAzucar, groupAcidoUrico, groupColesterol)
             .forEach { it.visibility = View.GONE }
 
         layoutResultadosEcg.visibility = View.GONE
+        guidePanel.visibility = View.VISIBLE
+        resultsPanel.visibility = View.VISIBLE
 
         group?.visibility = View.VISIBLE
 
@@ -878,13 +980,33 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         waveformView.visibility = if (key == "oxigeno") View.VISIBLE else View.GONE
         tvTitle.text = title
-        setGuideImage("instruccion_$key")
+        tvGuideTitle.text = title
+        // Los tipos con su propia secuencia de guía (altura/peso, composición,
+        // presión, temperatura, oxígeno) la ponen justo después de esta llamada;
+        // si aquí también se pusiera la imagen genérica "instruccion_$key", se
+        // vería un parpadeo: la genérica aparece un instante y luego se
+        // reemplaza por la guía real específica.
+        if (!skipGenericGuide) {
+            setGuideImage("instruccion_$key")
+        }
+        heightWeightActions.visibility = View.GONE
+        tvGuideStep.visibility = if (key == "altura_peso") View.VISIBLE else View.GONE
         updateButtonVisibility()
 
         // Solo reproducir audio "start" si esta medición AÚN NO ha sido completada
         if (!completedMeasurements.contains(currentMeasurementType)) {
             getAudioName(currentMeasurementType, "start")?.let { playAudio(it) }
         }
+    }
+
+    /**
+     * La guía (izquierda) y los resultados (derecha) permanecen visibles todo el
+     * tiempo, en paralelo; lo que cubre/descubre los datos reales mientras se
+     * espera es únicamente el overlay de [mostrarAnimacionMidiendo], no estos
+     * paneles. `showResults` ya no oculta ningún panel.
+     */
+    private fun setHeightWeightPresentation(showResults: Boolean) {
+        heightWeightActions.visibility = View.GONE
     }
 
     private fun loadLastResults(key: String) {
@@ -997,6 +1119,123 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }.start()
     }
 
+    private fun startHeightWeightGuideSequence() {
+        val token = ++guideSequenceToken
+        showHeightWeightStage(1)
+        guideHandler.postDelayed({
+            if (token == guideSequenceToken && currentMeasurementType == "ALTURA_PESO" && !state.hasHeightWeight()) {
+                showHeightWeightStage(2)
+            }
+        }, 2200)
+        guideHandler.postDelayed({
+            if (token == guideSequenceToken && currentMeasurementType == "ALTURA_PESO" && !state.hasHeightWeight()) {
+                showHeightWeightStage(3)
+                startAnalysisMessages(token, "ALTURA_PESO")
+            }
+        }, 4800)
+    }
+
+    private fun startCompositionGuideSequence() {
+        val token = ++guideSequenceToken
+        showCompositionStage(1)
+        guideHandler.postDelayed({
+            if (token == guideSequenceToken && currentMeasurementType == "COMPOSICION" && !state.hasComposition()) {
+                showCompositionStage(2)
+            }
+        }, 2600)
+        guideHandler.postDelayed({
+            if (token == guideSequenceToken && currentMeasurementType == "COMPOSICION" && !state.hasComposition()) {
+                showCompositionStage(3)
+                startAnalysisMessages(token, "COMPOSICION")
+            }
+        }, 5400)
+    }
+
+    private fun showCompositionStage(stage: Int) {
+        setGuideImage("composicion_sujetando")
+        tvGuideStep.text = when (stage) {
+            1 -> "1. Siéntate con la espalda recta y coloca ambos pies sobre la plataforma."
+            2 -> "2. Sujeta firmemente los electrodos con ambas manos, como se muestra en la imagen."
+            else -> "3. Mantén los brazos estables, no hables y permanece inmóvil."
+        }
+        tvGuideStep.visibility = View.VISIBLE
+    }
+
+    private fun startClinicalGuideSequence(
+        type: String,
+        imageName: String,
+        steps: List<String>,
+        stepDurationMs: Long = 2400L
+    ) {
+        val token = ++guideSequenceToken
+        setGuideImage(imageName)
+        tvGuideStep.text = steps.first()
+        tvGuideStep.visibility = View.VISIBLE
+        steps.drop(1).forEachIndexed { index, message ->
+            guideHandler.postDelayed({
+                if (token == guideSequenceToken && currentMeasurementType == type && isMeasurementWaiting(type)) {
+                    tvGuideStep.text = message
+                }
+            }, stepDurationMs * (index + 1))
+        }
+        guideHandler.postDelayed({
+            if (token == guideSequenceToken && currentMeasurementType == type && isMeasurementWaiting(type)) {
+                startAnalysisMessages(token, type)
+            }
+        }, stepDurationMs * steps.size)
+    }
+
+    private fun isMeasurementWaiting(type: String): Boolean = when (type) {
+        "ALTURA_PESO" -> !state.hasHeightWeight()
+        "COMPOSICION" -> !state.hasComposition()
+        "PRESION" -> !state.hasPressure()
+        "TEMPERATURA" -> !state.hasTemperature()
+        "OXIGENO" -> !state.hasOxygen()
+        else -> false
+    }
+
+    private fun startAnalysisMessages(token: Int, type: String) {
+        val messages = listOf(
+            "Un momento, estamos analizando tus datos…",
+            "Validando la calidad de la medición…",
+            "Calculando tus resultados…",
+            "Casi terminamos, permanece inmóvil…"
+        )
+        fun showMessage(index: Int) {
+            val waiting = isMeasurementWaiting(type)
+            if (token != guideSequenceToken || currentMeasurementType != type || !waiting) return
+            tvGuideStep.animate().alpha(0f).setDuration(160).withEndAction {
+                if (token != guideSequenceToken) return@withEndAction
+                tvGuideStep.text = messages[index % messages.size]
+                tvGuideStep.animate().alpha(1f).setDuration(220).start()
+            }.start()
+            guideHandler.postDelayed({ showMessage(index + 1) }, 2300)
+        }
+        guideHandler.postDelayed({ showMessage(0) }, 2200)
+    }
+
+    private fun showHeightWeightStage(stage: Int) {
+        when (stage) {
+            1 -> {
+                setGuideImage("altura_peso_sentado")
+                tvGuideStep.text = "1. Siéntate frente a la máquina y coloca ambos pies sobre la plataforma."
+            }
+            2 -> {
+                setGuideImage("altura_peso_levantando")
+                tvGuideStep.text = "2. Levántate despacio y mantén los pies dentro del área marcada."
+            }
+            else -> {
+                setGuideImage("altura_peso_de_pie")
+                tvGuideStep.text = if (state.hasHeightWeight()) {
+                    "¡Listo! Revisa tus resultados y elige Siguiente o Regresar."
+                } else {
+                    "3. Mira al frente, mantén la espalda recta y permanece inmóvil."
+                }
+            }
+        }
+        tvGuideStep.visibility = View.VISIBLE
+    }
+
     /** Pulso lento de escala en la imagen guía, para que no se sienta una foto estática e inerte. */
     private fun startGuideBreathing() {
         if (guideBreathingAnimator != null) return
@@ -1045,12 +1284,25 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         statusSweep.visibility = View.VISIBLE
         statusSweep.start()
         startPillPulse()
+        mostrarAnimacionMidiendo(true)
     }
 
     private fun stopStatusShimmer() {
         statusSweep.stop()
         statusSweep.visibility = View.GONE
         stopPillPulse()
+        mostrarAnimacionMidiendo(false)
+    }
+
+    /**
+     * Mitad derecha de la pantalla: mientras se espera el resultado del sensor,
+     * cubre el panel de resultados con una animación grande ("midiendo"). Al
+     * terminar (con éxito o error) se descubre y aparecen los datos reales. La
+     * guía de postura (mitad izquierda) permanece visible todo el tiempo, sin
+     * animaciones de "esperando" mezcladas en las tarjetas de resultado.
+     */
+    private fun mostrarAnimacionMidiendo(midiendo: Boolean) {
+        measuringAnimationHost.visibility = if (midiendo) View.VISIBLE else View.GONE
     }
 
     /** Muestra (con una animación de aparición) o esconde el check verde de medición completada. */
@@ -1285,6 +1537,17 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         runOnUiThread {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
             showStatusMessage("Medición completada correctamente", "#4CAF50")
+            if (currentMeasurementType == "ALTURA_PESO") {
+                guideSequenceToken++
+                showHeightWeightStage(3)
+                setHeightWeightPresentation(showResults = true)
+            } else if (currentMeasurementType == "COMPOSICION") {
+                guideSequenceToken++
+                setHeightWeightPresentation(showResults = true)
+            } else if (currentMeasurementType in setOf("PRESION", "TEMPERATURA", "OXIGENO")) {
+                guideSequenceToken++
+                setHeightWeightPresentation(showResults = true)
+            }
             setRepeatMode(false)
             updateButtonVisibility()
             checkLastMeasurement()
@@ -1307,6 +1570,14 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
             cancelCountdownTimer()
             tvStatusProgress.visibility = View.GONE
+            if (currentMeasurementType == "ALTURA_PESO") heightWeightActions.visibility = View.GONE
+            if (currentMeasurementType in setOf("ALTURA_PESO", "COMPOSICION", "PRESION", "TEMPERATURA", "OXIGENO")) {
+                guideSequenceToken++
+                setHeightWeightPresentation(showResults = true)
+                // No dejamos ocho tarjetas con loaders activos detrás de un error.
+                // El estado y Reintentar permanecen visibles en una superficie limpia.
+                if (currentMeasurementType == "COMPOSICION") groupComposicion.visibility = View.GONE
+            }
             layoutResultadosEcg.visibility = View.GONE
             showStatusMessage("Error de medición, favor de repetir", "#F44336")
             updateButtonVisibility()

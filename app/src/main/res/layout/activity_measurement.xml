@@ -4,15 +4,16 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F5F5F5">
+    android:background="#EAF1F5">
 
     <!-- BARRA SUPERIOR -->
     <RelativeLayout
         android:id="@+id/topMeasurementBar"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:background="#0F3E82"
-        android:paddingHorizontal="20dp">
+        android:layout_height="72dp"
+        android:background="#17384D"
+        android:elevation="6dp"
+        android:paddingHorizontal="24dp">
 
         <!-- Izquierda: Botón Salir -->
         <Button
@@ -24,7 +25,8 @@
             android:text="Salir"
             android:textColor="#FFFFFF"
             android:backgroundTint="#4D000000"
-            android:textSize="20sp"
+            android:textAllCaps="false"
+            android:textSize="16sp"
             android:clickable="true"
             android:focusable="true" />
 
@@ -35,7 +37,7 @@
             android:layout_height="match_parent"
             android:layout_centerInParent="true"
             android:textColor="#FFFFFF"
-            android:textSize="20sp"
+            android:textSize="18sp"
             android:textStyle="bold"
             android:gravity="center"
             android:visibility="gone" />
@@ -55,7 +57,8 @@
                 android:text="Repetir"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#4D000000"
-                android:textSize="20sp"
+                android:textAllCaps="false"
+                android:textSize="16sp"
                 android:clickable="true"
                 android:focusable="true"
                 android:layout_marginEnd="10dp" />
@@ -67,7 +70,8 @@
                 android:text="Ver informe"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#4D000000"
-                android:textSize="20sp"
+                android:textAllCaps="false"
+                android:textSize="16sp"
                 android:paddingHorizontal="15dp"
                 android:clickable="true"
                 android:focusable="true"
@@ -83,50 +87,98 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:orientation="horizontal"
-        android:padding="10dp"
+        android:paddingStart="22dp"
+        android:paddingTop="18dp"
+        android:paddingEnd="22dp"
+        android:paddingBottom="16dp"
         android:gravity="center_vertical">
 
-        <!-- IMAGEN DE INSTRUCCIONES (Izquierda) -->
-        <ImageView
-            android:id="@+id/imgMeasurementGuide"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:scaleType="centerInside"
-            android:src="@mipmap/ic_launcher"
-            android:background="#FFFFFF"
-            android:elevation="4dp"
-            android:layout_marginEnd="10dp" />
-
-        <!-- CONTENEDOR DE RESULTADOS Y MONITOR (Derecha) -->
+        <!-- Guía visual e instrucciones (izquierda): SIEMPRE visible, no se
+             reemplaza por nada. La animación de "midiendo" va en el panel
+             derecho (ver measuringAnimationHost en resultsPanel), para que
+             ambas se vean A LA VEZ, una en cada mitad de la pantalla. -->
         <LinearLayout
+            android:id="@+id/guidePanel"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:background="#FFFFFF"
-            android:elevation="4dp"
-            android:padding="15dp">
+            android:background="@drawable/bg_measurement_panel"
+            android:elevation="3dp"
+            android:padding="16dp"
+            android:layout_marginEnd="12dp">
 
-            <!-- Título de la pantalla -->
             <TextView
-                android:id="@+id/tvMeasurementTitle"
-                android:layout_width="wrap_content"
+                android:id="@+id/tvGuideTitle"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Medición"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="#333333"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="8dp"
+                android:gravity="center"
+                android:text="Altura y peso"
+                android:textColor="#17384D"
+                android:textSize="25sp"
+                android:textStyle="bold" />
 
-            <!-- CONTENEDOR PRINCIPAL DE RESULTADOS -->
+            <ImageView
+                android:id="@+id/imgMeasurementGuide"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:scaleType="centerInside"
+                android:contentDescription="Guía de postura para la medición" />
+
+            <TextView
+                android:id="@+id/tvGuideStep"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_instruction_card"
+                android:gravity="center"
+                android:lineSpacingExtra="3dp"
+                android:maxLines="4"
+                android:text="Sigue las indicaciones para realizar tu medición"
+                android:textColor="#17324D"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- CONTENEDOR DE RESULTADOS Y MONITOR (Derecha). FrameLayout porque
+             measuringAnimationHost se SUPERPONE a resultsContainer (uno cubre
+             al otro según el estado), mientras que guidePanel (mitad
+             izquierda) permanece visible todo el tiempo. -->
+        <FrameLayout
+            android:id="@+id/resultsPanel"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/bg_measurement_panel"
+            android:elevation="3dp"
+            android:padding="20dp">
+
             <LinearLayout
-                android:id="@+id/resultsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:background="#F0F6FF"
-                android:padding="10dp">
+                android:orientation="vertical">
+
+                <!-- Título de la pantalla -->
+                <TextView
+                    android:id="@+id/tvMeasurementTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Medición"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="#17384D"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- CONTENEDOR PRINCIPAL DE RESULTADOS -->
+                <LinearLayout
+                    android:id="@+id/resultsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:background="#F6F9FB"
+                    android:padding="12dp">
 
                 <!-- 1. SECCIÓN SUPERIOR: MENSAJE DE ESTADO -->
                 <FrameLayout
@@ -181,6 +233,37 @@
                         android:layout_height="64dp"
                         android:visibility="gone" />
                 </FrameLayout>
+
+                <LinearLayout
+                    android:id="@+id/heightWeightActions"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginBottom="8dp"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <Button
+                        android:id="@+id/btnHeightBack"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="Regresar"
+                        android:textAllCaps="false"
+                        android:textSize="17sp" />
+
+                    <Button
+                        android:id="@+id/btnHeightNext"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="Siguiente"
+                        android:textAllCaps="false"
+                        android:textColor="#FFFFFF"
+                        android:textSize="17sp" />
+                </LinearLayout>
 
                 <!-- 2. SECCIÓN CENTRAL: RESULTADOS ACTUALES -->
                 <LinearLayout
@@ -436,12 +519,10 @@
                             android:layout_marginVertical="10dp"
                             android:visibility="gone">
 
-                            <ImageView
-                                android:id="@+id/ivTempIcon"
+                            <com.sybi.mosi.measurement.ClinicalThermometerView
+                                android:id="@+id/thermometerView"
                                 android:layout_width="72dp"
-                                android:layout_height="72dp"
-                                android:src="@drawable/ic_measurement_temperature"
-                                android:contentDescription="Termómetro"
+                                android:layout_height="150dp"
                                 android:layout_marginEnd="20dp" />
 
                             <LinearLayout
@@ -1299,6 +1380,17 @@
                                     android:visibility="visible" />
                             </FrameLayout>
 
+                            <TextView
+                                android:id="@+id/tvOxygenStatus"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text=""
+                                android:textColor="#24A36A"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+
                         </LinearLayout>
 
                         <!-- Card 2: Ritmo Cardíaco (BPM) -->
@@ -1619,9 +1711,10 @@
                 <com.sybi.mosi.WaveformView
                     android:id="@+id/waveformView"
                     android:layout_width="match_parent"
-                    android:layout_height="75dp"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="6dp"
+                    android:layout_height="150dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="8dp"
+                    android:elevation="3dp"
                     android:visibility="gone" />
 
                 <!-- 4. SECCIÓN INFERIOR: ÚLTIMOS RESULTADOS -->
@@ -1728,6 +1821,40 @@
 
         </LinearLayout>
 
+        <!-- Animación grande de "midiendo": cubre resultsContainer mientras se
+             esperan resultados del sensor. Es la misma animación que antes
+             aparecía en miniatura dentro de cada tarjeta de resultado; ahora se
+             centraliza aquí para que la mitad derecha muestre primero "midiendo"
+             y luego los datos, mientras la guía de postura (mitad izquierda)
+             permanece visible todo el tiempo. -->
+        <LinearLayout
+            android:id="@+id/measuringAnimationHost"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_measurement_panel"
+            android:visibility="gone">
+
+            <com.sybi.mosi.measurement.EqualizerLoaderView
+                android:id="@+id/measuringAnimationView"
+                android:layout_width="160dp"
+                android:layout_height="160dp" />
+
+            <TextView
+                android:id="@+id/tvMeasuringAnimationLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center"
+                android:text="Realizando medición…"
+                android:textColor="#17384D"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        </FrameLayout>
+
     </LinearLayout>
 
     <!-- BARRA INFERIOR (Pestañas de medición) - CENTRADA -->
@@ -1736,10 +1863,12 @@
         android:id="@+id/bottomMeasurementBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#0F3E82"
+        android:background="#17384D"
+        android:elevation="8dp"
         android:orientation="horizontal"
         android:gravity="center"
-        android:paddingVertical="8dp">
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp">
 
         <LinearLayout android:id="@+id/btnNavAlturaPeso" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true">
             <ImageView

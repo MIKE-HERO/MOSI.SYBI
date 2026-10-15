@@ -148,6 +148,7 @@ class InformeBuilder(
         val showOxigeno = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_OXIGENO, true)
         val showTemperatura = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_TEMPERATURA, true)
 
+        agregarEncabezadoApp()
         agregarCabecera(paciente, actual)
 
         if (showPresion) agregarSeccionPresion(actual, asc)
@@ -163,6 +164,7 @@ class InformeBuilder(
         val devicePrefs = ctx.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         val showEcg = devicePrefs.getBoolean(TestElementsActivity.PREF_DEVICE_ECG, true)
 
+        agregarEncabezadoApp()
         agregarCabecera(paciente, actual)
 
         if (showEcg) agregarSeccionEcg(actual)
@@ -302,7 +304,8 @@ class InformeBuilder(
             setPadding(dp(16), dp(20), dp(16), dp(20))
             background = GradientDrawable().apply {
                 setColor(Color.WHITE)
-                cornerRadius = dp(10).toFloat()
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), Color.parseColor("#DCE7ED"))
             }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -345,7 +348,7 @@ class InformeBuilder(
             text = pdfTitle
             textSize = 20f
             setTypeface(null, Typeface.BOLD)
-            setTextColor(colorTema)
+            setTextColor(Color.parseColor("#102A43"))
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
@@ -364,6 +367,17 @@ class InformeBuilder(
                 )
             })
         }
+
+        textCol.addView(View(ctx).apply {
+            background = GradientDrawable().apply {
+                setColor(colorTema)
+                cornerRadius = dp(2).toFloat()
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(54), dp(3)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = dp(7)
+            }
+        })
 
         headerLayout.addView(textCol)
 

@@ -48,7 +48,8 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:scrollbars="horizontal"
-            android:fillViewport="false">
+            android:fillViewport="true"
+            android:overScrollMode="ifContentScrolls">
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -64,6 +65,8 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:background="#E0E0E0"
+                    android:minHeight="52dp"
+                    android:gravity="center_vertical"
                     android:padding="8dp">
 
                     <TextView android:id="@+id/hCheck"      android:layout_width="40dp" android:layout_height="wrap_content" android:text="" />
