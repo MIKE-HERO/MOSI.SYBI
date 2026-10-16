@@ -1267,7 +1267,11 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         tvStatusMessage.setTextColor(Color.parseColor(color))
         tvStatusMessage.visibility = View.VISIBLE
 
-        val isWaiting = color == "#FF9800"
+        // "Dispositivo listo para medición" (verde) también cuenta como "esperando": es el
+        // hueco de ~5s antes de que arranque el "Esperando resultados..." (naranja) donde,
+        // sin esto, se veían los campos de resultado en blanco. Este mensaje nunca se usa
+        // para Oxígeno ni ECG, así que no afecta sus propios flujos.
+        val isWaiting = color == "#FF9800" || msg == "Dispositivo listo para medición"
         val isSuccess = color == "#4CAF50" && msg.contains("completada")
 
         if (isWaiting) {
@@ -1302,7 +1306,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
      * animaciones de "esperando" mezcladas en las tarjetas de resultado.
      */
     private fun mostrarAnimacionMidiendo(midiendo: Boolean) {
-        measuringAnimationHost.visibility = if (midiendo) View.VISIBLE else View.GONE
+        // Oxígeno (gráfica de pulsaciones en tiempo real) y Composición (barra de
+        // porcentaje) ya muestran su propio indicador de progreso específico —
+        // taparlos con el loader genérico ocultaría información más útil que la
+        // propia animación genérica.
+        val tieneIndicadorPropio = currentMeasurementType == "OXIGENO" || currentMeasurementType == "COMPOSICION"
+        measuringAnimationHost.visibility = if (midiendo && !tieneIndicadorPropio) View.VISIBLE else View.GONE
     }
 
     /** Muestra (con una animación de aparición) o esconde el check verde de medición completada. */
