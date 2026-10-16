@@ -324,7 +324,38 @@ class MainActivity : BaseActivity() {
     // ==========================================
     // PRECARGAR CAMERAX (usando addListener)
     // ==========================================
+    /**
+     * Antes de invocar CameraX directamente, se verifica con Camera2 si el hardware expone un
+     * "lens facing" válido. En equipos donde no lo expone (algunos rk3288 con HAL de cámara
+     * incompleto), CameraX internamente reintenta la validación 5 veces y se rinde, pero sin
+     * lanzar excepción — así que no hay forma de detectarlo "atrapando el error" después. Esta
+     * verificación es barata (una sola consulta de características, sin reintentos) y evita
+     * repetir en cada arranque ~2.8s de reintentos garantizados a fallar.
+     */
+    private fun esCamaraUtilizable(): Boolean {
+        return try {
+            val cameraManager = getSystemService(Context.CAMERA_SERVICE) as android.hardware.camera2.CameraManager
+            cameraManager.cameraIdList.any { id ->
+                cameraManager.getCameraCharacteristics(id)
+                    .get(android.hardware.camera2.CameraCharacteristics.LENS_FACING) != null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error verificando disponibilidad de cámara: ${e.message}")
+            false
+        }
+    }
+
     private fun precargarCameraX() {
+        val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("camera_incompatible", false)) {
+            Log.d(TAG, "⏭️ CameraX precarga omitida: cámara ya detectada como no utilizable en este equipo")
+            return
+        }
+        if (!esCamaraUtilizable()) {
+            Log.w(TAG, "⚠️ Cámara sin 'lens facing' válido: se omite la precarga de CameraX (hardware incompatible)")
+            prefs.edit().putBoolean("camera_incompatible", true).apply()
+            return
+        }
         try {
             val future = ProcessCameraProvider.getInstance(this)
             future.addListener({

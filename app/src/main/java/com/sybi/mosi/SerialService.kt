@@ -31,7 +31,9 @@ class SerialService : Service() {
     private val readingThreads = ConcurrentHashMap<String, Thread>()
     private val isReadingActive = ConcurrentHashMap<String, Boolean>()
 
-    private val activePorts = mutableListOf<String>()
+    // CopyOnWriteArrayList: la báscula se abre en el hilo principal y el resto de puertos
+    // se abren en un hilo de fondo, así que puede haber escrituras concurrentes.
+    private val activePorts = java.util.concurrent.CopyOnWriteArrayList<String>()
     private val TAG = "SerialService"
 
     // Armado de tramas: un hilo único entrega los datos completos a los helpers, en orden
@@ -278,11 +280,18 @@ class SerialService : Service() {
         return START_STICKY
     }
 
+    /**
+     * El puerto de la báscula (Altura/Peso) se abre en el hilo que llama a esta función (el
+     * principal, vía onCreate) porque sus tramas disparan el inicio de sesión de la consulta:
+     * tiene que estar listo de inmediato. El resto de los puertos (presión, temperatura, lector
+     * IC, impresora) no son tiempo-críticos para arrancar la app, así que se abren después en un
+     * hilo de fondo para no bloquear el hilo principal (antes causaba "Skipped N frames!").
+     */
     private fun openAllConfiguredPorts() {
         val prefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         activePorts.clear()
 
-        // Altura/Peso
+        // Altura/Peso (báscula) — única excepción: se abre aquí mismo, de forma síncrona.
         alturaPesoPortPath = prefs.getString("device_altura_peso_port", null) ?: ""
         if (prefs.getBoolean("device_altura_peso", true) &&
             alturaPesoPortPath.isNotEmpty() &&
@@ -292,59 +301,71 @@ class SerialService : Service() {
                 Log.i(TAG, "✅ Puerto abierto para Altura/Peso: $alturaPesoPortPath")
             }
         }
-
-        // Presión
-        presionPortPath = prefs.getString("device_presion_port", null) ?: ""
-        if (prefs.getBoolean("device_presion", true) &&
-            presionPortPath.isNotEmpty() &&
-            presionPortPath != "No se encontraron puertos") {
-            if (openPortInternalSimple(presionPortPath, SerialBaudConfig.get(prefs, "device_presion"))) {
-                activePorts.add(presionPortPath)
-                Log.i(TAG, "✅ Puerto abierto para Presión: $presionPortPath")
-            }
-        }
-
-        // Temperatura
-        temperaturaPortPath = prefs.getString("device_temperatura_port", null) ?: ""
-        if (prefs.getBoolean("device_temperatura", true) &&
-            temperaturaPortPath.isNotEmpty() &&
-            temperaturaPortPath != "No se encontraron puertos") {
-            if (openPortInternalSimple(temperaturaPortPath, SerialBaudConfig.get(prefs, "device_temperatura"))) {
-                activePorts.add(temperaturaPortPath)
-                Log.i(TAG, "✅ Puerto abierto para Temperatura: $temperaturaPortPath")
-            }
-        }
-
-        // Lector Tarjeta IC
-        icCardPortPath = prefs.getString("device_ic_card_port", null) ?: ""
-        if (prefs.getBoolean("device_ic_card", true) &&
-            icCardPortPath.isNotEmpty() &&
-            icCardPortPath != "No se encontraron puertos") {
-            if (openPortInternalSimple(icCardPortPath, SerialBaudConfig.get(prefs, "device_ic_card"))) {
-                activePorts.add(icCardPortPath)
-                Log.i(TAG, "✅ Puerto abierto para Lector IC: $icCardPortPath")
-            }
-        }
-
-        // Impresora Térmica
-        val thermalPortPath = prefs.getString("device_thermal_printer_port", null) ?: ""
-        if (prefs.getBoolean("device_thermal_printer", true) &&
-            thermalPortPath.isNotEmpty() &&
-            thermalPortPath != "No se encontraron puertos") {
-            if (openPortInternalSimple(thermalPortPath, SerialBaudConfig.get(prefs, "device_thermal_printer"))) {
-                activePorts.add(thermalPortPath)
-                Log.i(TAG, "✅ Puerto abierto para Impresora Térmica: $thermalPortPath")
-            }
-        }
-
-        // Oxígeno (USB)
-        if (prefs.getBoolean("device_oxigeno", true)) {
-            activePorts.add("USB_OXYGEN")
-            Log.i(TAG, "✅ Oxímetro USB activo")
-        }
-
         sendConnectionStatus()
         sendConnectedDevicesResponse()
+
+        openRemainingPortsAsync(prefs)
+    }
+
+    private fun openRemainingPortsAsync(prefs: android.content.SharedPreferences) {
+        Thread {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            if (destroyed) return@Thread
+
+            // Presión
+            presionPortPath = prefs.getString("device_presion_port", null) ?: ""
+            if (prefs.getBoolean("device_presion", true) &&
+                presionPortPath.isNotEmpty() &&
+                presionPortPath != "No se encontraron puertos") {
+                if (openPortInternalSimple(presionPortPath, SerialBaudConfig.get(prefs, "device_presion"))) {
+                    activePorts.add(presionPortPath)
+                    Log.i(TAG, "✅ Puerto abierto para Presión: $presionPortPath")
+                }
+            }
+
+            // Temperatura
+            temperaturaPortPath = prefs.getString("device_temperatura_port", null) ?: ""
+            if (prefs.getBoolean("device_temperatura", true) &&
+                temperaturaPortPath.isNotEmpty() &&
+                temperaturaPortPath != "No se encontraron puertos") {
+                if (openPortInternalSimple(temperaturaPortPath, SerialBaudConfig.get(prefs, "device_temperatura"))) {
+                    activePorts.add(temperaturaPortPath)
+                    Log.i(TAG, "✅ Puerto abierto para Temperatura: $temperaturaPortPath")
+                }
+            }
+
+            // Lector Tarjeta IC
+            icCardPortPath = prefs.getString("device_ic_card_port", null) ?: ""
+            if (prefs.getBoolean("device_ic_card", true) &&
+                icCardPortPath.isNotEmpty() &&
+                icCardPortPath != "No se encontraron puertos") {
+                if (openPortInternalSimple(icCardPortPath, SerialBaudConfig.get(prefs, "device_ic_card"))) {
+                    activePorts.add(icCardPortPath)
+                    Log.i(TAG, "✅ Puerto abierto para Lector IC: $icCardPortPath")
+                }
+            }
+
+            // Impresora Térmica
+            val thermalPortPath = prefs.getString("device_thermal_printer_port", null) ?: ""
+            if (prefs.getBoolean("device_thermal_printer", true) &&
+                thermalPortPath.isNotEmpty() &&
+                thermalPortPath != "No se encontraron puertos") {
+                if (openPortInternalSimple(thermalPortPath, SerialBaudConfig.get(prefs, "device_thermal_printer"))) {
+                    activePorts.add(thermalPortPath)
+                    Log.i(TAG, "✅ Puerto abierto para Impresora Térmica: $thermalPortPath")
+                }
+            }
+
+            // Oxígeno (USB)
+            if (prefs.getBoolean("device_oxigeno", true)) {
+                activePorts.add("USB_OXYGEN")
+                Log.i(TAG, "✅ Oxímetro USB activo")
+            }
+
+            if (destroyed) return@Thread
+            sendConnectionStatus()
+            sendConnectedDevicesResponse()
+        }.start()
     }
 
     private fun sendConnectionStatus() {
