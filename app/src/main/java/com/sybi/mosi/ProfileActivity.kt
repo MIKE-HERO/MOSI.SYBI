@@ -4,8 +4,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.ColorStateList
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.util.Base64
 import android.view.View
@@ -125,7 +128,25 @@ class ProfileActivity : BaseActivity() {
         val dialog = android.app.Dialog(this)
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         dialog.setContentView(R.layout.dialog_consentimiento)
-        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        // Obtener el color del tema según la preferencia de LogoSettings
+        val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val isMulticolor = prefs.getBoolean("MulticolorEnabled", false)
+        val themeColorHex = if (isMulticolor) {
+            prefs.getString("MulticolorColorVivo", null)
+                ?: prefs.getString("BackgroundColor", currentColor)
+                ?: currentColor
+        } else {
+            prefs.getString("BackgroundColor", currentColor)
+                ?: currentColor
+        }
+
+        val themeColorInt = try {
+            Color.parseColor(themeColorHex)
+        } catch (_: Exception) {
+            try { Color.parseColor(currentColor) } catch (_: Exception) { Color.parseColor("#0F3E82") }
+        }
 
         // ✅ Solo porcentajes de la pantalla
         val screenWidth = resources.displayMetrics.widthPixels
@@ -135,15 +156,27 @@ class ProfileActivity : BaseActivity() {
         val height = (screenHeight * 0.80).toInt()
 
         dialog.window?.setLayout(width, height)
-
-        // ✅ Centrado
         dialog.window?.setGravity(android.view.Gravity.CENTER)
 
+        // Aplicar encabezado con esquinas superiores redondeadas a juego con el diálogo (22dp)
         val headerBar = dialog.findViewById<View>(R.id.headerConsentBar)
-        headerBar.setBackgroundColor(Color.parseColor("#193447"))
+        if (headerBar != null) {
+            val r22 = 22.dp.toFloat()
+            val headerBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(themeColorInt)
+                cornerRadii = floatArrayOf(
+                    r22, r22, // top-left
+                    r22, r22, // top-right
+                    0f, 0f,   // bottom-right
+                    0f, 0f    // bottom-left
+                )
+            }
+            headerBar.background = headerBg
+        }
 
         val btnConfirm = dialog.findViewById<Button>(R.id.btnConfirmConsent)
-        btnConfirm.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#193447"))
+        btnConfirm.backgroundTintList = ColorStateList.valueOf(themeColorInt)
 
         val btnCancel = dialog.findViewById<Button>(R.id.btnCancelConsent)
 
@@ -289,10 +322,10 @@ class ProfileActivity : BaseActivity() {
         val color = Color.parseColor(colorHex)
 
         topProfileBar.setBackgroundColor(color)
-        btnAccess.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#163F5B"))
+        btnAccess.backgroundTintList = ColorStateList.valueOf(color)
 
         val imgProfile = findViewById<ShapeableImageView>(R.id.imgProfile)
-        imgProfile.strokeColor = android.content.res.ColorStateList.valueOf(color)
+        imgProfile.strokeColor = ColorStateList.valueOf(color)
 
         val rootView = findViewById<View>(android.R.id.content)
         rootView.setBackgroundColor(Color.parseColor("#EDF4F8"))
@@ -323,4 +356,7 @@ class ProfileActivity : BaseActivity() {
             0
         }
     }
+
+    private val Int.dp: Int
+        get() = (this * resources.displayMetrics.density).toInt()
 }

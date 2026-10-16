@@ -11,9 +11,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -23,6 +26,7 @@ import android.util.Log
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -404,55 +408,124 @@ class MainActivity : BaseActivity() {
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val savedPassword = prefs.getString("ConfigPassword", "111111") ?: "111111"
 
-        // EditText con estilo
-        val input = android.widget.EditText(this).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
-                    android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            hint = "Ingrese la contraseña"
-            filters = arrayOf(android.text.InputFilter.LengthFilter(12))
-            setPadding(50, 40, 50, 40)
-            setBackgroundResource(R.drawable.bg_input_rounded) // fondo redondeado
-            textSize = 18f
-            setTextColor(android.graphics.Color.BLACK)
+        // Obtener el color del tema según la preferencia de LogoSettings
+        val isMulticolor = prefs.getBoolean("MulticolorEnabled", false)
+        val themeColorHex = if (isMulticolor) {
+            prefs.getString("MulticolorColorVivo", null)
+                ?: prefs.getString("BackgroundColor", "#0F3E82")
+                ?: "#0F3E82"
+        } else {
+            prefs.getString("BackgroundColor", currentColor)
+                ?: currentColor
         }
 
-        // Contenedor con padding para que no se pegue a los bordes
-        val container = android.widget.FrameLayout(this).apply {
-            setPadding(40, 20, 40, 0)
-            addView(input, android.widget.FrameLayout.LayoutParams(
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
-            ))
+        val themeColorInt = try {
+            Color.parseColor(themeColorHex)
+        } catch (_: Exception) {
+            try { Color.parseColor(currentColor) } catch (_: Exception) { Color.parseColor("#0F3E82") }
         }
 
-        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-            .setTitle("🔒 Contraseña requerida")
-            .setMessage("Ingrese la contraseña para acceder a la configuración")
-            .setView(container)
-            .setPositiveButton("Aceptar") { dialog, _ ->
-                val entered = input.text.toString()
-                if (entered == savedPassword) {
-                    startActivity(Intent(this, SettingsActivity::class.java))
-                } else {
-                    Toast.makeText(this, "❌ Contraseña incorrecta", Toast.LENGTH_SHORT).show()
+        var enteredPassword = ""
+
+        val dialog = android.app.Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_password_keypad)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        // Aplicar color del tema al encabezado (esquinas superiores redondeadas)
+        val headerBar = dialog.findViewById<View>(R.id.headerPasswordBar)
+        if (headerBar != null) {
+            val r16 = 16.dp.toFloat()
+            val headerBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(themeColorInt)
+                cornerRadii = floatArrayOf(
+                    r16, r16, // top-left
+                    r16, r16, // top-right
+                    0f, 0f,   // bottom-right
+                    0f, 0f    // bottom-left
+                )
+            }
+            headerBar.background = headerBg
+        }
+
+        // Crear drawable para los botones con el color del tema y efecto ripple
+        fun createButtonDrawable(): Drawable {
+            val r8 = 8.dp.toFloat()
+            val content = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(themeColorInt)
+                cornerRadius = r8
+            }
+            val mask = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(Color.WHITE)
+                cornerRadius = r8
+            }
+            val rippleColor = ColorStateList.valueOf(Color.argb(51, 255, 255, 255))
+            return RippleDrawable(rippleColor, content, mask)
+        }
+
+        // Aplicar fondo del tema a todos los botones del teclado
+        val keyButtonIds = listOf(
+            R.id.btnKey0, R.id.btnKey1, R.id.btnKey2, R.id.btnKey3, R.id.btnKey4,
+            R.id.btnKey5, R.id.btnKey6, R.id.btnKey7, R.id.btnKey8, R.id.btnKey9,
+            R.id.btnKeyConfirm
+        )
+        for (id in keyButtonIds) {
+            dialog.findViewById<View>(id)?.background = createButtonDrawable()
+        }
+
+        val tvDisplay = dialog.findViewById<TextView>(R.id.tvPasswordDisplay)
+        val btnBackspace = dialog.findViewById<ImageButton>(R.id.btnBackspacePassword)
+        val btnClose = dialog.findViewById<ImageView>(R.id.btnClosePasswordDialog)
+
+        fun updateDisplay() {
+            tvDisplay.text = "● ".repeat(enteredPassword.length).trim()
+        }
+
+        val numericButtons = mapOf(
+            R.id.btnKey0 to "0", R.id.btnKey1 to "1", R.id.btnKey2 to "2",
+            R.id.btnKey3 to "3", R.id.btnKey4 to "4", R.id.btnKey5 to "5",
+            R.id.btnKey6 to "6", R.id.btnKey7 to "7", R.id.btnKey8 to "8",
+            R.id.btnKey9 to "9"
+        )
+
+        for ((id, digit) in numericButtons) {
+            dialog.findViewById<View>(id)?.setOnClickListener {
+                if (enteredPassword.length < 12) {
+                    enteredPassword += digit
+                    updateDisplay()
                 }
-                dialog.dismiss()
             }
-            .setNegativeButton("Cancelar") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .create()
+        }
 
-        // Botones con color personalizado (opcional)
-        dialog.setOnShowListener {
-            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
-                .setTextColor(android.graphics.Color.parseColor("#0F3E82"))
-            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)
-                .setTextColor(android.graphics.Color.GRAY)
+        btnBackspace.setOnClickListener {
+            if (enteredPassword.isNotEmpty()) {
+                enteredPassword = enteredPassword.dropLast(1)
+                updateDisplay()
+            }
+        }
+
+        btnClose.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.findViewById<View>(R.id.btnKeyConfirm)?.setOnClickListener {
+            if (enteredPassword == savedPassword) {
+                dialog.dismiss()
+                startActivity(Intent(this, SettingsActivity::class.java))
+            } else {
+                Toast.makeText(this, "❌ Contraseña incorrecta", Toast.LENGTH_SHORT).show()
+                enteredPassword = ""
+                updateDisplay()
+            }
         }
 
         setupDialogKeyboardBehavior(dialog)
-        dialog.show()
+        if (!isFinishing && !isDestroyed) {
+            dialog.show()
+        }
     }
 
     private fun openLoginActivityFromScale() {
@@ -470,10 +543,15 @@ class MainActivity : BaseActivity() {
     // ==========================================
     override fun onResume() {
         super.onResume()
+        val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        if (!appPrefs.getBoolean("MulticolorEnabled", false)) {
+            val savedColor = appPrefs.getString("BackgroundColor", "#0F3E82") ?: "#0F3E82"
+            currentColor = savedColor
+            applyThemeAccents(Color.parseColor(savedColor))
+        }
         if (::medicalBackground.isInitialized) {
             applyMedicalBackground(
-                getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-                    .getString("MedicalBackground", "azul")
+                appPrefs.getString("MedicalBackground", "azul")
             )
         }
         shineOverlay.startSweeping()
