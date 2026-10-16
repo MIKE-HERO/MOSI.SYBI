@@ -7,7 +7,6 @@
     android:background="#EDF4F8">
 
     <!-- BARRA LATERAL IZQUIERDA VERTICAL -->
-    <!-- BARRA LATERAL IZQUIERDA VERTICAL -->
     <LinearLayout
         android:id="@+id/sideBarLayout"
         android:layout_width="150dp"
@@ -21,21 +20,40 @@
         android:paddingEnd="10dp"
         android:paddingBottom="24dp">
 
-        <ImageView
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:src="@drawable/ic_regresar"
-            android:rotation="180"
-            app:tint="#FFFFFF" />
-
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- BOTÓN REGRESAR -->
+        <LinearLayout
+            android:id="@+id/btnBackSettings"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Regresar"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp" />
+            android:background="@null"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp">
 
+            <ImageView
+                android:id="@+id/iconBackSettings"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:src="@drawable/ic_regresar"
+                android:rotation="180"
+                app:tint="#FFFFFF" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Regresar"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:shadowColor="#000000"
+                android:shadowDx="0"
+                android:shadowDy="0"
+                android:shadowRadius="3" />
+        </LinearLayout>
 
         <!-- ESPACIADOR FLEXIBLE -->
         <View
@@ -44,35 +62,72 @@
             android:layout_weight="1" />
 
         <!-- BOTÓN REINICIAR EQUIPO -->
-        <ImageView
-            android:id="@+id/iconRebootDevice"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@drawable/ic_restart"
-            app:tint="#FFFFFF" />
-
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:id="@+id/btnRebootDevice"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Reiniciar"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:paddingBottom="10dp"/>
+            android:background="@null"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingTop="4dp"
+            android:paddingBottom="10dp">
+
+            <ImageView
+                android:id="@+id/iconRebootDevice"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_restart"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Reiniciar"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:shadowColor="#000000"
+                android:shadowDx="0"
+                android:shadowDy="0"
+                android:shadowRadius="3" />
+        </LinearLayout>
 
         <!-- BOTÓN CERRAR APP -->
-        <ImageView
-            android:id="@+id/iconCloseApp"
-            android:layout_width="35dp"
-            android:layout_height="35dp"
-            android:src="@drawable/ic_close_app"
-            app:tint="#FFFFFF" />
-
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:id="@+id/btnCloseApp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Cerrar App"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp" />
+            android:background="@null"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp">
+
+            <ImageView
+                android:id="@+id/iconCloseApp"
+                android:layout_width="35dp"
+                android:layout_height="35dp"
+                android:src="@drawable/ic_close_app"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Cerrar App"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:shadowColor="#000000"
+                android:shadowDx="0"
+                android:shadowDy="0"
+                android:shadowRadius="3" />
+        </LinearLayout>
 
     </LinearLayout>
 
