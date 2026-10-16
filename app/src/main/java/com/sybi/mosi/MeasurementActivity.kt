@@ -58,7 +58,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private var pacienteTelefono = ""
 
     // ── Vistas ────────────────────────────────────────────
-    private lateinit var tvTitle: TextView
     private lateinit var measurementResults: MeasurementResults
 
     // ÚLTIMOS RESULTADOS (Historial)
@@ -144,6 +143,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private var mediaPlayer: MediaPlayer? = null
 
     private lateinit var allButtons: List<View>
+    private lateinit var tabSelectorIndicator: View
+    private var tabIconActiveColor: Int = Color.parseColor("#B8D4E8")
     private var currentMeasurementType = ""
     private val completedMeasurements = mutableSetOf<String>()
     private var currentPlayingAudioName: String? = null
@@ -215,7 +216,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     }
 
     private fun bindViews() {
-        tvTitle = findViewById(R.id.tvMeasurementTitle)
         measurementResults = MeasurementResults(this)
         measurementResults.bindViews()
 
@@ -363,10 +363,14 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         // que la barra inferior de MainActivity).
         val barraColor = darken(color, 0.4f)
         findViewById<View>(R.id.topMeasurementBar).setBackgroundColor(barraColor)
-        findViewById<View>(R.id.bottomMeasurementBar).setBackgroundColor(barraColor)
+        findViewById<View>(R.id.bottomMeasurementBarContainer).setBackgroundColor(barraColor)
         btnStarECG.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         btnHeightNext.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         applyPillTheme(color)
+
+        // Tono claro del propio color de marca para resaltar el ícono de la pestaña activa.
+        tabIconActiveColor = lightenColor(color, 0.65f)
+        if (::allButtons.isInitialized) actualizarTabSeleccionado(animar = false)
     }
 
     /** Oscurece un color manteniendo su matiz — mismo criterio que MainActivity.darken(). */
@@ -484,6 +488,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         allButtons = listOf(btnAlturaPeso, btnComposicion, btnPresion, btnTemperatura,
             btnOxigeno, btnEcg, btnAzucar, btnAcidoUrico, btnColesterol)
+        tabSelectorIndicator = findViewById(R.id.tabSelectorIndicator)
 
         val prefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         fun active(k: String) = prefs.getBoolean(k, true)
@@ -992,7 +997,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         loadLastResults(key)
 
         waveformView.visibility = if (key == "oxigeno") View.VISIBLE else View.GONE
-        tvTitle.text = title
         tvGuideTitle.text = title
         // Los tipos con su propia secuencia de guía (altura/peso, composición,
         // presión, temperatura, oxígeno) la ponen justo después de esta llamada;
@@ -1010,6 +1014,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         if (!completedMeasurements.contains(currentMeasurementType)) {
             getAudioName(currentMeasurementType, "start")?.let { playAudio(it) }
         }
+
+        actualizarTabSeleccionado()
     }
 
     /**
@@ -1687,6 +1693,74 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             "ACIDO_URICO" -> button.id == R.id.btnNavAcidoUrico
             "COLESTEROL" -> button.id == R.id.btnNavColesterol
             else -> false
+        }
+    }
+
+    /**
+     * Resalta en la barra inferior la pestaña de [currentMeasurementType]: desliza la "lupa"
+     * rectangular (tabSelectorIndicator) hasta esa pestaña y aclara el tono de su ícono;
+     * las demás pestañas quedan con su ícono en blanco normal.
+     */
+    private fun actualizarTabSeleccionado(animar: Boolean = true) {
+        val boton = allButtons.firstOrNull { isButtonForCurrentType(it, currentMeasurementType) } ?: return
+        allButtons.forEach { btn ->
+            val icono = (btn as? LinearLayout)?.getChildAt(0) as? ImageView ?: return@forEach
+            icono.setColorFilter(
+                if (btn === boton) tabIconActiveColor else Color.WHITE,
+                android.graphics.PorterDuff.Mode.SRC_IN
+            )
+        }
+        moverSelectorTab(boton, animar)
+    }
+
+    private fun moverSelectorTab(target: View, animar: Boolean) {
+        val fila = target.parent as? View
+        if (target.width == 0 || fila == null || fila.height == 0) {
+            // Aún no se ha hecho layout (p. ej. primera pestaña al abrir la pantalla).
+            target.post { moverSelectorTab(target, animar) }
+            return
+        }
+        val margenH = dp(6)
+        val margenV = dp(4)
+        val destX = (target.left + margenH).toFloat()
+        val destW = target.width - margenH * 2
+        // Alto fijo = el de la fila completa (no el de cada botón): las pestañas con
+        // etiqueta de una sola línea ("ECG") miden menos que las de dos líneas
+        // ("Composición\nCorporal"), así que usar target.height hacía que el selector
+        // "saltara" de alto al cambiar de pestaña en vez de verse uniforme.
+        val destY = (fila.top + fila.paddingTop + margenV).toFloat()
+        val destH = fila.height - fila.paddingTop - fila.paddingBottom - margenV * 2
+
+        val params = tabSelectorIndicator.layoutParams
+        if (!animar || tabSelectorIndicator.width == 0) {
+            params.width = destW
+            params.height = destH
+            tabSelectorIndicator.layoutParams = params
+            tabSelectorIndicator.x = destX
+            tabSelectorIndicator.y = destY
+            return
+        }
+
+        tabSelectorIndicator.animate()
+            .x(destX)
+            .y(destY)
+            .setDuration(260)
+            .setInterpolator(OvershootInterpolator(1.1f))
+            .start()
+
+        val anchoInicial = tabSelectorIndicator.width
+        val altoInicial = tabSelectorIndicator.height
+        if (anchoInicial != destW || altoInicial != destH) {
+            ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 260
+                addUpdateListener {
+                    val f = it.animatedValue as Float
+                    params.width = (anchoInicial + (destW - anchoInicial) * f).toInt()
+                    params.height = (altoInicial + (destH - altoInicial) * f).toInt()
+                    tabSelectorIndicator.layoutParams = params
+                }
+                start()
+            }
         }
     }
 
