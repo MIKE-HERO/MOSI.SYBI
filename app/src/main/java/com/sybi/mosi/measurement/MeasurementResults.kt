@@ -535,9 +535,9 @@ class MeasurementResults(private val activity: Activity) {
 
     private fun getSpo2Classification(spo2: Int): Pair<String, Int> {
         return when {
-            spo2 >= 95 -> Pair("SATURACIÓN OPTIMA", Color.parseColor("#32A852"))
-            spo2 >= 90 -> Pair("SATURACIÓN NORMAL", Color.parseColor("#32A852"))
-            else -> Pair("SATURACIÓN BAJA", Color.parseColor("#E37214"))
+            spo2 >= 95 -> Pair("ÓPTIMO", Color.parseColor("#32A852"))
+            spo2 >= 90 -> Pair("MEDIO", Color.parseColor("#E3B814"))
+            else -> Pair("CRÍTICO", Color.parseColor("#D32F2F"))
         }
     }
 
