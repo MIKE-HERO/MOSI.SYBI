@@ -18,6 +18,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import android.net.Uri
@@ -865,6 +866,31 @@ class ResultsActivity : BaseActivity() {
         }
     }
 
+    /**
+     * Generar el PDF (varias páginas, logos, gráficas) puede tardar varios segundos reales en
+     * este hardware — sin este diálogo la UI se ve "congelada" sin ninguna explicación mientras
+     * dura. No se puede cancelar (el trabajo ya en curso en el hilo principal no se puede
+     * interrumpir a medias), así que solo informa; se cierra cuando el llamador termina.
+     */
+    private fun mostrarDialogoGenerandoInforme(mensaje: String): AlertDialog {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(24), dp(20), dp(24), dp(20))
+        }
+        container.addView(ProgressBar(this).apply {
+            isIndeterminate = true
+        })
+        container.addView(TextView(this).apply {
+            text = mensaje
+            textSize = 15f
+            setPadding(dp(16), 0, 0, 0)
+        })
+        return AlertDialog.Builder(this)
+            .setView(container)
+            .setCancelable(false)
+            .show()
+    }
+
     private fun enviarResultadosPorCorreoA(destinatario: String) {
         if (!EmailSender.estaConfigurado(this)) {
             AlertDialog.Builder(this)
@@ -881,18 +907,23 @@ class ResultsActivity : BaseActivity() {
         btnEmailResults.isEnabled = false
         val textoOriginal = btnEmailResults.text
         btnEmailResults.text = "Enviando correo..."
-        Toast.makeText(this, "Enviando resultados a $destinatario...", Toast.LENGTH_SHORT).show()
+        val dialogoGenerando = mostrarDialogoGenerandoInforme("Generando informe, por favor espera…")
 
         Thread {
             try {
                 val pdfBytes = generarPdfBytes()
                 if (pdfBytes == null) {
                     uiHandler.post {
+                        dialogoGenerando.dismiss()
                         btnEmailResults.isEnabled = true
                         btnEmailResults.text = textoOriginal
-                        Toast.makeText(this, "No se pudo generar el PDF", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "No se pudo generar el PDF (tardó demasiado o falló). Intenta de nuevo.", Toast.LENGTH_LONG).show()
                     }
                     return@Thread
+                }
+                uiHandler.post {
+                    dialogoGenerando.dismiss()
+                    Toast.makeText(this, "Enviando resultados a $destinatario...", Toast.LENGTH_SHORT).show()
                 }
 
                 val nombrePaciente = paciente?.nombre?.replace(" ", "_") ?: "Paciente"
@@ -928,6 +959,7 @@ class ResultsActivity : BaseActivity() {
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Error enviando correo: ${e.message}", e)
                 uiHandler.post {
+                    if (dialogoGenerando.isShowing) dialogoGenerando.dismiss()
                     btnEmailResults.isEnabled = true
                     btnEmailResults.text = textoOriginal
                     Toast.makeText(this, "❌ Error: ${e.message}", Toast.LENGTH_LONG).show()
@@ -1176,10 +1208,22 @@ class ResultsActivity : BaseActivity() {
             }
         }
 
-        try {
-            latch.await(10, java.util.concurrent.TimeUnit.SECONDS)
+        // El dibujo real (medir/layout/draw de cada página, con logos y gráficas) corre en el
+        // hilo principal porque InformeBuilder lo requiere, y en este hardware puede tardar más
+        // de lo que tomaría en un equipo normal. El valor de retorno de await() SÍ se revisa
+        // ahora: antes se ignoraba, así que a los 10s se asumía "falló" y se le avisaba eso al
+        // usuario, pero el Runnable ya encolado en el hilo principal seguía corriendo de todas
+        // formas (no se puede cancelar a medias) — la app quedaba congelada un rato más sin
+        // ningún mensaje nuevo. Con un margen más realista y comprobando el resultado, evitamos
+        // avisar una "falla" falsa mientras el trabajo sigue en curso.
+        val terminoATiempo = try {
+            latch.await(45, java.util.concurrent.TimeUnit.SECONDS)
         } catch (e: InterruptedException) {
-            Log.e(TAG, "⏰ Timeout al generar PDF", e)
+            Log.e(TAG, "Hilo interrumpido esperando el PDF", e)
+            false
+        }
+        if (!terminoATiempo) {
+            Log.e(TAG, "⏰ Generar el PDF tardó más de 45s; el hilo principal puede seguir ocupado terminándolo")
         }
 
         return pdfBytes
