@@ -15,6 +15,22 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- ✅ BOTÓN REGRESAR (esquina superior izquierda) -->
+    <ImageButton
+        android:id="@+id/btnBackLogin"
+        android:layout_width="58dp"
+        android:layout_height="58dp"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="24dp"
+        android:background="@drawable/bg_login_back"
+        android:contentDescription="Regresar"
+        android:padding="16dp"
+        android:rotation="180"
+        android:src="@drawable/ic_regresar"
+        app:tint="#31536A"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <LinearLayout
         android:id="@+id/loginTabs"
         android:layout_width="520dp"

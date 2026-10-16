@@ -158,8 +158,10 @@ class MainActivity : BaseActivity() {
             IntentFilter("ACTION_UPDATE_TITLE")
         )
 
-        applyMedicalBackground(getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-            .getString("MedicalBackground", "azul"))
+        applyMedicalBackground(
+            getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+                .getString("MedicalBackground", "azul")
+        )
         backgroundReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 applyMedicalBackground(intent.getStringExtra("background"))
@@ -197,7 +199,8 @@ class MainActivity : BaseActivity() {
                     val port = intent.getStringExtra("port")
                     val type = intent.getStringExtra("type")
                     val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
-                    val scalePort = devicePrefs.getString("device_altura_peso_port", "/dev/ttyS5") ?: "/dev/ttyS5"
+                    val scalePort = devicePrefs.getString("device_altura_peso_port", "/dev/ttyS5")
+                        ?: "/dev/ttyS5"
 
                     if (type == "RX" && port == scalePort) {
                         Log.d(TAG, "⚖️ Trama serial de pisada recibida en $port, abriendo LoginActivity")
@@ -692,15 +695,46 @@ class MainActivity : BaseActivity() {
         navColesterol.visibility = if (isDeviceActive("device_colesterol")) View.VISIBLE else View.GONE
     }
 
-    /** Mantiene intacto el fondo medico y aplica el tema solo a detalles luminosos. */
+    /**
+     * Mantiene intacto el fondo médico y aplica el tema solo a detalles luminosos.
+     *
+     * ✅ Importante: los iconos de la barra inferior (mediciones) y el engrane del botón de
+     * settings se fuerzan SIEMPRE a blanco, sin importar el color del tema elegido. Así se
+     * mantiene la legibilidad sobre cualquier fondo y el color personalizado queda solo en
+     * los bordes/acentos decorativos.
+     */
     private fun applyThemeAccents(themeColor: Int) {
-        val softColor = Color.argb(115, Color.red(themeColor), Color.green(themeColor), Color.blue(themeColor))
+        val softColor = Color.argb(
+            115,
+            Color.red(themeColor),
+            Color.green(themeColor),
+            Color.blue(themeColor)
+        )
 
+        // --- Botón de settings: solo el borde cambia con el tema ---
         settingsSurface.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(Color.argb(45, 255, 255, 255))
             setStroke(2.dp, softColor)
         }
+
+        // ✅ Forzar el icono interno del botón de settings a blanco
+        (settingsSurface as? android.view.ViewGroup)?.let { group ->
+            for (i in 0 until group.childCount) {
+                (group.getChildAt(i) as? ImageView)?.setColorFilter(
+                    Color.WHITE,
+                    android.graphics.PorterDuff.Mode.SRC_IN
+                )
+            }
+        } ?: run {
+            // Si settingsSurface es directamente un ImageView/ImageButton
+            (settingsSurface as? ImageView)?.setColorFilter(
+                Color.WHITE,
+                android.graphics.PorterDuff.Mode.SRC_IN
+            )
+        }
+
+        // --- Barra inferior: fondo igual, iconos SIEMPRE blancos ---
         bottomBarContainer.background = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(Color.argb(230, 12, 35, 61), Color.argb(242, 4, 17, 34))
@@ -708,11 +742,13 @@ class MainActivity : BaseActivity() {
             cornerRadius = 24.dp.toFloat()
             setStroke(1.dp, Color.parseColor("#668BC8DC"))
         }
+
         val nav = bottomBarContainer as? LinearLayout ?: return
         for (index in 0 until nav.childCount) {
             val item = nav.getChildAt(index) as? LinearLayout ?: continue
+            // ✅ Iconos de las mediciones siempre en blanco
             (item.getChildAt(0) as? ImageView)?.setColorFilter(
-                ColorUtils.getTintedColor(themeColor, 0.55f),
+                Color.WHITE,
                 android.graphics.PorterDuff.Mode.SRC_IN
             )
             // El color personalizado vive solo en la figura; cada celda permanece limpia.
@@ -722,5 +758,4 @@ class MainActivity : BaseActivity() {
 
     private val Int.dp: Int
         get() = (this * resources.displayMetrics.density).toInt()
-
 }

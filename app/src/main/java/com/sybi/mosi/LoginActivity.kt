@@ -12,16 +12,18 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class LoginActivity : BaseActivity() {
 
     private lateinit var btnGuestAccess: Button
     private lateinit var btnRegister: Button
+    private lateinit var btnBackLogin: ImageButton
     private lateinit var tabMedicion: LinearLayout
     private lateinit var tabConsulta: LinearLayout
     private lateinit var tvMedicion: TextView
@@ -31,9 +33,9 @@ class LoginActivity : BaseActivity() {
     private lateinit var optionFace: LinearLayout
     private lateinit var optionIc: LinearLayout
 
-    private lateinit var ivPhone: android.widget.ImageView
-    private lateinit var ivFace: android.widget.ImageView
-    private lateinit var ivIc: android.widget.ImageView
+    private lateinit var ivPhone: ImageView
+    private lateinit var ivFace: ImageView
+    private lateinit var ivIc: ImageView
 
     private var currentColor: String = "#0F3E82"
     private var isMedicionSelected: Boolean = true
@@ -67,8 +69,10 @@ class LoginActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
+        // --- Inicializar TODAS las vistas antes de usarlas en receivers/lambdas ---
         btnGuestAccess = findViewById(R.id.btnGuestAccess)
         btnRegister = findViewById(R.id.btnRegister)
+        btnBackLogin = findViewById(R.id.btnBackLogin)
         tabMedicion = findViewById(R.id.tabMedicion)
         tabConsulta = findViewById(R.id.tabConsulta)
         tvMedicion = findViewById(R.id.tvMedicion)
@@ -81,20 +85,21 @@ class LoginActivity : BaseActivity() {
         ivFace  = findViewById(R.id.ivFace)
         ivIc    = findViewById(R.id.ivIc)
 
+        // --- RECEPTOR DE CAMBIO DE COLOR ---
         val colorReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                val newColor = intent.getStringExtra("new_color")
-                if (newColor != null) {
-                    currentColor = newColor
-                    applyColorTheme(newColor)
-                }
+                val newColor = intent.getStringExtra("new_color") ?: return
+                currentColor = newColor
+                applyColorTheme(newColor)
             }
         }
-        LocalBroadcastManager.getInstance(this).registerReceiver(colorReceiver, IntentFilter("ACTION_UPDATE_THEME"))
+        LocalBroadcastManager.getInstance(this)
+            .registerReceiver(colorReceiver, IntentFilter("ACTION_UPDATE_THEME"))
 
+        // Cargar el color guardado al inicio
         val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-        val savedColor = appPrefs.getString("BackgroundColor", "#0F3E82")
-        currentColor = savedColor!!
+        val savedColor = appPrefs.getString("BackgroundColor", "#0F3E82") ?: "#0F3E82"
+        currentColor = savedColor
         applyColorTheme(savedColor)
 
         selectTab(true)
@@ -165,6 +170,11 @@ class LoginActivity : BaseActivity() {
                 putExtra("photo_step_completed", !faceEnabled)
             })
         }
+
+        // ✅ Botón Regresar (esquina superior izquierda)
+        btnBackLogin.setOnClickListener {
+            finish()
+        }
     }
 
     // ✅ RECEPTOR PARA ACTUALIZAR LA VISIBILIDAD DEL BOTÓN DE INVITADO E INICIAR TEMPORIZADOR
@@ -172,6 +182,8 @@ class LoginActivity : BaseActivity() {
         super.onResume()
         updateGuestButtonVisibility()
         resetInactivityTimer()
+        // Reaplicar el color por si cambió mientras estábamos fuera
+        applyColorTheme(currentColor)
     }
 
     override fun onPause() {
@@ -198,6 +210,7 @@ class LoginActivity : BaseActivity() {
             btnGuestAccess.visibility = View.VISIBLE
             (btnGuestAccess.layoutParams as LinearLayout.LayoutParams).apply {
                 weight = 1f
+                width = 0
                 marginEnd = 10.dp
             }.also { btnGuestAccess.layoutParams = it }
             (btnRegister.layoutParams as LinearLayout.LayoutParams).apply {
@@ -213,6 +226,9 @@ class LoginActivity : BaseActivity() {
                 marginStart = 0
             }.also { btnRegister.layoutParams = it }
         }
+
+        // Reaplicar el color después de ajustar layouts (por si acaso)
+        applyBottomButtonsColor(Color.parseColor(currentColor))
     }
 
     private fun selectTab(isMedicion: Boolean) {
@@ -254,8 +270,22 @@ class LoginActivity : BaseActivity() {
         }
     }
 
+    /**
+     * Aplica el color del tema a TODO el login:
+     *  - borde de las tarjetas
+     *  - tabs (medición / consulta)
+     *  - botones inferiores (invitado / registrar) + sus iconos
+     *  - botón regresar (tint)
+     *  - iconos 3D se mantienen sin tint
+     */
     private fun applyColorTheme(colorHex: String) {
-        val color = Color.parseColor(colorHex)
+        val color = try {
+            Color.parseColor(colorHex)
+        } catch (_: Exception) {
+            Color.parseColor("#0F3E82")
+        }
+
+        // 1) Tarjetas con borde del color del tema
         val cardBorder = Color.argb(90, Color.red(color), Color.green(color), Color.blue(color))
         listOf(optionPhone, optionFace, optionIc).forEach { card ->
             card.background = GradientDrawable().apply {
@@ -265,18 +295,37 @@ class LoginActivity : BaseActivity() {
             }
         }
 
-        btnGuestAccess.background = roundedBackground(color, 18f)
-        btnRegister.background = GradientDrawable(
-            GradientDrawable.Orientation.LEFT_RIGHT,
-            intArrayOf(color, ColorUtils.getTintedColor(color, 0.18f))
-        ).apply { cornerRadius = 18.dp.toFloat() }
+        // 2) Botones inferiores (fondo + iconos)
+        applyBottomButtonsColor(color)
 
-        // Las ilustraciones 3D conservan sus materiales y color original.
+        // 3) Botón regresar: tint del color del tema
+        btnBackLogin.setColorFilter(color)
+
+        // 4) Los iconos 3D conservan sus materiales y color original
         ivPhone.imageTintList = null
         ivFace.imageTintList = null
         ivIc.imageTintList = null
 
+        // 5) Tabs (por si el cambio de color ocurre estando en la pestaña actual)
         selectTab(isMedicionSelected)
+    }
+
+    /**
+     * Aplica el color al fondo de los botones inferiores y blanco a sus iconos,
+     * para que contrasten con cualquier color de tema (incluido amarillo/cian).
+     */
+    private fun applyBottomButtonsColor(color: Int) {
+        // Botón invitado: color sólido del tema
+        btnGuestAccess.background = roundedBackground(color, 18f)
+        btnGuestAccess.setTextColor(Color.WHITE)
+
+        // Botón registrar: gradiente color -> color+18%
+        val lighter = ColorUtils.getTintedColor(color, 0.18f)
+        btnRegister.background = GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            intArrayOf(color, lighter)
+        ).apply { cornerRadius = 18.dp.toFloat() }
+        btnRegister.setTextColor(Color.WHITE)
     }
 
     private fun roundedBackground(color: Int, radiusDp: Float): GradientDrawable =

@@ -48,14 +48,20 @@ class SettingsActivity : BaseActivity() {
      */
     private fun aplicarContornoIcono(iconId: Int, outline: Int = Color.BLACK, grosor: Int = 2) {
         val iv = findViewById<ImageView>(iconId) ?: return
+
+        // ✅ 1) Limpiar el tint del XML ANTES de leer el drawable
+        iv.imageTintList = null
+        iv.colorFilter = null
+
+        // 2) Obtener el drawable ya sin tint
         val original: Drawable = iv.drawable ?: return
 
-        // Bitmap base (tamaño intrínseco real del icono)
+        // 3) Bitmap base
         val w = original.intrinsicWidth.coerceAtLeast(48)
         val h = original.intrinsicHeight.coerceAtLeast(48)
         val bmp = original.toBitmap(w, h).copy(Bitmap.Config.ARGB_8888, true)
 
-        // Canvas final con margen para el contorno
+        // 4) Canvas con margen para el contorno
         val margen = grosor * 2
         val out = Bitmap.createBitmap(
             bmp.width + margen * 2,
@@ -65,7 +71,7 @@ class SettingsActivity : BaseActivity() {
         val canvas = Canvas(out)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-        // 1) Contorno: misma silueta en negro, desplazada en todas las direcciones
+        // 5) Contorno oscuro: silueta desplazada en 8 direcciones
         paint.colorFilter = PorterDuffColorFilter(outline, PorterDuff.Mode.SRC_IN)
         for (dx in -grosor..grosor) {
             for (dy in -grosor..grosor) {
@@ -74,12 +80,14 @@ class SettingsActivity : BaseActivity() {
             }
         }
 
-        // 2) Icono blanco encima
+        // 6) Icono blanco encima
         paint.colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
         canvas.drawBitmap(bmp, margen.toFloat(), margen.toFloat(), paint)
 
+        // 7) Asignar bitmap final y asegurar que no se re-tinte
         iv.setImageBitmap(out)
-        iv.colorFilter = null   // ya viene coloreado en el bitmap
+        iv.imageTintList = null
+        iv.colorFilter = null
         iv.scaleType = ImageView.ScaleType.FIT_CENTER
     }
 
