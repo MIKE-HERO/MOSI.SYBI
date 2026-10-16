@@ -47,6 +47,16 @@ class FaceLoginActivity : BaseActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private val frameIntervalMs = 500L
 
+    // Un único hilo de fondo persistente para analizar frames: antes se creaba un Thread nuevo
+    // cada ~500ms (y otro anidado dentro de processFaceLogin), con el overhead de alojar/destruir
+    // su stack repetidamente mientras se espera un rostro.
+    private val analysisExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+
+    // Reutilizado entre frames por la misma razón que en Camera2Helper: solo hay un frame
+    // "en vuelo" a la vez (isProcessing lo garantiza), así que no hace falta un Bitmap nuevo
+    // por llamada.
+    private var reusableMirrorBitmap: Bitmap? = null
+
     // ============================================================
     // UMBRALES de similitud coseno para el pipeline de 3 frames:
     // Frame 1: Descartar < 50% (conserva >= 50%)
@@ -232,7 +242,7 @@ class FaceLoginActivity : BaseActivity() {
 
         isProcessing = true
 
-        Thread {
+        analysisExecutor.execute {
             try {
                 val mpResult = MediaPipeFaceHelper.detect(mirroredBitmap)
                 val hasFace = mpResult != null && mpResult.faceLandmarks().isNotEmpty()
@@ -249,7 +259,7 @@ class FaceLoginActivity : BaseActivity() {
                         )
                         resetFramePipeline()
                         isProcessing = false
-                        return@Thread
+                        return@execute
                     }
 
                     val liveBiometrics = FaceBiometricsHelper.processFace(mirroredBitmap, mpResult)
@@ -284,13 +294,16 @@ class FaceLoginActivity : BaseActivity() {
                 resetFramePipeline()
                 isProcessing = false
             }
-        }.start()
+        }
     }
 
+    /**
+     * Ya se invoca desde dentro de [analysisExecutor] (ver [captureAndAnalyzeFrame]), así que
+     * corre directo ahí en vez de abrir otro hilo anidado para el mismo frame.
+     */
     private fun processFaceLogin(liveBiometrics: FaceBiometricsHelper.BiometricFaceData) {
-        Thread {
-            try {
-                if (!FaceBiometricsCache.isLoaded()) {
+        try {
+            if (!FaceBiometricsCache.isLoaded()) {
                     checkAndPreloadBiometrics()
                     setUiState(
                         UiState.PROCESSING,
@@ -298,7 +311,7 @@ class FaceLoginActivity : BaseActivity() {
                         "#FF9800"
                     )
                     isProcessing = false
-                    return@Thread
+                    return
                 }
 
                 if (currentCandidates.isEmpty()) {
@@ -469,12 +482,11 @@ class FaceLoginActivity : BaseActivity() {
                         }
                     }
                 }
-            } catch (e: Throwable) {
-                Log.e(TAG, "Error en processFaceLogin: ${e.message}", e)
-                resetFramePipeline()
-                isProcessing = false
-            }
-        }.start()
+        } catch (e: Throwable) {
+            Log.e(TAG, "Error en processFaceLogin: ${e.message}", e)
+            resetFramePipeline()
+            isProcessing = false
+        }
     }
 
     private fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
@@ -525,10 +537,24 @@ class FaceLoginActivity : BaseActivity() {
         handler.removeCallbacks(frameRunnable)
         camera2Helper?.stopCamera()
         camera2Helper = null
+        analysisExecutor.shutdownNow()
+        reusableMirrorBitmap?.recycle()
+        reusableMirrorBitmap = null
     }
 
     private fun mirrorBitmap(bitmap: Bitmap): Bitmap {
-        val matrix = Matrix().apply { preScale(-1.0f, 1.0f) }
-        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        var mirrored = reusableMirrorBitmap
+        if (mirrored == null || mirrored.width != bitmap.width || mirrored.height != bitmap.height) {
+            mirrored?.recycle()
+            mirrored = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+            reusableMirrorBitmap = mirrored
+        }
+        val matrix = Matrix().apply {
+            setScale(-1f, 1f)
+            postTranslate(bitmap.width.toFloat(), 0f)
+        }
+        val canvas = android.graphics.Canvas(mirrored)
+        canvas.drawBitmap(bitmap, matrix, null)
+        return mirrored
     }
 }

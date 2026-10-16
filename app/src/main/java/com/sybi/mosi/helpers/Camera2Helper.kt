@@ -346,18 +346,32 @@ class Camera2Helper(
         }
     }
 
+    // Se llama varias veces por segundo mientras se espera un rostro (ver FaceLoginActivity);
+    // reutilizar estos dos bitmaps en vez de crear nuevos en cada llamada evita presión de
+    // memoria/GC continua. Es seguro porque solo hay una captura "en vuelo" a la vez (el
+    // llamador espera a que termine de procesar el frame anterior antes de pedir el siguiente).
+    private var reusableCaptureBitmap: Bitmap? = null
+    private var reusableMirrorBitmap: Bitmap? = null
+
     /**
      * Obtiene una captura del fotograma actual desde el TextureView.
      */
     fun takePhoto(): Bitmap? {
         return try {
-            val bitmap = textureView.getBitmap(previewWidth, previewHeight) ?: return null
+            var capture = reusableCaptureBitmap
+            if (capture == null || capture.width != previewWidth || capture.height != previewHeight) {
+                capture?.recycle()
+                capture = Bitmap.createBitmap(previewWidth, previewHeight, Bitmap.Config.ARGB_8888)
+                reusableCaptureBitmap = capture
+            }
+            textureView.getBitmap(capture)
+
             val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
             val configuredMirror = isMirrored ?: prefs.getBoolean("pref_main_camera_mirror", true)
             if (configuredMirror) {
-                mirrorBitmap(bitmap)
+                mirrorBitmap(capture)
             } else {
-                bitmap
+                capture
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error capturando foto: ${e.message}")
@@ -366,8 +380,26 @@ class Camera2Helper(
     }
 
     private fun mirrorBitmap(bitmap: Bitmap): Bitmap {
-        val matrix = Matrix().apply { preScale(-1.0f, 1.0f) }
-        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        var mirrored = reusableMirrorBitmap
+        if (mirrored == null || mirrored.width != bitmap.width || mirrored.height != bitmap.height) {
+            mirrored?.recycle()
+            mirrored = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+            reusableMirrorBitmap = mirrored
+        }
+        val matrix = Matrix().apply {
+            setScale(-1f, 1f)
+            postTranslate(bitmap.width.toFloat(), 0f)
+        }
+        val canvas = android.graphics.Canvas(mirrored)
+        canvas.drawBitmap(bitmap, matrix, null)
+        return mirrored
+    }
+
+    private fun recycleReusableBitmaps() {
+        reusableCaptureBitmap?.recycle()
+        reusableCaptureBitmap = null
+        reusableMirrorBitmap?.recycle()
+        reusableMirrorBitmap = null
     }
 
     /**
@@ -383,6 +415,7 @@ class Camera2Helper(
             imageReader?.close()
             imageReader = null
             stopBackgroundThread()
+            recycleReusableBitmaps()
             Log.d(TAG, "🛑 Cámara $activeCameraId detenida")
         } catch (e: Exception) {
             Log.e(TAG, "Error cerrando cámara: ${e.message}")
