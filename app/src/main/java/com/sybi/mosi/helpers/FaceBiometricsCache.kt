@@ -77,16 +77,24 @@ object FaceBiometricsCache {
         preload(context, onComplete)
     }
 
+    // `bmp` es la foto a resolución original de UN paciente, decodificada solo para este
+    // cálculo (el resultado que de verdad se guarda en el caché es el embedding, unos
+    // pocos floats). Sin reciclarla explícitamente aquí, precargar N pacientes al abrir
+    // la app dejaba N bitmaps completos esperando a que el GC los recogiera algún día —
+    // en un dispositivo de 2GB de RAM eso se traduce en quedarse sin memoria.
     private fun extraerBiometriaDeFoto(base64Foto: String): FaceBiometricsHelper.BiometricFaceData? {
+        var bmp: android.graphics.Bitmap? = null
         return try {
             val bytes = Base64.decode(base64Foto, Base64.DEFAULT)
-            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+            bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
             val mpResult = MediaPipeFaceHelper.detect(bmp) ?: return null
             if (mpResult.faceLandmarks().isEmpty()) return null
             FaceBiometricsHelper.processFace(bmp, mpResult)
         } catch (e: Throwable) {
             Log.e(TAG, "Error extrayendo biometría guardada: ${e.message}", e)
             null
+        } finally {
+            bmp?.recycle()
         }
     }
 }
