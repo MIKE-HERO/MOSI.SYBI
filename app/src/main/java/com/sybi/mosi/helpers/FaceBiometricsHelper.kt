@@ -55,9 +55,11 @@ object FaceBiometricsHelper {
         70.7299f * SCALE, 92.2041f * SCALE    // comisura derecha
     )
 
+    // No retiene bitmaps: FaceBiometricsCache guarda uno de estos por paciente, para
+    // siempre, en memoria (precarga al abrir la app). Conservar aquí el bitmap original
+    // y el alineado 160x160 — que ningún llamador llegó a usar — hacía que el caché
+    // creciera sin límite con cada paciente, en un dispositivo de 2GB de RAM.
     data class BiometricFaceData(
-        val originalBitmap: Bitmap,
-        val alignedFaceBitmap: Bitmap,
         val embedding: FloatArray,
         val ipd: Float,
         val landmarks: List<NormalizedLandmark>
@@ -131,11 +133,12 @@ object FaceBiometricsHelper {
 
             // Embedding
             val embedding = FaceEmbeddingHelper.extractEmbedding(aligned)
-                ?: return null
+            // `aligned` solo existía para este paso; no se devuelve ni se usa después,
+            // haya salido bien o no la extracción.
+            aligned.recycle()
+            if (embedding == null) return null
 
             BiometricFaceData(
-                originalBitmap = bitmap,
-                alignedFaceBitmap = aligned,
                 embedding = embedding,
                 ipd = ipd,
                 landmarks = landmarks
