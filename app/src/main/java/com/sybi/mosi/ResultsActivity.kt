@@ -1,7 +1,6 @@
 package com.sybi.mosi
 
 import android.app.AlertDialog
-import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -23,7 +22,6 @@ import android.widget.TextView
 import android.widget.Toast
 import android.net.Uri
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.toBitmap
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.database.AppDatabase
@@ -754,24 +752,22 @@ class ResultsActivity : BaseActivity() {
                 uiHandler.post {
                     dialogoGenerando.dismiss()
                     try {
-                        val uri = FileProvider.getUriForFile(
-                            this@ResultsActivity,
-                            "$packageName.fileprovider",
-                            archivo
-                        )
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(uri, "application/pdf")
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        // Visor propio (PdfViewerActivity) en vez de delegar a una app externa
+                        // vía ACTION_VIEW: en la tablet real (Android 7.1, 2GB de RAM) abrir un
+                        // visor externo justo después de generar el PDF podía quedarse en
+                        // pantalla negra sin aviso — un crash ahí ocurre en OTRO proceso, fuera
+                        // del alcance de cualquier try/catch de esta app.
+                        val intent = Intent(this@ResultsActivity, PdfViewerActivity::class.java).apply {
+                            putExtra(PdfViewerActivity.EXTRA_PDF_PATH, archivo.absolutePath)
                         }
                         startActivity(intent)
                         impresionEnCurso = false
                         mostrarBotonFlotanteRegreso()
-                    } catch (e: ActivityNotFoundException) {
+                    } catch (e: Throwable) {
                         impresionEnCurso = false
                         Toast.makeText(
                             this,
-                            "No hay visor de PDF instalado. El archivo está en: ${archivo.absolutePath}",
+                            "No se pudo abrir el informe. El archivo está en: ${archivo.absolutePath}",
                             Toast.LENGTH_LONG
                         ).show()
                     }

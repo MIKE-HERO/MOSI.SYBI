@@ -96,6 +96,7 @@
         <activity android:name=".ProfileActivity" android:exported="false" />
         <activity android:name=".MeasurementActivity" android:exported="false" />
         <activity android:name=".ResultsActivity" android:exported="false" />
+        <activity android:name=".PdfViewerActivity" android:exported="false" />
 
         <!-- Trampolín del deep link de fin de videollamada (mosi://consulta-finalizada):
              la página de telemedicina redirige aquí al terminar la consulta para cerrar el
