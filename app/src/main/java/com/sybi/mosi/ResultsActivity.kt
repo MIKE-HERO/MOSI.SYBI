@@ -1033,6 +1033,20 @@ class ResultsActivity : BaseActivity() {
             else -> clienteLogoBase
         }
 
+        // Decodificar los logos (incluye SVG vía Coil) AQUÍ, en el hilo de fondo, no dentro
+        // del uiHandler.post de abajo: cada página del informe reconstruye su encabezado y
+        // antes volvía a decodificar ambos logos desde cero (hasta 6 veces por PDF) en el
+        // hilo principal, que es la causa real de que la generación se sintiera "congelada"
+        // incluso con el diálogo de progreso ya agregado (el hilo principal sigue bloqueado
+        // igual mientras decodifica). Decodificando una sola vez aquí, el hilo principal solo
+        // hace medir/layout/draw de Views.
+        val logoPathIzquierdo = clienteLogo?.logoIzquierdoPath
+            ?: getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("LogoPath", null)
+        val logoIzquierdoBitmap = InformeBuilder.cargarLogoBitmap(this, logoPathIzquierdo)
+        val logoDerechoBitmap = clienteLogo?.logoDerechoPath
+            ?.takeIf { it.isNotBlank() }
+            ?.let { InformeBuilder.cargarLogoBitmap(this, it) }
+
         uiHandler.post {
             try {
                 val colorTema = runCatching {
@@ -1174,7 +1188,7 @@ class ResultsActivity : BaseActivity() {
                         paginaActual++
                         val numPag = paginaActual
                         agregarPaginaAlPdf(numPag, totalPaginas) { container ->
-                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo)
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap)
                             builder.construirPagina1(p, idLocal, meds)
                         }
                     }
@@ -1184,7 +1198,7 @@ class ResultsActivity : BaseActivity() {
                         paginaActual++
                         val numPag = paginaActual
                         agregarPaginaAlPdf(numPag, totalPaginas) { container ->
-                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo)
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap)
                             builder.construirPagina2(p, idLocal, meds)
                         }
                     }
@@ -1194,13 +1208,13 @@ class ResultsActivity : BaseActivity() {
                         paginaActual++
                         val numPag = paginaActual
                         agregarPaginaAlPdf(numPag, totalPaginas) { container ->
-                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo)
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap)
                             builder.construirPagina3(p, idLocal, meds)
                         }
                     }
                 } else {
                     agregarPaginaAlPdf(1, 1) { container ->
-                        val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo)
+                        val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap)
                         builder.mensajeVacio("No hay mediciones registradas para este paciente.")
                     }
                 }
