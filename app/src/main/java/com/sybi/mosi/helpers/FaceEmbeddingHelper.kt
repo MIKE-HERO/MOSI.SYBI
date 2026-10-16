@@ -86,40 +86,33 @@ object FaceEmbeddingHelper {
         val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
         scaled.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
 
+        // La fórmula de normalización es fija durante toda la ejecución (NORMALIZATION es una
+        // constante): se resuelve una sola vez aquí en vez de comparar el String en cada una de
+        // las 25,600 iteraciones del loop (160*160 píxeles).
+        val normalize: (Int) -> Float = when (NORMALIZATION) {
+            "B" -> { v -> v / 127.5f - 1f }
+            "C" -> { v -> v / 255f }
+            else -> { v -> (v - 127.5f) / 128f }
+        }
+
         for (pixel in pixels) {
             val r = (pixel shr 16) and 0xFF
             val g = (pixel shr 8) and 0xFF
             val b = pixel and 0xFF
 
-            when (NORMALIZATION) {
-                "A" -> {
-                    inputBuffer.putFloat((r - 127.5f) / 128f)
-                    inputBuffer.putFloat((g - 127.5f) / 128f)
-                    inputBuffer.putFloat((b - 127.5f) / 128f)
-                }
-                "B" -> {
-                    inputBuffer.putFloat(r / 127.5f - 1f)
-                    inputBuffer.putFloat(g / 127.5f - 1f)
-                    inputBuffer.putFloat(b / 127.5f - 1f)
-                }
-                "C" -> {
-                    inputBuffer.putFloat(r / 255f)
-                    inputBuffer.putFloat(g / 255f)
-                    inputBuffer.putFloat(b / 255f)
-                }
-                else -> {
-                    inputBuffer.putFloat((r - 127.5f) / 128f)
-                    inputBuffer.putFloat((g - 127.5f) / 128f)
-                    inputBuffer.putFloat((b - 127.5f) / 128f)
-                }
-            }
+            inputBuffer.putFloat(normalize(r))
+            inputBuffer.putFloat(normalize(g))
+            inputBuffer.putFloat(normalize(b))
         }
         inputBuffer.rewind()
 
         val output = Array(1) { FloatArray(EMBEDDING_DIM) }
 
         return try {
+            val t0 = System.nanoTime()
             interp.run(inputBuffer, output)
+            val elapsedMs = (System.nanoTime() - t0) / 1_000_000.0
+            Log.d(TAG, "⏱️ interp.run() tardó ${"%.1f".format(elapsedMs)} ms")
             val emb = output[0]
 
             // Normalización L2 (obligatoria para similitud coseno)
