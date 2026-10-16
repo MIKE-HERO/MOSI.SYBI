@@ -46,7 +46,13 @@ class InformeBuilder(
     // por ClienteLogoCache.obtener() ANTES de construir la UI (esta clase no hace red).
     // Si es null, se usa el logo local único de siempre (AppPrefs.LogoPath) y no se
     // agrega pie de página con dirección.
-    private val clienteLogo: ClienteLogoCache.Logos? = null
+    private val clienteLogo: ClienteLogoCache.Logos? = null,
+    // Bitmaps ya decodificados en un hilo de fondo (ver InformeBuilder.cargarLogoBitmap),
+    // para que construir cada página del PDF no tenga que decodificar SVGs/crear un
+    // ImageLoader nuevo en el hilo principal. Si no se proveen, se decodifican aquí
+    // mismo como antes (usado por las pantallas en vivo, que no pasan clienteLogo).
+    private val logoIzquierdoBitmapPrecargado: Bitmap? = null,
+    private val logoDerechoBitmapPrecargado: Bitmap? = null
 ) {
     private val d = ctx.resources.displayMetrics.density
 
@@ -324,7 +330,7 @@ class InformeBuilder(
             }
         }
 
-        val directBmp = loadLogoBitmapDirect(ctx, logoPath)
+        val directBmp = logoIzquierdoBitmapPrecargado ?: loadLogoBitmapDirect(ctx, logoPath)
         if (directBmp != null) {
             logoIv.clearColorFilter()
             logoIv.setImageBitmap(directBmp)
@@ -393,7 +399,7 @@ class InformeBuilder(
             }
         }
         if (!logoDerechoPath.isNullOrBlank()) {
-            val bmpDer = loadLogoBitmapDirect(ctx, logoDerechoPath)
+            val bmpDer = logoDerechoBitmapPrecargado ?: loadLogoBitmapDirect(ctx, logoDerechoPath)
             if (bmpDer != null) {
                 logoDerIv.clearColorFilter()
                 logoDerIv.setImageBitmap(bmpDer)
@@ -421,65 +427,81 @@ class InformeBuilder(
             )
             return partes.joinToString(", ").ifBlank { null }
         }
-    }
 
-    private fun loadLogoBitmapDirect(context: Context, path: String?): Bitmap? {
-        val original: Bitmap? = try {
-            if (!path.isNullOrBlank()) {
-                val esSvg = path.substringAfterLast('.', "").equals("svg", ignoreCase = true)
-                if (esSvg) {
-                    // BitmapFactory no decodifica SVG; se usa Coil (mismo decoder que
-                    // ya usa cargarLogoAsincrono) en su variante SÍNCRONA, porque el
-                    // archivo ya está en disco (sin red de por medio) y el PDF
-                    // necesita el bitmap ya, no en un callback posterior.
-                    decodificarSvgSincrono(context, path)
-                } else {
-                    val file = File(path)
-                    if (file.exists()) {
-                        BitmapFactory.decodeFile(file.absolutePath)
+        // ImageLoader de Coil compartido: crearlo configura caché en disco/OkHttp, y antes
+        // se instanciaba uno nuevo por cada logo de cada página (hasta 6 veces por PDF) en
+        // el hilo principal. Reusar uno solo evita ese costo repetido.
+        @Volatile
+        private var sharedImageLoader: ImageLoader? = null
+
+        private fun obtenerImageLoader(context: Context): ImageLoader {
+            return sharedImageLoader ?: synchronized(this) {
+                sharedImageLoader ?: ImageLoader.Builder(context.applicationContext)
+                    .components { add(SvgDecoder.Factory()) }
+                    .build()
+                    .also { sharedImageLoader = it }
+            }
+        }
+
+        /**
+         * Decodifica el bitmap de un logo (PNG/SVG/etc. ya cacheado en disco). Pensada para
+         * llamarse desde un hilo de fondo ANTES de construir las páginas del PDF (ver
+         * ResultsActivity.generarPdfBytes), para que el hilo principal solo tenga que hacer
+         * medir/layout/draw de Views, no decodificación de imágenes.
+         */
+        fun cargarLogoBitmap(context: Context, path: String?): Bitmap? {
+            val original: Bitmap? = try {
+                if (!path.isNullOrBlank()) {
+                    val esSvg = path.substringAfterLast('.', "").equals("svg", ignoreCase = true)
+                    if (esSvg) {
+                        decodificarSvgSincrono(context, path)
                     } else {
-                        val uri = Uri.parse(path)
-                        context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                            BitmapFactory.decodeStream(inputStream)
+                        val file = File(path)
+                        if (file.exists()) {
+                            BitmapFactory.decodeFile(file.absolutePath)
+                        } else {
+                            val uri = Uri.parse(path)
+                            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                                BitmapFactory.decodeStream(inputStream)
+                            }
                         }
                     }
+                } else {
+                    ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
                 }
-            } else {
-                ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
-            }
-        } catch (_: Exception) {
-            try {
-                ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
             } catch (_: Exception) {
+                try {
+                    ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
+                } catch (_: Exception) {
+                    null
+                }
+            }
+
+            return original?.let { aplanarSobreBlanco(it) }
+        }
+
+        private fun decodificarSvgSincrono(context: Context, path: String): Bitmap? {
+            return try {
+                val file = File(path)
+                val data: Any = if (file.exists()) file else Uri.parse(path)
+                val request = ImageRequest.Builder(context).data(data).build()
+                val resultado = kotlinx.coroutines.runBlocking { obtenerImageLoader(context).execute(request) }
+                resultado.drawable?.toBitmap()
+            } catch (e: Exception) {
                 null
             }
         }
 
-        return original?.let { aplanarSobreBlanco(it) }
-    }
-
-    private fun decodificarSvgSincrono(context: Context, path: String): Bitmap? {
-        return try {
-            val imageLoader = ImageLoader.Builder(context)
-                .components { add(SvgDecoder.Factory()) }
-                .build()
-            val file = File(path)
-            val data: Any = if (file.exists()) file else Uri.parse(path)
-            val request = ImageRequest.Builder(context).data(data).build()
-            val resultado = kotlinx.coroutines.runBlocking { imageLoader.execute(request) }
-            resultado.drawable?.toBitmap()
-        } catch (e: Exception) {
-            null
+        private fun aplanarSobreBlanco(src: Bitmap): Bitmap {
+            val out = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(out)
+            canvas.drawColor(Color.WHITE)
+            canvas.drawBitmap(src, 0f, 0f, null)
+            return out
         }
     }
 
-    private fun aplanarSobreBlanco(src: Bitmap): Bitmap {
-        val out = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(out)
-        canvas.drawColor(Color.WHITE)
-        canvas.drawBitmap(src, 0f, 0f, null)
-        return out
-    }
+    private fun loadLogoBitmapDirect(context: Context, path: String?): Bitmap? = cargarLogoBitmap(context, path)
 
     private fun cargarLogoAsincrono(context: Context, imageView: ImageView, path: String?) {
         try {

@@ -1355,10 +1355,16 @@
                             android:layout_marginEnd="4dp">
 
                             <TextView
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:maxLines="1"
                                 android:text="OXÍGENO EN SANGRE"
                                 android:textSize="15sp"
+                                android:autoSizeTextType="uniform"
+                                android:autoSizeMinTextSize="9sp"
+                                android:autoSizeMaxTextSize="15sp"
+                                android:autoSizeStepGranularity="1sp"
                                 android:textStyle="bold"
                                 android:textColor="#001B3A" />
 
@@ -1373,8 +1379,13 @@
                                     android:layout_height="match_parent"
                                     android:layout_gravity="center"
                                     android:gravity="center"
+                                    android:maxLines="1"
                                     android:text="--"
                                     android:textSize="34sp"
+                                    android:autoSizeTextType="uniform"
+                                    android:autoSizeMinTextSize="14sp"
+                                    android:autoSizeMaxTextSize="34sp"
+                                    android:autoSizeStepGranularity="1sp"
                                     android:textStyle="bold"
                                     android:textColor="#001B3A" />
 
@@ -1388,12 +1399,17 @@
 
                             <TextView
                                 android:id="@+id/tvOxygenStatus"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:gravity="center"
+                                android:maxLines="1"
                                 android:text=""
                                 android:textColor="#24A36A"
                                 android:textSize="13sp"
+                                android:autoSizeTextType="uniform"
+                                android:autoSizeMinTextSize="9sp"
+                                android:autoSizeMaxTextSize="13sp"
+                                android:autoSizeStepGranularity="1sp"
                                 android:textStyle="bold"
                                 android:visibility="gone" />
 
@@ -1412,10 +1428,16 @@
                             android:layout_marginHorizontal="3dp">
 
                             <TextView
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:maxLines="1"
                                 android:text="RITMO CARDIACO"
                                 android:textSize="15sp"
+                                android:autoSizeTextType="uniform"
+                                android:autoSizeMinTextSize="9sp"
+                                android:autoSizeMaxTextSize="15sp"
+                                android:autoSizeStepGranularity="1sp"
                                 android:textStyle="bold"
                                 android:textColor="#001B3A" />
 
@@ -1430,8 +1452,13 @@
                                     android:layout_height="match_parent"
                                     android:layout_gravity="center"
                                     android:gravity="center"
+                                    android:maxLines="1"
                                     android:text="--"
                                     android:textSize="34sp"
+                                    android:autoSizeTextType="uniform"
+                                    android:autoSizeMinTextSize="14sp"
+                                    android:autoSizeMaxTextSize="34sp"
+                                    android:autoSizeStepGranularity="1sp"
                                     android:textStyle="bold"
                                     android:textColor="#001B3A" />
 
@@ -1458,10 +1485,16 @@
                             android:layout_marginStart="4dp">
 
                             <TextView
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:maxLines="1"
                                 android:text="ÍNDICE DE PERFUSIÓN"
                                 android:textSize="15sp"
+                                android:autoSizeTextType="uniform"
+                                android:autoSizeMinTextSize="9sp"
+                                android:autoSizeMaxTextSize="15sp"
+                                android:autoSizeStepGranularity="1sp"
                                 android:textStyle="bold"
                                 android:textColor="#001B3A" />
 
@@ -1476,8 +1509,13 @@
                                     android:layout_height="match_parent"
                                     android:layout_gravity="center"
                                     android:gravity="center"
+                                    android:maxLines="1"
                                     android:text="--"
                                     android:textSize="34sp"
+                                    android:autoSizeTextType="uniform"
+                                    android:autoSizeMinTextSize="14sp"
+                                    android:autoSizeMaxTextSize="34sp"
+                                    android:autoSizeStepGranularity="1sp"
                                     android:textStyle="bold"
                                     android:textColor="#001B3A" />
 
