@@ -694,16 +694,17 @@ class ResultsActivity : BaseActivity() {
             return
         }
 
-        // ✅ NO tocamos isEnabled ni el texto del botón. Solo el flag interno.
         impresionEnCurso = true
+        val dialogoGenerando = mostrarDialogoGenerandoInforme("Generando informe, por favor espera…")
 
         Thread {
             try {
                 val pdfBytes = generarPdfBytes()
                 if (pdfBytes == null) {
                     uiHandler.post {
+                        dialogoGenerando.dismiss()
                         impresionEnCurso = false
-                        Toast.makeText(this, "No se pudo generar el PDF", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "No se pudo generar el PDF (tardó demasiado o falló). Intenta de nuevo.", Toast.LENGTH_LONG).show()
                     }
                     return@Thread
                 }
@@ -724,6 +725,7 @@ class ResultsActivity : BaseActivity() {
                         pdf = pdfBytes
                     )
                     uiHandler.post {
+                        dialogoGenerando.dismiss()
                         impresionEnCurso = false
                         Toast.makeText(
                             this,
@@ -750,6 +752,7 @@ class ResultsActivity : BaseActivity() {
                 Log.d(TAG, "📄 PDF guardado: ${archivo.absolutePath}")
 
                 uiHandler.post {
+                    dialogoGenerando.dismiss()
                     try {
                         val uri = FileProvider.getUriForFile(
                             this@ResultsActivity,
@@ -762,6 +765,7 @@ class ResultsActivity : BaseActivity() {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                         startActivity(intent)
+                        impresionEnCurso = false
                         mostrarBotonFlotanteRegreso()
                     } catch (e: ActivityNotFoundException) {
                         impresionEnCurso = false
@@ -772,9 +776,13 @@ class ResultsActivity : BaseActivity() {
                         ).show()
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // Throwable (no solo Exception): un error de memoria u otro problema grave al
+                // construir el PDF (p. ej. decodificando un logo muy pesado) no debe tumbar toda
+                // la app — se cancela el informe con un mensaje en vez de un crash.
                 Log.e(TAG, "❌ Error generando PDF: ${e.message}", e)
                 uiHandler.post {
+                    if (dialogoGenerando.isShowing) dialogoGenerando.dismiss()
                     impresionEnCurso = false
                     Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
@@ -956,7 +964,9 @@ class ResultsActivity : BaseActivity() {
                         Toast.makeText(this, "❌ No se pudo enviar: ${resultado.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // Throwable: mismo criterio que en imprimirResultados() — un error grave al
+                // construir el PDF no debe tumbar la app completa.
                 Log.e(TAG, "❌ Error enviando correo: ${e.message}", e)
                 uiHandler.post {
                     if (dialogoGenerando.isShowing) dialogoGenerando.dismiss()
@@ -1201,7 +1211,10 @@ class ResultsActivity : BaseActivity() {
 
                 pdfBytes = output.toByteArray()
                 Log.d(TAG, "✅ PDF generado correctamente (${pdfBytes?.size ?: 0} bytes, ${pageNumber - 1} páginas)")
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // Throwable: aquí es donde realmente se decodifican logos/SVGs e imágenes de
+                // cada página — un OutOfMemoryError con una imagen muy pesada no debe tumbar
+                // toda la app, solo cancelar este informe (pdfBytes queda null).
                 Log.e(TAG, "❌ Error generando PDF por páginas: ${e.message}", e)
             } finally {
                 latch.countDown()

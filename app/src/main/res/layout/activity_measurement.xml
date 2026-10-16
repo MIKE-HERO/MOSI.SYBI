@@ -1344,6 +1344,7 @@
 
                         <!-- Card 1: Oxígeno en Sangre (SpO2) -->
                         <LinearLayout
+                            android:id="@+id/cardSpO2"
                             android:layout_width="0dp"
                             android:layout_height="match_parent"
                             android:layout_weight="1"
@@ -1366,11 +1367,16 @@
                                 android:layout_height="0dp"
                                 android:layout_weight="1">
 
-                                <com.sybi.mosi.measurement.RingProgressView
-                                    android:id="@+id/ringSpO2"
+                                <TextView
+                                    android:id="@+id/tvSpO2Value"
                                     android:layout_width="match_parent"
                                     android:layout_height="match_parent"
-                                    android:visibility="visible" />
+                                    android:layout_gravity="center"
+                                    android:gravity="center"
+                                    android:text="--"
+                                    android:textSize="34sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#001B3A" />
 
                                 <com.sybi.mosi.measurement.EqualizerLoaderView
                                     android:id="@+id/pbSpO2Loading"
@@ -1395,6 +1401,7 @@
 
                         <!-- Card 2: Ritmo Cardíaco (BPM) -->
                         <LinearLayout
+                            android:id="@+id/cardHeartRate"
                             android:layout_width="0dp"
                             android:layout_height="match_parent"
                             android:layout_weight="1"
@@ -1417,11 +1424,16 @@
                                 android:layout_height="0dp"
                                 android:layout_weight="1">
 
-                                <com.sybi.mosi.measurement.RingProgressView
-                                    android:id="@+id/ringHeartRate"
+                                <TextView
+                                    android:id="@+id/tvHeartRateValue"
                                     android:layout_width="match_parent"
                                     android:layout_height="match_parent"
-                                    android:visibility="visible" />
+                                    android:layout_gravity="center"
+                                    android:gravity="center"
+                                    android:text="--"
+                                    android:textSize="34sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#001B3A" />
 
                                 <com.sybi.mosi.measurement.EqualizerLoaderView
                                     android:id="@+id/pbHeartRateLoading"
@@ -1435,6 +1447,7 @@
 
                         <!-- Card 3: Índice de Perfusión (PI) -->
                         <LinearLayout
+                            android:id="@+id/cardPI"
                             android:layout_width="0dp"
                             android:layout_height="match_parent"
                             android:layout_weight="1"
@@ -1457,11 +1470,16 @@
                                 android:layout_height="0dp"
                                 android:layout_weight="1">
 
-                                <com.sybi.mosi.measurement.RingProgressView
-                                    android:id="@+id/ringPI"
+                                <TextView
+                                    android:id="@+id/tvPIValue"
                                     android:layout_width="match_parent"
                                     android:layout_height="match_parent"
-                                    android:visibility="visible" />
+                                    android:layout_gravity="center"
+                                    android:gravity="center"
+                                    android:text="--"
+                                    android:textSize="34sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#001B3A" />
 
                                 <com.sybi.mosi.measurement.EqualizerLoaderView
                                     android:id="@+id/pbPILoading"

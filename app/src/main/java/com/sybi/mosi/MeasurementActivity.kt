@@ -358,13 +358,26 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     /** Repinta la pantalla con [color] — llamado al abrir la pantalla y cada vez que cambia
      *  el color de marca en vivo (ajuste manual o ciclo del modo multicolor). */
     private fun applyTheme(color: Int) {
-        // Las superficies principales permanecen sobrias; el color de marca se reserva
-        // para estados, progreso y elementos interactivos.
-        findViewById<View>(R.id.topMeasurementBar).setBackgroundColor(Color.parseColor("#17384D"))
-        findViewById<View>(R.id.bottomMeasurementBar).setBackgroundColor(Color.parseColor("#17384D"))
+        // Las barras ya no son un azul fijo: se oscurece el propio color del tema para
+        // mantener el look "sobrio" mientras sí refleja la marca elegida (mismo criterio
+        // que la barra inferior de MainActivity).
+        val barraColor = darken(color, 0.4f)
+        findViewById<View>(R.id.topMeasurementBar).setBackgroundColor(barraColor)
+        findViewById<View>(R.id.bottomMeasurementBar).setBackgroundColor(barraColor)
         btnStarECG.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         btnHeightNext.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         applyPillTheme(color)
+    }
+
+    /** Oscurece un color manteniendo su matiz — mismo criterio que MainActivity.darken(). */
+    private fun darken(color: Int, factor: Float): Int {
+        val f = factor.coerceIn(0f, 1f)
+        return Color.argb(
+            Color.alpha(color),
+            (Color.red(color) * f).toInt().coerceIn(0, 255),
+            (Color.green(color) * f).toInt().coerceIn(0, 255),
+            (Color.blue(color) * f).toInt().coerceIn(0, 255)
+        )
     }
 
     /** Encapsula los valores de resultado y el mensaje de estado en píldoras con un tono claro

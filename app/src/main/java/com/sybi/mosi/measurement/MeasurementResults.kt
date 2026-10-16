@@ -2,8 +2,10 @@ package com.sybi.mosi.measurement
 
 import android.app.Activity
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import com.sybi.mosi.R
 
@@ -75,13 +77,15 @@ class MeasurementResults(private val activity: Activity) {
     var tvTempStatus: TextView? = null
     var pbTemperaturaLoading: EqualizerLoaderView? = null
 
-    // Oxígeno
-    var ringSpO2: RingProgressView? = null
-    var ringHeartRate: RingProgressView? = null
-    var ringPI: RingProgressView? = null
+    // Oxígeno — cada tarjeta se tiñe con el color del rango de salud del valor medido
+    // (verde/amarillo/rojo) y muestra el dato en grande, en vez de un anillo pequeño.
+    var cardSpO2: LinearLayout? = null
+    var tvSpO2Value: TextView? = null
+    var cardHeartRate: LinearLayout? = null
+    var tvHeartRateValue: TextView? = null
+    var cardPI: LinearLayout? = null
+    var tvPIValue: TextView? = null
     var tvOxygenStatus: TextView? = null
-    // Los íconos de SpO2/Ritmo/PI ahora se dibujan dentro del propio RingProgressView
-    // (RingProgressView.setIcon), no como ImageView aparte.
     var pbSpO2Loading: EqualizerLoaderView? = null
     var pbHeartRateLoading: EqualizerLoaderView? = null
     var pbPILoading: EqualizerLoaderView? = null
@@ -154,32 +158,16 @@ class MeasurementResults(private val activity: Activity) {
         pbTemperaturaLoading = root.findViewById(R.id.pbTemperaturaLoading)
 
         // Oxígeno
-        ringSpO2 = root.findViewById(R.id.ringSpO2)
-        ringHeartRate = root.findViewById(R.id.ringHeartRate)
-        ringPI = root.findViewById(R.id.ringPI)
+        cardSpO2 = root.findViewById(R.id.cardSpO2)
+        tvSpO2Value = root.findViewById(R.id.tvSpO2Value)
+        cardHeartRate = root.findViewById(R.id.cardHeartRate)
+        tvHeartRateValue = root.findViewById(R.id.tvHeartRateValue)
+        cardPI = root.findViewById(R.id.cardPI)
+        tvPIValue = root.findViewById(R.id.tvPIValue)
         tvOxygenStatus = root.findViewById(R.id.tvOxygenStatus)
         pbSpO2Loading = root.findViewById(R.id.pbSpO2Loading)
         pbHeartRateLoading = root.findViewById(R.id.pbHeartRateLoading)
         pbPILoading = root.findViewById(R.id.pbPILoading)
-
-        // ringSpO2 y ringHeartRate ya no llevan un color fijo aquí: se recalcula por rango
-        // de salud cada vez que llega un valor nuevo (ver updateOxygen). ringPI se queda
-        // con un color fijo porque no se dio un rango para él.
-        ringSpO2?.setIcon(androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.ic_measurement_spo2))
-        ringHeartRate?.setIcon(androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.ic_measurement_heart_rate))
-        ringPI?.setIcon(androidx.core.content.ContextCompat.getDrawable(activity, R.drawable.ic_measurement_pi))
-        ringPI?.setColors(
-            trackClr = Color.parseColor("#C8E6C9"),
-            activeClr = Color.parseColor("#388E3C"),
-            textClr = Color.parseColor("#2E7D32")
-        )
-
-        ringSpO2?.setData("SpO2", "", "%", 0f, animated = false, showContent = false)
-        ringSpO2?.visibility = View.VISIBLE
-        ringHeartRate?.setData("BPM", "", "", 0f, animated = false, showContent = false)
-        ringHeartRate?.visibility = View.VISIBLE
-        ringPI?.setData("PI %", "", "", 0f, animated = false, showContent = false)
-        ringPI?.visibility = View.VISIBLE
 
         // Presión
         tvResultSystolicValue = root.findViewById(R.id.tvResultSystolicValue)
@@ -214,6 +202,34 @@ class MeasurementResults(private val activity: Activity) {
         bpm in 71..90 -> Color.parseColor("#FBC02D") // amarillo: 70-90
         bpm > 90 -> Color.parseColor("#D32F2F")      // rojo: mas de 90
         else -> Color.parseColor("#D32F2F")          // menor a 60: tambien fuera de rango
+    }
+
+    // El índice de perfusión no tenía antes un rango de color propio (el anillo se dejaba
+    // siempre en verde fijo). Regla general usada clínicamente: <0.3 señal/perfusión muy
+    // débil, 0.3-1.0 aceptable, >=1.0 buena perfusión periférica. Ajustable si el criterio
+    // clínico del cliente es otro.
+    private fun piRangeColor(pi: Double): Int = when {
+        pi >= 1.0 -> Color.parseColor("#32A852") // verde
+        pi >= 0.3 -> Color.parseColor("#FBC02D") // amarillo
+        else -> Color.parseColor("#D32F2F")      // rojo
+    }
+
+    /** Tiñe una tarjeta de resultado con un color pastel del rango y guarda el color fuerte
+     *  para el texto del valor, igual que ya se hace con las píldoras de estado. */
+    private fun colorearTarjeta(card: LinearLayout?, value: TextView?, rangeColor: Int?) {
+        if (rangeColor == null) {
+            card?.setBackgroundResource(R.drawable.bg_measurement_card)
+            value?.setTextColor(Color.parseColor("#001B3A"))
+            return
+        }
+        val radius = card?.context?.resources?.displayMetrics?.density?.times(16f) ?: 0f
+        card?.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = radius
+            setColor(lightenColor(rangeColor, 0.8f))
+            setStroke((card.context.resources.displayMetrics.density * 1.5f).toInt(), rangeColor)
+        }
+        value?.setTextColor(rangeColor)
     }
 
     fun updateHeightWeight(height: Double, weight: Double, imc: Double) {
@@ -273,9 +289,9 @@ class MeasurementResults(private val activity: Activity) {
         pbPillMineralLoading?.setDotColor(color)
         pbPillMetabolismLoading?.setDotColor(color)
         pbPillNotFatLoading?.setDotColor(color)
-        // ringSpO2 y ringHeartRate no se tocan aquí: su color depende del rango de salud
-        // del valor medido (ver spo2RangeColor/heartRateRangeColor en updateOxygen), no
-        // del color de marca del quiosco.
+        // Las tarjetas de Oxígeno no se tocan aquí: su color depende del rango de salud
+        // del valor medido (ver spo2RangeColor/heartRateRangeColor/piRangeColor en
+        // updateOxygen), no del color de marca del quiosco.
     }
 
     private fun lightenColor(color: Int, whiteRatio: Float): Int {
@@ -416,42 +432,44 @@ class MeasurementResults(private val activity: Activity) {
     fun updateOxygen(spo2: Int, pulseRate: Int, pi: Double) {
         if (spo2 > 0) {
             val spo2Color = spo2RangeColor(spo2)
-            ringSpO2?.setColors(trackClr = lightenColor(spo2Color, 0.75f), activeClr = spo2Color, textClr = spo2Color)
-            val spo2Ratio = (spo2 / 100f).coerceIn(0f, 1f)
-            ringSpO2?.setData("SpO2", "$spo2", "%", spo2Ratio, animated = true, showContent = true)
-            ringSpO2?.visibility = View.VISIBLE
+            tvSpO2Value?.text = "$spo2%"
+            colorearTarjeta(cardSpO2, tvSpO2Value, spo2Color)
             pbSpO2Loading?.visibility = View.GONE
             val (oxygenLabel, oxygenColor) = getSpo2Classification(spo2)
             tvOxygenStatus?.text = oxygenLabel
             tvOxygenStatus?.setTextColor(oxygenColor)
             tvOxygenStatus?.visibility = View.VISIBLE
 
-            val pulseRatio = if (pulseRate > 0) (pulseRate / 150f).coerceIn(0f, 1f) else 0f
-            val pulseValStr = if (pulseRate > 0) "$pulseRate" else "--"
             if (pulseRate > 0) {
                 val bpmColor = heartRateRangeColor(pulseRate)
-                ringHeartRate?.setColors(trackClr = lightenColor(bpmColor, 0.75f), activeClr = bpmColor, textClr = bpmColor)
+                tvHeartRateValue?.text = "$pulseRate BPM"
+                colorearTarjeta(cardHeartRate, tvHeartRateValue, bpmColor)
+            } else {
+                tvHeartRateValue?.text = "--"
+                colorearTarjeta(cardHeartRate, tvHeartRateValue, null)
             }
-            ringHeartRate?.setData("BPM", pulseValStr, "", pulseRatio, animated = true, showContent = true)
-            ringHeartRate?.visibility = View.VISIBLE
             pbHeartRateLoading?.visibility = View.GONE
 
-            val piRatio = if (pi > 0) (pi / 20.0).toFloat().coerceIn(0f, 1f) else 0f
-            val piValStr = if (pi > 0) "%.1f".format(pi) else "--"
-            ringPI?.setData("PI %", piValStr, "", piRatio, animated = true, showContent = true)
-            ringPI?.visibility = View.VISIBLE
+            if (pi > 0) {
+                val piColor = piRangeColor(pi)
+                tvPIValue?.text = "%.1f".format(pi)
+                colorearTarjeta(cardPI, tvPIValue, piColor)
+            } else {
+                tvPIValue?.text = "--"
+                colorearTarjeta(cardPI, tvPIValue, null)
+            }
             pbPILoading?.visibility = View.GONE
         } else {
-            ringSpO2?.setData("SpO2", "", "%", 0f, animated = false, showContent = false)
-            ringSpO2?.visibility = View.VISIBLE
+            tvSpO2Value?.text = "--"
+            colorearTarjeta(cardSpO2, tvSpO2Value, null)
             pbSpO2Loading?.visibility = View.GONE
 
-            ringHeartRate?.setData("BPM", "", "", 0f, animated = false, showContent = false)
-            ringHeartRate?.visibility = View.VISIBLE
+            tvHeartRateValue?.text = "--"
+            colorearTarjeta(cardHeartRate, tvHeartRateValue, null)
             pbHeartRateLoading?.visibility = View.GONE
 
-            ringPI?.setData("PI %", "", "", 0f, animated = false, showContent = false)
-            ringPI?.visibility = View.VISIBLE
+            tvPIValue?.text = "--"
+            colorearTarjeta(cardPI, tvPIValue, null)
             pbPILoading?.visibility = View.GONE
             tvOxygenStatus?.visibility = View.GONE
         }
