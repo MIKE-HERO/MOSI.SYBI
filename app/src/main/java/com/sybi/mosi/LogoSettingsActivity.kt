@@ -58,41 +58,59 @@ class LogoSettingsActivity : BaseActivity() {
 
         val rootView = findViewById<View>(android.R.id.content)
         val sideBar = findViewById<View>(R.id.sideBarLayout)
+
+        // ✅ Inicializar TODAS las vistas ANTES de declarar el receiver
         btnChangeLogo = findViewById(R.id.btnChangeLogo)
         etMainTitle = findViewById(R.id.etMainTitle)
         btnSaveTitle = findViewById(R.id.btnSaveTitle)
         btnCustomColor = findViewById(R.id.btnCustomColor)
-
-        val colorReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                val newColor = intent.getStringExtra("new_color")
-                if (newColor != null) {
-                    rootView.setBackgroundColor(Color.parseColor(newColor))
-                    if (sideBar != null) {
-                        sideBar.setBackgroundColor(Color.parseColor(newColor))
-                    }
-                    val colorList = android.content.res.ColorStateList.valueOf(Color.parseColor(newColor))
-                    btnChangeLogo.backgroundTintList = colorList
-                    btnSaveTitle.backgroundTintList = colorList
-                    btnCustomColor.backgroundTintList = colorList
-                }
-            }
-        }
-        LocalBroadcastManager.getInstance(this).registerReceiver(colorReceiver, IntentFilter("ACTION_UPDATE_THEME"))
+        imgPreview = findViewById(R.id.imgLogoPreview)
+        viewColorPreview = findViewById(R.id.viewColorPreview)
+        switchMulticolor = findViewById(R.id.switchMulticolor)
+        btnRegenerateColors = findViewById(R.id.btnRegenerateColors)
+        multicolorDots = listOf(
+            findViewById(R.id.dotMulticolor1),
+            findViewById(R.id.dotMulticolor2),
+            findViewById(R.id.dotMulticolor3),
+            findViewById(R.id.dotMulticolor4),
+            findViewById(R.id.dotMulticolor5)
+        )
 
         // Cargar el color guardado al inicio
-        val savedColor = prefs.getString("BackgroundColor", "#0F3E82")
-        rootView.setBackgroundColor(Color.parseColor(savedColor))
-        if (sideBar != null) {
-            sideBar.setBackgroundColor(Color.parseColor(savedColor))
+        val savedColor = prefs.getString("BackgroundColor", "#0F3E82") ?: "#0F3E82"
+        val savedColorInt = try {
+            Color.parseColor(savedColor)
+        } catch (_: Exception) {
+            Color.parseColor("#0F3E82")
         }
-        val initialColorList = android.content.res.ColorStateList.valueOf(Color.parseColor(savedColor))
+        rootView.setBackgroundColor(savedColorInt)
+        sideBar?.setBackgroundColor(savedColorInt)
+        val initialColorList = android.content.res.ColorStateList.valueOf(savedColorInt)
         btnChangeLogo.backgroundTintList = initialColorList
         btnSaveTitle.backgroundTintList = initialColorList
         btnCustomColor.backgroundTintList = initialColorList
 
-        imgPreview = findViewById(R.id.imgLogoPreview)
-        viewColorPreview = findViewById(R.id.viewColorPreview)
+        // --- RECEPTOR DE CAMBIO DE COLOR ---
+        // Ahora sí: todas las vistas ya están inicializadas, se pueden capturar sin problema
+        val colorReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val newColor = intent.getStringExtra("new_color") ?: return
+                val colorInt = try {
+                    Color.parseColor(newColor)
+                } catch (_: Exception) {
+                    Color.parseColor("#0F3E82")
+                }
+                rootView.setBackgroundColor(colorInt)
+                sideBar?.setBackgroundColor(colorInt)
+                val colorList = android.content.res.ColorStateList.valueOf(colorInt)
+                btnChangeLogo.backgroundTintList = colorList
+                btnSaveTitle.backgroundTintList = colorList
+                btnCustomColor.backgroundTintList = colorList
+            }
+        }
+        LocalBroadcastManager.getInstance(this)
+            .registerReceiver(colorReceiver, IntentFilter("ACTION_UPDATE_THEME"))
+        // ------------------------------------------------
 
         // Cargar el título guardado
         loadSavedTitle()
@@ -132,16 +150,7 @@ class LogoSettingsActivity : BaseActivity() {
             showColorPickerDialog()
         }
 
-        // 6. Modo multicolor
-        switchMulticolor = findViewById(R.id.switchMulticolor)
-        btnRegenerateColors = findViewById(R.id.btnRegenerateColors)
-        multicolorDots = listOf(
-            findViewById(R.id.dotMulticolor1),
-            findViewById(R.id.dotMulticolor2),
-            findViewById(R.id.dotMulticolor3),
-            findViewById(R.id.dotMulticolor4),
-            findViewById(R.id.dotMulticolor5)
-        )
+        // 6. Modo multicolor (ya inicializado arriba)
         setupMulticolorSection()
     }
 

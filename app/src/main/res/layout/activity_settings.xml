@@ -7,132 +7,72 @@
     android:background="#EDF4F8">
 
     <!-- BARRA LATERAL IZQUIERDA VERTICAL -->
+    <!-- BARRA LATERAL IZQUIERDA VERTICAL -->
     <LinearLayout
         android:id="@+id/sideBarLayout"
         android:layout_width="150dp"
         android:layout_height="match_parent"
-        android:background="#FFFFFF"
+        android:background="#0F3E82"
         android:elevation="5dp"
         android:orientation="vertical"
         android:gravity="center_horizontal"
-        android:paddingStart="16dp"
+        android:paddingStart="10dp"
         android:paddingTop="24dp"
-        android:paddingEnd="16dp"
+        android:paddingEnd="10dp"
         android:paddingBottom="24dp">
 
-        <!-- BOTÓN REGRESAR -->
-        <LinearLayout
-            android:id="@+id/btnBackSettings"
-            android:layout_width="match_parent"
+        <ImageView
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:src="@drawable/ic_regresar"
+            android:rotation="180"
+            app:tint="#FFFFFF" />
+
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="10dp"
-            android:clickable="true"
-            android:focusable="true">
+            android:text="Regresar"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
 
-            <ImageView
-                android:layout_width="38dp"
-                android:layout_height="38dp"
-                android:src="@drawable/ic_regresar"
-                android:rotation="180"
-                app:tint="#31536A" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Regresar"
-                android:layout_marginStart="8dp"
-                android:textColor="#31536A"
-                android:textSize="14sp" />
-        </LinearLayout>
-
-        <!-- BOTÓN INICIO -->
-        <LinearLayout
-            android:id="@+id/btnHomeSettings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/bg_home_button"
-            android:clickable="true"
-            android:elevation="1dp"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="13dp"
-            android:paddingTop="10dp"
-            android:paddingEnd="14dp"
-            android:paddingBottom="10dp">
-
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:contentDescription="Inicio"
-                android:src="@drawable/ic_home" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:text="Inicio"
-                android:textColor="#31536A"
-                android:textSize="13sp" />
-        </LinearLayout>
 
         <!-- ESPACIADOR FLEXIBLE -->
         <View
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:layout_weight="1"/>
+            android:layout_weight="1" />
 
         <!-- BOTÓN REINICIAR EQUIPO -->
-        <LinearLayout
-            android:id="@+id/btnRebootDevice"
-            android:layout_width="match_parent"
+        <ImageView
+            android:id="@+id/iconRebootDevice"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_restart"
+            app:tint="#FFFFFF" />
+
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="10dp"
-            android:clickable="true"
-            android:focusable="true">
-            <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:src="@drawable/ic_restart"
-                app:tint="#647D8F" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Reiniciar"
-                android:layout_marginStart="7dp"
-                android:textColor="#526C7E"
-                android:textSize="13sp"/>
-        </LinearLayout>
+            android:text="Reiniciar"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:paddingBottom="10dp"/>
 
         <!-- BOTÓN CERRAR APP -->
-        <LinearLayout
-            android:id="@+id/btnCloseApp"
-            android:layout_width="match_parent"
+        <ImageView
+            android:id="@+id/iconCloseApp"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
+            android:src="@drawable/ic_close_app"
+            app:tint="#FFFFFF" />
+
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="8dp"
-            android:padding="10dp"
-            android:clickable="true"
-            android:focusable="true">
-            <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:src="@drawable/ic_close_app"
-                app:tint="#9A5360" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Cerrar app"
-                android:layout_marginStart="7dp"
-                android:textColor="#7F4550"
-                android:textSize="13sp"/>
-        </LinearLayout>
+            android:text="Cerrar App"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
 
     </LinearLayout>
 
