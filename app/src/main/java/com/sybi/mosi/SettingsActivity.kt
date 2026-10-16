@@ -4,20 +4,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
-import androidx.core.graphics.drawable.toBitmap
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class SettingsActivity : BaseActivity() {
@@ -41,63 +34,6 @@ class SettingsActivity : BaseActivity() {
         }
     }
 
-    /**
-     * Aplica un contorno oscuro a un icono blanco (efecto "outline" robusto).
-     * Dibuja la silueta en negro desplazada alrededor y el icono blanco encima.
-     * Así se lee bien aunque el fondo de la barra sea amarillo, cian, etc.
-     */
-    private fun aplicarContornoIcono(iconId: Int, outline: Int = Color.BLACK, grosor: Int = 2) {
-        val iv = findViewById<ImageView>(iconId) ?: return
-
-        // ✅ 1) Limpiar el tint del XML ANTES de leer el drawable
-        iv.imageTintList = null
-        iv.colorFilter = null
-
-        // 2) Obtener el drawable ya sin tint
-        val original: Drawable = iv.drawable ?: return
-
-        // 3) Bitmap base
-        val w = original.intrinsicWidth.coerceAtLeast(48)
-        val h = original.intrinsicHeight.coerceAtLeast(48)
-        val bmp = original.toBitmap(w, h).copy(Bitmap.Config.ARGB_8888, true)
-
-        // 4) Canvas con margen para el contorno
-        val margen = grosor * 2
-        val out = Bitmap.createBitmap(
-            bmp.width + margen * 2,
-            bmp.height + margen * 2,
-            Bitmap.Config.ARGB_8888
-        )
-        val canvas = Canvas(out)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-
-        // 5) Contorno oscuro: silueta desplazada en 8 direcciones
-        paint.colorFilter = PorterDuffColorFilter(outline, PorterDuff.Mode.SRC_IN)
-        for (dx in -grosor..grosor) {
-            for (dy in -grosor..grosor) {
-                if (dx == 0 && dy == 0) continue
-                canvas.drawBitmap(bmp, (margen + dx).toFloat(), (margen + dy).toFloat(), paint)
-            }
-        }
-
-        // 6) Icono blanco encima
-        paint.colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
-        canvas.drawBitmap(bmp, margen.toFloat(), margen.toFloat(), paint)
-
-        // 7) Asignar bitmap final y asegurar que no se re-tinte
-        iv.setImageBitmap(out)
-        iv.imageTintList = null
-        iv.colorFilter = null
-        iv.scaleType = ImageView.ScaleType.FIT_CENTER
-    }
-
-    /** Aplica contorno a los 3 iconos de la barra lateral. */
-    private fun aplicarContornosBarra() {
-        aplicarContornoIcono(R.id.iconBackSettings)
-        aplicarContornoIcono(R.id.iconRebootDevice)
-        aplicarContornoIcono(R.id.iconCloseApp)
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Ocultar SOLO la barra de estado (Hora, batería, señal)
@@ -119,7 +55,7 @@ class SettingsActivity : BaseActivity() {
                 }
                 sideBar?.setBackgroundColor(colorInt)
                 tenirIconosMenu(colorInt)
-                // Los iconos de la barra son blancos con contorno: no dependen del color.
+                // Los iconos de la barra son blancos: no dependen del color.
             }
         }
         LocalBroadcastManager.getInstance(this)
@@ -146,9 +82,6 @@ class SettingsActivity : BaseActivity() {
         sideBar?.setBackgroundColor(themeColorInt)
         tenirIconosMenu(themeColorInt)
         // ------------------------------------------------
-
-        // Iconos de la barra con contorno oscuro (funciona sobre cualquier color de fondo)
-        aplicarContornosBarra()
 
         // 0.1 Botón: Reiniciar Equipo
         findViewById<View>(R.id.btnRebootDevice)?.setOnClickListener {
@@ -246,9 +179,6 @@ class SettingsActivity : BaseActivity() {
         }
         sideBar?.setBackgroundColor(themeColorInt)
         tenirIconosMenu(themeColorInt)
-
-        // Reaplicar contornos (por si el tema cambió el color de fondo)
-        aplicarContornosBarra()
     }
 
     private fun reiniciarDispositivo() {

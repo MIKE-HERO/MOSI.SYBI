@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -11,18 +12,18 @@ import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
-import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.google.android.material.button.MaterialButton
 
 class LoginActivity : BaseActivity() {
 
-    private lateinit var btnGuestAccess: Button
-    private lateinit var btnRegister: Button
+    private lateinit var btnGuestAccess: MaterialButton
+    private lateinit var btnRegister: MaterialButton
     private lateinit var btnBackLogin: ImageButton
     private lateinit var tabMedicion: LinearLayout
     private lateinit var tabConsulta: LinearLayout
@@ -311,21 +312,31 @@ class LoginActivity : BaseActivity() {
     }
 
     /**
-     * Aplica el color al fondo de los botones inferiores y blanco a sus iconos,
-     * para que contrasten con cualquier color de tema (incluido amarillo/cian).
+     * Aplica el color al fondo de los botones inferiores y blanco a sus iconos.
+     * Usa backgroundTintList = null + un GradientDrawable concreto para que el color
+     * SIEMPRE se refleje (MaterialButton ignora backgroundTintList si no hay drawable).
      */
     private fun applyBottomButtonsColor(color: Int) {
-        // Botón invitado: color sólido del tema
-        btnGuestAccess.background = roundedBackground(color, 18f)
+        // --- Botón invitado: color sólido del tema ---
+        val solid = GradientDrawable().apply {
+            cornerRadius = 18.dp.toFloat()
+            setColor(color)
+        }
+        btnGuestAccess.backgroundTintList = null
+        btnGuestAccess.background = solid
         btnGuestAccess.setTextColor(Color.WHITE)
+        btnGuestAccess.iconTint = ColorStateList.valueOf(Color.WHITE)
 
-        // Botón registrar: gradiente color -> color+18%
+        // --- Botón registrar: gradiente color -> color+18% ---
         val lighter = ColorUtils.getTintedColor(color, 0.18f)
-        btnRegister.background = GradientDrawable(
+        val gradient = GradientDrawable(
             GradientDrawable.Orientation.LEFT_RIGHT,
             intArrayOf(color, lighter)
         ).apply { cornerRadius = 18.dp.toFloat() }
+        btnRegister.backgroundTintList = null
+        btnRegister.background = gradient
         btnRegister.setTextColor(Color.WHITE)
+        btnRegister.iconTint = ColorStateList.valueOf(Color.WHITE)
     }
 
     private fun roundedBackground(color: Int, radiusDp: Float): GradientDrawable =
