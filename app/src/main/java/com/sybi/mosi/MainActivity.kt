@@ -57,6 +57,7 @@ class MainActivity : BaseActivity() {
     private lateinit var settingsSurface: View
     private lateinit var bottomBarContainer: View
     private lateinit var medicalBackground: ImageView
+    private lateinit var backgroundColorMask: View   // ✅ NUEVO
     private var breathingAnimator: ObjectAnimator? = null
 
     // 🔥 Variables para los receivers (para poder desregistrarlos)
@@ -98,6 +99,7 @@ class MainActivity : BaseActivity() {
         val touchInterceptor = findViewById<View>(R.id.touchInterceptor)
         shineOverlay = findViewById(R.id.shineOverlay)
         medicalBackground = findViewById(R.id.medicalBackground)
+        backgroundColorMask = findViewById(R.id.backgroundColorMask)   // ✅ NUEVO
 
         // --- INICIAR EL SERVICIO SERIAL AL ABRIR LA APP ---
         startService(Intent(this, SerialService::class.java))
@@ -222,9 +224,6 @@ class MainActivity : BaseActivity() {
         }
         LocalBroadcastManager.getInstance(this).registerReceiver(scaleReceiver!!, scaleFilter)
 
-        // Nota: el ciclo del modo multicolor ahora lo maneja BaseActivity para toda la app;
-        // esta pantalla solo necesita su colorReceiver (arriba) para repintar rootLayout.
-
         val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val defaultColor = "#0F3E82"
         currentColor = appPrefs.getString("BackgroundColor", defaultColor) ?: defaultColor
@@ -276,13 +275,63 @@ class MainActivity : BaseActivity() {
         DeviceDefaults.ensureDefaultPorts(devicePrefs)
     }
 
+    /**
+     * Cambia la imagen de fondo y actualiza la máscara de color según el tipo elegido.
+     *  - Fondo "blanco": muestra bg_medical_blanco + máscara tintada con el color del tema.
+     *  - Otros fondos: la máscara queda invisible (color transparente).
+     */
     private fun applyMedicalBackground(key: String?) {
         val drawable = when (key) {
-            "morado" -> R.drawable.bg_medical_morado
+            "morado"   -> R.drawable.bg_medical_morado
             "turquesa" -> R.drawable.bg_medical_turquesa
-            else -> R.drawable.bg_medical_azul
+            "blanco"   -> R.drawable.bg_medical_blanco   // ✅ NUEVO
+            else       -> R.drawable.bg_medical_azul
         }
         medicalBackground.setImageResource(drawable)
+
+        // ✅ Actualizar la máscara según el fondo elegido
+        updateBackgroundMask(key)
+    }
+
+    /**
+     * Aplica la máscara de color sobre el fondo médico.
+     * Solo se pinta cuando el fondo es "blanco"; en cualquier otro caso queda transparente.
+     */
+    private fun updateBackgroundMask(backgroundKey: String?) {
+        if (!::backgroundColorMask.isInitialized) return
+
+        if (backgroundKey == "blanco") {
+            val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+
+            // Si el modo multicolor está activo, usamos el color vivo actual
+            val isMulticolor = appPrefs.getBoolean("MulticolorEnabled", false)
+            val colorHex = if (isMulticolor) {
+                appPrefs.getString("MulticolorColorVivo", null)
+                    ?: appPrefs.getString("BackgroundColor", "#0F3E82")
+                    ?: "#0F3E82"
+            } else {
+                appPrefs.getString("BackgroundColor", "#0F3E82") ?: "#0F3E82"
+            }
+
+            val themeColor = try {
+                Color.parseColor(colorHex)
+            } catch (_: Exception) {
+                Color.parseColor("#0F3E82")
+            }
+
+            // Alpha ~120 (≈47%): deja ver la textura del fondo blanco detrás.
+            // Ajusta este valor (60=sutil, 190=fuerte) si quieres otro efecto.
+            val maskColor = Color.argb(
+                120,
+                Color.red(themeColor),
+                Color.green(themeColor),
+                Color.blue(themeColor)
+            )
+            backgroundColorMask.setBackgroundColor(maskColor)
+        } else {
+            // Sin máscara
+            backgroundColorMask.setBackgroundColor(Color.TRANSPARENT)
+        }
     }
 
     // ==========================================
@@ -331,14 +380,6 @@ class MainActivity : BaseActivity() {
     // ==========================================
     // PRECARGAR CAMERAX (usando addListener)
     // ==========================================
-    /**
-     * Antes de invocar CameraX directamente, se verifica con Camera2 si el hardware expone un
-     * "lens facing" válido. En equipos donde no lo expone (algunos rk3288 con HAL de cámara
-     * incompleto), CameraX internamente reintenta la validación 5 veces y se rinde, pero sin
-     * lanzar excepción — así que no hay forma de detectarlo "atrapando el error" después. Esta
-     * verificación es barata (una sola consulta de características, sin reintentos) y evita
-     * repetir en cada arranque ~2.8s de reintentos garantizados a fallar.
-     */
     private fun esCamaraUtilizable(): Boolean {
         return try {
             val cameraManager = getSystemService(Context.CAMERA_SERVICE) as android.hardware.camera2.CameraManager
@@ -442,7 +483,6 @@ class MainActivity : BaseActivity() {
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val savedPassword = prefs.getString("ConfigPassword", "111111") ?: "111111"
 
-        // Obtener el color del tema según la preferencia de LogoSettings
         val isMulticolor = prefs.getBoolean("MulticolorEnabled", false)
         val themeColorHex = if (isMulticolor) {
             prefs.getString("MulticolorColorVivo", null)
@@ -466,7 +506,6 @@ class MainActivity : BaseActivity() {
         dialog.setContentView(R.layout.dialog_password_keypad)
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
 
-        // Aplicar color del tema al encabezado (esquinas superiores redondeadas)
         val headerBar = dialog.findViewById<View>(R.id.headerPasswordBar)
         if (headerBar != null) {
             val r16 = 16.dp.toFloat()
@@ -474,16 +513,15 @@ class MainActivity : BaseActivity() {
                 shape = GradientDrawable.RECTANGLE
                 setColor(themeColorInt)
                 cornerRadii = floatArrayOf(
-                    r16, r16, // top-left
-                    r16, r16, // top-right
-                    0f, 0f,   // bottom-right
-                    0f, 0f    // bottom-left
+                    r16, r16,
+                    r16, r16,
+                    0f, 0f,
+                    0f, 0f
                 )
             }
             headerBar.background = headerBg
         }
 
-        // Crear drawable para los botones con el color del tema y efecto ripple
         fun createButtonDrawable(): Drawable {
             val r8 = 8.dp.toFloat()
             val content = GradientDrawable().apply {
@@ -500,7 +538,6 @@ class MainActivity : BaseActivity() {
             return RippleDrawable(rippleColor, content, mask)
         }
 
-        // Aplicar fondo del tema a todos los botones del teclado
         val keyButtonIds = listOf(
             R.id.btnKey0, R.id.btnKey1, R.id.btnKey2, R.id.btnKey3, R.id.btnKey4,
             R.id.btnKey5, R.id.btnKey6, R.id.btnKey7, R.id.btnKey8, R.id.btnKey9,
@@ -573,7 +610,7 @@ class MainActivity : BaseActivity() {
     }
 
     // ==========================================
-    // EFECTOS DE "PANTALLA VIVA" (respiración del logo + brillo diagonal)
+    // EFECTOS DE "PANTALLA VIVA"
     // ==========================================
     override fun onResume() {
         super.onResume()
@@ -591,7 +628,6 @@ class MainActivity : BaseActivity() {
         shineOverlay.startSweeping()
         startBreathingEffect()
 
-        // Restablecer flag para estar listo INMEDIATAMENTE para recibir pisadas
         isLaunchingLogin = false
     }
 
@@ -599,12 +635,9 @@ class MainActivity : BaseActivity() {
         super.onPause()
         shineOverlay.stopSweeping()
         stopBreathingEffect()
-
-        // Deshabilitar detecciones en segundo plano mientras no estemos en primer plano
         isLaunchingLogin = true
     }
 
-    /** Pulso suave y lento de escala en el logo, para dar sensación de "respiración". */
     private fun startBreathingEffect() {
         if (breathingAnimator != null) return
         val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.05f)
@@ -626,12 +659,11 @@ class MainActivity : BaseActivity() {
     }
 
     // ==========================================
-    // ON DESTROY (desregistrar receivers)
+    // ON DESTROY
     // ==========================================
     override fun onDestroy() {
         super.onDestroy()
 
-        // 🔥 Desregistrar todos los receivers
         try {
             deviceUpdateReceiver?.let {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
@@ -658,7 +690,6 @@ class MainActivity : BaseActivity() {
             Log.e(TAG, "Error desregistrando receivers: ${e.message}")
         }
 
-        // Detener servicio serial
         val intent = Intent("RELEASE_SERIAL_PORTS")
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
         stopService(Intent(this, SerialService::class.java))
@@ -696,12 +727,11 @@ class MainActivity : BaseActivity() {
     }
 
     /**
-     * Mantiene intacto el fondo médico y aplica el tema solo a detalles luminosos.
-     *
-     * ✅ Importante: los iconos de la barra inferior (mediciones) y el engrane del botón de
-     * settings se fuerzan SIEMPRE a blanco, sin importar el color del tema elegido. Así se
-     * mantiene la legibilidad sobre cualquier fondo y el color personalizado queda solo en
-     * los bordes/acentos decorativos.
+     * Aplica el color del tema a los acentos de la pantalla.
+     *  - Botón de settings: círculo translúcido SIN contorno.
+     *  - Barra inferior: degradado oscuro derivado del color del tema.
+     *  - Iconos: siempre blancos.
+     *  - Máscara del fondo: se refresca si el fondo actual es "blanco".
      */
     private fun applyThemeAccents(themeColor: Int) {
         val softColor = Color.argb(
@@ -711,14 +741,13 @@ class MainActivity : BaseActivity() {
             Color.blue(themeColor)
         )
 
-        // --- Botón de settings: solo el borde cambia con el tema ---
+        // --- Botón de settings: solo círculo translúcido, sin contorno ---
         settingsSurface.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(Color.argb(45, 255, 255, 255))
-            setStroke(2.dp, softColor)
         }
 
-        // ✅ Forzar el icono interno del botón de settings a blanco
+        // Icono interno del botón de settings a blanco
         (settingsSurface as? android.view.ViewGroup)?.let { group ->
             for (i in 0 until group.childCount) {
                 (group.getChildAt(i) as? ImageView)?.setColorFilter(
@@ -727,33 +756,76 @@ class MainActivity : BaseActivity() {
                 )
             }
         } ?: run {
-            // Si settingsSurface es directamente un ImageView/ImageButton
             (settingsSurface as? ImageView)?.setColorFilter(
                 Color.WHITE,
                 android.graphics.PorterDuff.Mode.SRC_IN
             )
         }
 
-        // --- Barra inferior: fondo igual, iconos SIEMPRE blancos ---
+        // --- Barra inferior: fondo oscuro derivado del color del tema con transparencia ---
+        val bottomTop = darken(
+            Color.argb(210, Color.red(themeColor), Color.green(themeColor), Color.blue(themeColor)),
+            0.55f
+        )
+        val bottomBottom = darken(
+            Color.argb(235, Color.red(themeColor), Color.green(themeColor), Color.blue(themeColor)),
+            0.72f
+        )
+
         bottomBarContainer.background = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(Color.argb(230, 12, 35, 61), Color.argb(242, 4, 17, 34))
+            intArrayOf(bottomTop, bottomBottom)
         ).apply {
             cornerRadius = 24.dp.toFloat()
-            setStroke(1.dp, Color.parseColor("#668BC8DC"))
+            setStroke(
+                1.dp,
+                Color.argb(
+                    120,
+                    Color.red(themeColor),
+                    Color.green(themeColor),
+                    Color.blue(themeColor)
+                )
+            )
         }
 
         val nav = bottomBarContainer as? LinearLayout ?: return
         for (index in 0 until nav.childCount) {
             val item = nav.getChildAt(index) as? LinearLayout ?: continue
-            // ✅ Iconos de las mediciones siempre en blanco
             (item.getChildAt(0) as? ImageView)?.setColorFilter(
                 Color.WHITE,
                 android.graphics.PorterDuff.Mode.SRC_IN
             )
-            // El color personalizado vive solo en la figura; cada celda permanece limpia.
             item.foreground = null
         }
+
+        // ✅ Refrescar la máscara si el fondo actual es "blanco"
+        val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        if (appPrefs.getString("MedicalBackground", "azul") == "blanco") {
+            updateBackgroundMask("blanco")
+        }
+    }
+
+    // ==========================================
+    // HELPERS DE COLOR
+    // ==========================================
+    private fun darken(color: Int, factor: Float): Int {
+        val f = factor.coerceIn(0f, 1f)
+        return Color.argb(
+            Color.alpha(color),
+            (Color.red(color) * f).toInt().coerceIn(0, 255),
+            (Color.green(color) * f).toInt().coerceIn(0, 255),
+            (Color.blue(color) * f).toInt().coerceIn(0, 255)
+        )
+    }
+
+    private fun blend(a: Int, b: Int, t: Float): Int {
+        val f = t.coerceIn(0f, 1f)
+        return Color.argb(
+            Color.alpha(a),
+            (Color.red(a)   + (Color.red(b)   - Color.red(a))   * f).toInt(),
+            (Color.green(a) + (Color.green(b) - Color.green(a)) * f).toInt(),
+            (Color.blue(a)  + (Color.blue(b)  - Color.blue(a))  * f).toInt()
+        )
     }
 
     private val Int.dp: Int

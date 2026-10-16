@@ -59,7 +59,7 @@ class LogoSettingsActivity : BaseActivity() {
         val rootView = findViewById<View>(android.R.id.content)
         val sideBar = findViewById<View>(R.id.sideBarLayout)
 
-        // ✅ Inicializar TODAS las vistas ANTES de declarar el receiver
+        // Inicializar TODAS las vistas ANTES de declarar el receiver
         btnChangeLogo = findViewById(R.id.btnChangeLogo)
         etMainTitle = findViewById(R.id.etMainTitle)
         btnSaveTitle = findViewById(R.id.btnSaveTitle)
@@ -91,7 +91,6 @@ class LogoSettingsActivity : BaseActivity() {
         btnCustomColor.backgroundTintList = initialColorList
 
         // --- RECEPTOR DE CAMBIO DE COLOR ---
-        // Ahora sí: todas las vistas ya están inicializadas, se pueden capturar sin problema
         val colorReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 val newColor = intent.getStringExtra("new_color") ?: return
@@ -112,13 +111,8 @@ class LogoSettingsActivity : BaseActivity() {
             .registerReceiver(colorReceiver, IntentFilter("ACTION_UPDATE_THEME"))
         // ------------------------------------------------
 
-        // Cargar el título guardado
         loadSavedTitle()
-
-        // Cargar el logo guardado
         loadSavedLogo()
-
-        // Cargar el color guardado en la vista previa
         loadCurrentColor()
 
         // 1. Botón Regresar
@@ -150,7 +144,7 @@ class LogoSettingsActivity : BaseActivity() {
             showColorPickerDialog()
         }
 
-        // 6. Modo multicolor (ya inicializado arriba)
+        // 6. Modo multicolor
         setupMulticolorSection()
     }
 
@@ -189,7 +183,7 @@ class LogoSettingsActivity : BaseActivity() {
 
             val request = ImageRequest.Builder(this)
                 .data(data)
-                .allowHardware(false) // hace falta para poder leer los píxeles del bitmap
+                .allowHardware(false)
                 .target(object : Target {
                     override fun onSuccess(result: android.graphics.drawable.Drawable) {
                         val bitmap = (result as? android.graphics.drawable.BitmapDrawable)?.bitmap
@@ -256,7 +250,6 @@ class LogoSettingsActivity : BaseActivity() {
             editor.putString("AppTitle", newTitle)
             editor.apply()
 
-            // Notificar a MainActivity
             val intent = Intent("ACTION_UPDATE_TITLE")
             intent.putExtra("main_title", newTitle)
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
@@ -331,7 +324,8 @@ class LogoSettingsActivity : BaseActivity() {
         val backgrounds = mapOf(
             R.id.btnBackgroundAzul to "azul",
             R.id.btnBackgroundTurquesa to "turquesa",
-            R.id.btnBackgroundMorado to "morado"
+            R.id.btnBackgroundMorado to "morado",
+            R.id.btnBackgroundBlanco to "blanco"   // ✅ NUEVO
         )
         backgrounds.forEach { (viewId, key) ->
             findViewById<View>(viewId).setOnClickListener {
@@ -339,7 +333,11 @@ class LogoSettingsActivity : BaseActivity() {
                 LocalBroadcastManager.getInstance(this).sendBroadcast(
                     Intent("ACTION_UPDATE_BACKGROUND").putExtra("background", key)
                 )
-                Toast.makeText(this, "Fondo ${key.replaceFirstChar { it.uppercase() }} seleccionado", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    "Fondo ${key.replaceFirstChar { it.uppercase() }} seleccionado",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
@@ -382,7 +380,6 @@ class LogoSettingsActivity : BaseActivity() {
             setPadding(40, 20, 40, 20)
         }
 
-        // 1. Panel 2D Saturación / Valor
         val satValCard = CardView(this).apply {
             radius = 16f
             cardElevation = 4f
@@ -399,7 +396,6 @@ class LogoSettingsActivity : BaseActivity() {
         satValCard.addView(satValView)
         container.addView(satValCard)
 
-        // 2. Fila con Vista Previa + Barra Rainbow Hue
         val middleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -435,7 +431,6 @@ class LogoSettingsActivity : BaseActivity() {
         middleRow.addView(hueView)
         container.addView(middleRow)
 
-        // 3. Campo de entrada HEX
         val hexInput = EditText(this).apply {
             hint = "#RRGGBB"
             textSize = 16f
@@ -453,7 +448,6 @@ class LogoSettingsActivity : BaseActivity() {
         }
         container.addView(hexInput, hexLayoutParams)
 
-        // Control de sincronización
         var isUpdatingUI = false
 
         fun updateAllControls(newColor: Int, source: String) {
@@ -484,7 +478,6 @@ class LogoSettingsActivity : BaseActivity() {
             isUpdatingUI = false
         }
 
-        // Callbacks
         satValView.onSatValChangedListener = { s, v ->
             currentSat = s
             currentVal = v
@@ -535,24 +528,19 @@ class LogoSettingsActivity : BaseActivity() {
             try {
                 val imageUri: Uri = result.data!!.data!!
 
-                // Copiar la imagen a almacenamiento interno para que persista
                 val savedPath = copyImageToInternalStorage(imageUri)
 
                 if (savedPath != null) {
-                    // Mostrar en vista previa
                     loadLogo(imgPreview, savedPath)
 
-                    // Guardar ruta en preferencias
                     val editor = prefs.edit()
                     editor.putString("LogoPath", savedPath)
                     editor.apply()
 
-                    // Notificar a MainActivity
                     val intent = Intent("ACTION_UPDATE_LOGO")
                     intent.putExtra("logo_path", savedPath)
                     LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
 
-                    // Si el modo multicolor está activo, recalcular los colores con el nuevo logo
                     if (::switchMulticolor.isInitialized && switchMulticolor.isChecked) {
                         regenerateMulticolorColors()
                     }
@@ -679,11 +667,9 @@ class ColorPickerSatValView @JvmOverloads constructor(
             )
         }
 
-        // Pasada 1: Gradiente horizontal (Blanco -> Color de Tono puro)
         paint.shader = satShader
         canvas.drawRect(0f, 0f, w, h, paint)
 
-        // Pasada 2: Gradiente vertical (Transparente -> Negro)
         if (valShader == null) {
             valShader = LinearGradient(
                 0f, 0f, 0f, h,
@@ -694,7 +680,6 @@ class ColorPickerSatValView @JvmOverloads constructor(
         paint.shader = valShader
         canvas.drawRect(0f, 0f, w, h, paint)
 
-        // Dibujar el círculo selector
         val cx = saturation * w
         val cy = (1f - value) * h
         val radius = 18f
