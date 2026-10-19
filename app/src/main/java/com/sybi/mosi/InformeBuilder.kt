@@ -52,7 +52,12 @@ class InformeBuilder(
     // ImageLoader nuevo en el hilo principal. Si no se proveen, se decodifican aquí
     // mismo como antes (usado por las pantallas en vivo, que no pasan clienteLogo).
     private val logoIzquierdoBitmapPrecargado: Bitmap? = null,
-    private val logoDerechoBitmapPrecargado: Bitmap? = null
+    private val logoDerechoBitmapPrecargado: Bitmap? = null,
+    // La foto del paciente (ver InformeBuilder.cargarFotoPaciente) se mostraba en una miniatura
+    // de 75x85dp pero se decodificaba a su resolución ORIGINAL de cámara cada vez — hasta 3
+    // veces por PDF (una por página) — sin ningún downsampling. Precargada aquí, ya reducida al
+    // tamaño real que se necesita, evita ese gasto de memoria y CPU repetido.
+    private val fotoPacientePrecargada: Bitmap? = null
 ) {
     private val d = ctx.resources.displayMetrics.density
 
@@ -444,6 +449,33 @@ class InformeBuilder(
         }
 
         /**
+         * Decodifica la foto del paciente (base64, foto de cámara a resolución completa)
+         * reducida al tamaño real en que se muestra en el informe (una miniatura de 75x85dp),
+         * en vez de decodificarla entera para luego aplastarla en un ImageView pequeño. Pensada
+         * para llamarse desde un hilo de fondo ANTES de construir las páginas del PDF, igual que
+         * cargarLogoBitmap.
+         */
+        fun cargarFotoPaciente(base64Foto: String, targetWidthPx: Int, targetHeightPx: Int): Bitmap? {
+            return try {
+                val bytes = Base64.decode(base64Foto, Base64.DEFAULT)
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+
+                var sample = 1
+                var w = bounds.outWidth
+                var h = bounds.outHeight
+                while (w / (sample * 2) >= targetWidthPx && h / (sample * 2) >= targetHeightPx) {
+                    sample *= 2
+                }
+
+                val options = BitmapFactory.Options().apply { inSampleSize = sample }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        /**
          * Decodifica el bitmap de un logo (PNG/SVG/etc. ya cacheado en disco). Pensada para
          * llamarse desde un hilo de fondo ANTES de construir las páginas del PDF (ver
          * ResultsActivity.generarPdfBytes), para que el hilo principal solo tenga que hacer
@@ -599,14 +631,9 @@ class InformeBuilder(
             )
         }
 
-        val fotoBase64 = paciente?.foto
-        var fotoBitmap: Bitmap? = null
-        if (!fotoBase64.isNullOrBlank()) {
-            runCatching {
-                val bytes = Base64.decode(fotoBase64, Base64.DEFAULT)
-                fotoBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            }
-        }
+        val fotoBitmap: Bitmap? = fotoPacientePrecargada ?: paciente?.foto
+            ?.takeIf { it.isNotBlank() }
+            ?.let { cargarFotoPaciente(it, dp(75), dp(85)) }
 
         if (fotoBitmap != null) {
             fotoIv.setImageBitmap(fotoBitmap)

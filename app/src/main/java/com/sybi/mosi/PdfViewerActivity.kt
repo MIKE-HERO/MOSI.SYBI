@@ -94,27 +94,46 @@ class PdfViewerActivity : BaseActivity() {
         val r = renderer ?: return
         if (index < 0 || index >= pageCount) return
 
+        // Reciclar la página anterior ANTES de reservar la nueva (no después): si el equipo
+        // está muy justo de RAM, sostener las dos a la vez durante la reserva es exactamente lo
+        // que puede tirar el intento a la basura. Un informe de varias páginas no debe ir
+        // acumulando bitmaps completos en memoria.
+        currentBitmap?.recycle()
+        currentBitmap = null
+
         pbLoading.visibility = View.VISIBLE
         try {
+            var bitmap: Bitmap? = null
             r.openPage(index).use { page ->
-                // Escala al ancho de pantalla, con tope en 2x: de sobra para verse nítido sin
-                // gastar memoria de más renderizando a una resolución que nadie va a ver, en un
-                // equipo donde la RAM ya es el recurso más escaso.
-                val maxWidth = resources.displayMetrics.widthPixels
-                val scale = (maxWidth.toFloat() / page.width).coerceAtMost(2f).coerceAtLeast(0.1f)
-                val w = (page.width * scale).toInt().coerceAtLeast(1)
-                val h = (page.height * scale).toInt().coerceAtLeast(1)
-
-                val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                bitmap.eraseColor(Color.WHITE)
-                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-
-                // Reciclamos la página anterior apenas se reemplaza: ver un informe de varias
-                // páginas no debe ir acumulando bitmaps completos en memoria.
-                currentBitmap?.recycle()
-                currentBitmap = bitmap
-                imgPage.setImageBitmap(bitmap)
+                // Escala moderada al ancho de pantalla: de sobra para leerse bien sin gastar
+                // memoria de más en un equipo donde la RAM ya es el recurso más escaso. Si aun
+                // así falla por memoria, se reintenta un par de veces a la mitad de tamaño.
+                var scale = (resources.displayMetrics.widthPixels.toFloat() / page.width)
+                    .coerceAtMost(1.3f).coerceAtLeast(0.1f)
+                var intentos = 0
+                while (bitmap == null && intentos < 3) {
+                    try {
+                        val w = (page.width * scale).toInt().coerceAtLeast(1)
+                        val h = (page.height * scale).toInt().coerceAtLeast(1)
+                        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                        bmp.eraseColor(Color.WHITE)
+                        page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        bitmap = bmp
+                    } catch (oom: OutOfMemoryError) {
+                        intentos++
+                        scale /= 2f
+                        Log.w(TAG, "Sin memoria renderizando la página $index; reintentando más pequeño (intento $intentos)")
+                    }
+                }
             }
+
+            if (bitmap == null) {
+                Toast.makeText(this, "No hay memoria suficiente para mostrar esta página", Toast.LENGTH_LONG).show()
+                return
+            }
+
+            currentBitmap = bitmap
+            imgPage.setImageBitmap(bitmap)
             currentPage = index
             tvPageIndicator.text = "Página ${index + 1} de $pageCount"
             btnPrev.isEnabled = index > 0
