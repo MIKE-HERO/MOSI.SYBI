@@ -3,154 +3,126 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="horizontal"
-    android:background="#EDF4F8">
+    android:orientation="vertical"
+    android:background="#EDF4F8"
+    android:paddingStart="34dp"
+    android:paddingTop="20dp"
+    android:paddingEnd="34dp"
+    android:paddingBottom="24dp">
 
-    <!-- BARRA LATERAL IZQUIERDA VERTICAL -->
-    <LinearLayout
-        android:id="@+id/sideBarLayout"
-        android:layout_width="150dp"
-        android:layout_height="match_parent"
-        android:background="#0F3E82"
-        android:elevation="5dp"
-        android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:paddingStart="10dp"
-        android:paddingTop="24dp"
-        android:paddingEnd="10dp"
-        android:paddingBottom="24dp">
+    <!-- HEADER SUPERIOR CON BOTÓN REGRESAR, TÍTULO Y ACCIONES A LA DERECHA -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp">
 
-        <!-- BOTÓN REGRESAR -->
-        <LinearLayout
+        <!-- BOTÓN REGRESAR (ESTILO LOGIN) -->
+        <ImageButton
             android:id="@+id/btnBackSettings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@null"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_horizontal"
-            android:orientation="vertical"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp">
+            android:layout_width="58dp"
+            android:layout_height="58dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="@drawable/bg_login_back"
+            android:contentDescription="Regresar"
+            android:elevation="3dp"
+            android:padding="16dp"
+            android:rotation="180"
+            android:src="@drawable/ic_regresar"
+            app:tint="#31536A" />
 
-            <ImageView
-                android:id="@+id/iconBackSettings"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:src="@drawable/ic_regresar"
-                android:rotation="180"
-                app:tint="#FFFFFF" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Regresar"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:shadowColor="#000000"
-                android:shadowDx="0"
-                android:shadowDy="0"
-                android:shadowRadius="3" />
-        </LinearLayout>
-
-        <!-- ESPACIADOR FLEXIBLE -->
-        <View
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-
-        <!-- BOTÓN REINICIAR EQUIPO -->
-        <LinearLayout
-            android:id="@+id/btnRebootDevice"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@null"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_horizontal"
-            android:orientation="vertical"
-            android:paddingTop="4dp"
-            android:paddingBottom="10dp">
-
-            <ImageView
-                android:id="@+id/iconRebootDevice"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:src="@drawable/ic_restart"
-                app:tint="#FFFFFF" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Reiniciar"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:shadowColor="#000000"
-                android:shadowDx="0"
-                android:shadowDy="0"
-                android:shadowRadius="3" />
-        </LinearLayout>
-
-        <!-- BOTÓN CERRAR APP -->
-        <LinearLayout
-            android:id="@+id/btnCloseApp"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@null"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_horizontal"
-            android:orientation="vertical"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp">
-
-            <ImageView
-                android:id="@+id/iconCloseApp"
-                android:layout_width="35dp"
-                android:layout_height="35dp"
-                android:src="@drawable/ic_close_app"
-                app:tint="#FFFFFF" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Cerrar App"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:shadowColor="#000000"
-                android:shadowDx="0"
-                android:shadowDy="0"
-                android:shadowRadius="3" />
-        </LinearLayout>
-
-    </LinearLayout>
-
-    <!-- CONTENIDO DE LA DERECHA -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:paddingStart="34dp"
-        android:paddingTop="20dp"
-        android:paddingEnd="34dp"
-        android:paddingBottom="24dp">
-
+        <!-- TÍTULO CENTRADO -->
         <TextView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
             android:text="Configuración"
-            android:textSize="30sp"
             android:textColor="#102A43"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:layout_marginBottom="16dp"/>
+            android:textSize="30sp"
+            android:textStyle="bold" />
+
+        <!-- ACCIONES SUPERIORES DERECHA: REINICIAR Y CERRAR APP -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- BOTÓN REINICIAR -->
+            <LinearLayout
+                android:id="@+id/btnRebootDevice"
+                android:layout_width="wrap_content"
+                android:layout_height="58dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/bg_settings_card"
+                android:clickable="true"
+                android:elevation="3dp"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <ImageView
+                    android:id="@+id/iconRebootDevice"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:src="@drawable/ic_restart"
+                    app:tint="#31536A" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="Reiniciar"
+                    android:textColor="#31536A"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- BOTÓN CERRAR APP -->
+            <LinearLayout
+                android:id="@+id/btnCloseApp"
+                android:layout_width="wrap_content"
+                android:layout_height="58dp"
+                android:background="@drawable/bg_settings_card"
+                android:clickable="true"
+                android:elevation="3dp"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <ImageView
+                    android:id="@+id/iconCloseApp"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_close_app"
+                    app:tint="#D32F2F" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="Cerrar App"
+                    android:textColor="#D32F2F"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+    <!-- CONTENIDO DE CONFIGURACIÓN (FILAS 1, 2 Y 3) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
 
         <!-- FILA 1 -->
         <LinearLayout
@@ -292,34 +264,10 @@
             android:layout_marginBottom="8dp">
 
             <LinearLayout
-                android:id="@+id/btnPatientTable"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:src="@drawable/settings_patients_3d"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Pacientes"
-                    android:textColor="#333333"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="8dp"/>
-            </LinearLayout>
+                android:layout_margin="4dp"/>
 
             <LinearLayout
                 android:id="@+id/btnLogoSettings"
@@ -421,34 +369,10 @@
             android:weightSum="4">
 
             <LinearLayout
-                android:id="@+id/btnResultTable"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:src="@drawable/settings_history_3d"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Historial de mediciones"
-                    android:textColor="#333333"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="8dp"/>
-            </LinearLayout>
+                android:layout_margin="4dp"/>
 
             <LinearLayout
                 android:id="@+id/btnPasswordSettings"

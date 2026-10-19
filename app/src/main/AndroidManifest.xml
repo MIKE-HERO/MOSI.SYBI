@@ -91,6 +91,7 @@
         </activity>
 
         <!-- Todas las Activities internas -->
+        <activity android:name=".MenuActivity" android:exported="false" />
         <activity android:name=".LoginActivity" android:exported="false" />
         <activity android:name=".PhoneLoginActivity" android:exported="false" />
         <activity android:name=".IcCardLoginActivity" android:exported="false" />

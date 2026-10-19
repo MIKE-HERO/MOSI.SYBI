@@ -251,7 +251,7 @@ class MainActivity : BaseActivity() {
             if (passwordEnabled) {
                 mostrarDialogoPassword()
             } else {
-                startActivity(Intent(this, SettingsActivity::class.java))
+                startActivity(Intent(this, MenuActivity::class.java))
             }
         }
 
@@ -585,7 +585,7 @@ class MainActivity : BaseActivity() {
         dialog.findViewById<View>(R.id.btnKeyConfirm)?.setOnClickListener {
             if (enteredPassword == savedPassword) {
                 dialog.dismiss()
-                startActivity(Intent(this, SettingsActivity::class.java))
+                startActivity(Intent(this, MenuActivity::class.java))
             } else {
                 Toast.makeText(this, "❌ Contraseña incorrecta", Toast.LENGTH_SHORT).show()
                 enteredPassword = ""

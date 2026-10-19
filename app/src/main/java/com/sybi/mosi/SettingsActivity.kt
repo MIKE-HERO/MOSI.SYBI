@@ -7,32 +7,13 @@ import android.content.IntentFilter
 import android.graphics.Color
 import android.os.Bundle
 import android.view.View
-import android.widget.ImageView
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class SettingsActivity : BaseActivity() {
-
-    // Las 12 tarjetas del menú: su icono debe tomar el color de marca (los iconos blancos de
-    // la barra lateral se quedan como están).
-    private val botonesMenu = listOf(
-        R.id.btnBasicSettings, R.id.btnElementsTest, R.id.btnReportSettings, R.id.btnMicTest,
-        R.id.btnPatientTable, R.id.btnLogoSettings, R.id.btnUserSettings, R.id.btnAdvertisingScreen,
-        R.id.btnResultTable, R.id.btnPasswordSettings, R.id.btnTelemedicineSettings, R.id.btnDeviceInfo
-    )
-
-    private fun tenirIconosMenu(color: Int) {
-        // Los iconos del menú son imágenes 3D con transparencia y color propio.
-        // Aplicarles un filtro plano elimina sus luces, volumen y acabado original.
-        botonesMenu.forEach { id ->
-            val boton = findViewById<LinearLayout>(id) ?: return@forEach
-            for (i in 0 until boton.childCount) {
-                (boton.getChildAt(i) as? ImageView)?.clearColorFilter()
-            }
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +23,7 @@ class SettingsActivity : BaseActivity() {
 
         // --- RECEPTOR DE CAMBIO DE COLOR ---
         val rootView = findViewById<View>(android.R.id.content)
-        val sideBar = findViewById<View>(R.id.sideBarLayout)
+        val btnBack = findViewById<ImageButton>(R.id.btnBackSettings)
 
         val colorReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
@@ -51,11 +32,9 @@ class SettingsActivity : BaseActivity() {
                 val colorInt = try {
                     Color.parseColor(newColor)
                 } catch (_: Exception) {
-                    Color.parseColor("#0F3E82")
+                    Color.parseColor("#31536A")
                 }
-                sideBar?.setBackgroundColor(colorInt)
-                tenirIconosMenu(colorInt)
-                // Los iconos de la barra son blancos: no dependen del color.
+                btnBack?.setColorFilter(colorInt)
             }
         }
         LocalBroadcastManager.getInstance(this)
@@ -66,21 +45,20 @@ class SettingsActivity : BaseActivity() {
         val isMulticolor = prefs.getBoolean("MulticolorEnabled", false)
         val savedColorHex = if (isMulticolor) {
             prefs.getString("MulticolorColorVivo", null)
-                ?: prefs.getString("BackgroundColor", "#0F3E82")
-                ?: "#0F3E82"
+                ?: prefs.getString("BackgroundColor", "#31536A")
+                ?: "#31536A"
         } else {
-            prefs.getString("BackgroundColor", "#0F3E82")
-                ?: "#0F3E82"
+            prefs.getString("BackgroundColor", "#31536A")
+                ?: "#31536A"
         }
         val themeColorInt = try {
             Color.parseColor(savedColorHex)
         } catch (_: Exception) {
-            Color.parseColor("#0F3E82")
+            Color.parseColor("#31536A")
         }
 
         rootView.setBackgroundColor(Color.parseColor("#EDF4F8"))
-        sideBar?.setBackgroundColor(themeColorInt)
-        tenirIconosMenu(themeColorInt)
+        btnBack?.setColorFilter(themeColorInt)
         // ------------------------------------------------
 
         // 0.1 Botón: Reiniciar Equipo
@@ -93,12 +71,12 @@ class SettingsActivity : BaseActivity() {
             cerrarAplicacion()
         }
 
-        // 1. Botón Regresar (Barra azul izquierda)
-        findViewById<View>(R.id.btnBackSettings)?.setOnClickListener {
+        // 0.3 Botón Regresar
+        btnBack?.setOnClickListener {
             finish()
         }
 
-        // 1.1 Botón: Ajustes básicos
+        // 1. Botón: Ajustes básicos
         findViewById<LinearLayout>(R.id.btnBasicSettings)?.setOnClickListener {
             startActivity(Intent(this, BasicSettingsActivity::class.java))
         }
@@ -121,16 +99,6 @@ class SettingsActivity : BaseActivity() {
         // 5. Botón: Configuración de telemedicina
         findViewById<LinearLayout>(R.id.btnTelemedicineSettings)?.setOnClickListener {
             startActivity(Intent(this, TelemedicineSettingsActivity::class.java))
-        }
-
-        // 6. Botón: Base de datos de pacientes
-        findViewById<LinearLayout>(R.id.btnPatientTable)?.setOnClickListener {
-            startActivity(Intent(this, PatientTableActivity::class.java))
-        }
-
-        // 7. Botón: Base de datos de Resultados
-        findViewById<LinearLayout>(R.id.btnResultTable)?.setOnClickListener {
-            startActivity(Intent(this, ResultTableActivity::class.java))
         }
 
         // 8. Botón: Información del dispositivo
@@ -161,24 +129,23 @@ class SettingsActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
-        val sideBar = findViewById<View>(R.id.sideBarLayout)
+        val btnBack = findViewById<ImageButton>(R.id.btnBackSettings)
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val isMulticolor = prefs.getBoolean("MulticolorEnabled", false)
         val savedColorHex = if (isMulticolor) {
             prefs.getString("MulticolorColorVivo", null)
-                ?: prefs.getString("BackgroundColor", "#0F3E82")
-                ?: "#0F3E82"
+                ?: prefs.getString("BackgroundColor", "#31536A")
+                ?: "#31536A"
         } else {
-            prefs.getString("BackgroundColor", "#0F3E82")
-                ?: "#0F3E82"
+            prefs.getString("BackgroundColor", "#31536A")
+                ?: "#31536A"
         }
         val themeColorInt = try {
             Color.parseColor(savedColorHex)
         } catch (_: Exception) {
-            Color.parseColor("#0F3E82")
+            Color.parseColor("#31536A")
         }
-        sideBar?.setBackgroundColor(themeColorInt)
-        tenirIconosMenu(themeColorInt)
+        btnBack?.setColorFilter(themeColorInt)
     }
 
     private fun reiniciarDispositivo() {

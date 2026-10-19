@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#EDF4F8"
+    android:paddingStart="34dp"
+    android:paddingTop="24dp"
+    android:paddingEnd="34dp"
+    android:paddingBottom="24dp">
+
+    <!-- HEADER SUPERIOR CON BOTÓN REGRESAR, TÍTULO Y ACCIONES A LA DERECHA -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp">
+
+        <!-- BOTÓN REGRESAR (ESTILO LOGIN) -->
+        <ImageButton
+            android:id="@+id/btnBackMenu"
+            android:layout_width="58dp"
+            android:layout_height="58dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="@drawable/bg_login_back"
+            android:contentDescription="Regresar"
+            android:elevation="3dp"
+            android:padding="16dp"
+            android:rotation="180"
+            android:src="@drawable/ic_regresar"
+            app:tint="#31536A" />
+
+        <!-- TÍTULO CENTRADO -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="Menú Principal"
+            android:textColor="#102A43"
+            android:textSize="32sp"
+            android:textStyle="bold" />
+
+        <!-- ACCIONES SUPERIORES DERECHA: REINICIAR Y CERRAR APP -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- BOTÓN REINICIAR -->
+            <LinearLayout
+                android:id="@+id/btnRebootDevice"
+                android:layout_width="wrap_content"
+                android:layout_height="58dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/bg_settings_card"
+                android:clickable="true"
+                android:elevation="3dp"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <ImageView
+                    android:id="@+id/iconRebootDevice"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:src="@drawable/ic_restart"
+                    app:tint="#31536A" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="Reiniciar"
+                    android:textColor="#31536A"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- BOTÓN CERRAR APP -->
+            <LinearLayout
+                android:id="@+id/btnCloseApp"
+                android:layout_width="wrap_content"
+                android:layout_height="58dp"
+                android:background="@drawable/bg_settings_card"
+                android:clickable="true"
+                android:elevation="3dp"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <ImageView
+                    android:id="@+id/iconCloseApp"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_close_app"
+                    app:tint="#D32F2F" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="Cerrar App"
+                    android:textColor="#D32F2F"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+    <!-- ============================================================= -->
+    <!-- CONTENIDO PRINCIPAL: 3 TARJETAS GRANDES                       -->
+    <!-- ============================================================= -->
+    <!--
+      👇 AQUÍ SE CONTROLA EL ALTO TOTAL DISPONIBLE 👇
+      El contenedor ocupa todo el espacio restante (height=0dp, weight=1).
+      weightSum="3" divide ese espacio en 3 partes iguales.
+      Cada botón hijo tiene layout_weight="1" → ocupa 1/3 del alto.
+    -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:weightSum="3">
+
+        <!-- ============================= -->
+        <!-- BOTÓN PACIENTES               -->
+        <!-- ============================= -->
+        <LinearLayout
+            android:id="@+id/btnPatientTableMenu"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="16dp"
+            android:background="@drawable/bg_settings_card"
+            android:elevation="6dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="16dp">
+
+            <!-- 👇 ICONO ADAPTABLE: ocupa el espacio sobrante del botón -->
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:src="@drawable/settings_patients_3d"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Pacientes"
+                android:textColor="#333333"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginBottom="12dp"/>
+        </LinearLayout>
+
+        <!-- ============================= -->
+        <!-- BOTÓN HISTORIAL DE MEDICIONES -->
+        <!-- ============================= -->
+        <LinearLayout
+            android:id="@+id/btnResultTableMenu"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="16dp"
+            android:background="@drawable/bg_settings_card"
+            android:elevation="6dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="16dp">
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:src="@drawable/settings_history_3d"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Historial de\nmediciones"
+                android:textColor="#333333"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginBottom="12dp"/>
+        </LinearLayout>
+
+        <!-- ============================= -->
+        <!-- BOTÓN CONFIGURACIÓN           -->
+        <!-- ============================= -->
+        <LinearLayout
+            android:id="@+id/btnSettingsMenu"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="16dp"
+            android:background="@drawable/bg_settings_card"
+            android:elevation="6dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="16dp">
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:src="@drawable/settings_basic_3d"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Configuración"
+                android:textColor="#333333"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginBottom="12dp"/>
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>
