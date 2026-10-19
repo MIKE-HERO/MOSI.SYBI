@@ -245,7 +245,10 @@
                     </LinearLayout>
                 </LinearLayout>
 
-                <!-- TARJETA 2: DATOS DE CABINA, CLIENTE Y SUCURSAL -->
+                <!-- TARJETA 2: DATOS DE CABINA -->
+                <!-- La selección de cliente/sucursal se movió a ClienteSettingsActivity
+                     (botón "Cliente" en Configuración): esta pantalla ya solo guarda ajustes
+                     propios de telemedicina. -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -258,7 +261,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Datos del Quiosco y Ubicación"
+                        android:text="Datos del Quiosco"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -280,69 +283,8 @@
                         android:hint="Ej. 4"
                         android:inputType="number"
                         android:padding="12dp"
-                        android:layout_marginBottom="16dp"
                         android:background="@android:drawable/edit_text"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Cliente *"
-                        android:textSize="13sp"
-                        android:textColor="#555555"
-                        android:textStyle="bold"
-                        android:layout_marginBottom="4dp"/>
-
-                    <AutoCompleteTextView
-                        android:id="@+id/etCliente"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="Toque para ver clientes o escriba para filtrar"
-                        android:inputType="text"
-                        android:padding="12dp"
-                        android:completionThreshold="0"
-                        android:background="@android:drawable/edit_text"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Escriba el nombre o ID para filtrar"
-                        android:textSize="11sp"
-                        android:textColor="#9E9E9E"
-                        android:layout_marginBottom="16dp"
-                        android:layout_marginTop="2dp"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Sucursal *"
-                        android:textSize="13sp"
-                        android:textColor="#555555"
-                        android:textStyle="bold"
-                        android:layout_marginBottom="4dp"/>
-
-                    <AutoCompleteTextView
-                        android:id="@+id/etSucursal"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="Escriba el nombre o ID de la sucursal"
-                        android:inputType="textCapWords"
-                        android:focusable="true"
-                        android:focusableInTouchMode="true"
-                        android:clickable="true"
-                        android:padding="12dp"
-                        android:completionThreshold="0"
-                        android:background="@android:drawable/edit_text"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Escriba para filtrar o toque para ver todas las sucursales"
-                        android:textSize="11sp"
-                        android:textColor="#9E9E9E"
-                        android:layout_marginTop="2dp"/>
                 </LinearLayout>
-
-
 
                 <!-- BOTÓN GUARDAR CONFIGURACIÓN -->
                 <Button

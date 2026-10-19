@@ -10,7 +10,6 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
-import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Spinner
@@ -19,12 +18,7 @@ import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import com.sybi.mosi.admin.PermisosAdmin
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.sybi.mosi.network.Cliente
-import com.sybi.mosi.network.RetrofitClient
-import com.sybi.mosi.network.Sucursal
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class TelemedicineSettingsActivity : BaseActivity() {
 
@@ -91,17 +85,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
     private lateinit var etBaseUrl: EditText
     private lateinit var spinnerBrowser: Spinner
     private lateinit var etCabina: EditText
-    private lateinit var etCliente: AutoCompleteTextView
-    private lateinit var etSucursal: AutoCompleteTextView
     private lateinit var btnGuardar: Button
-
-    private var listaClientes: List<Cliente> = emptyList()
-    private var listaSucursales: List<Sucursal> = emptyList()
-
-    private var idClienteSeleccionado: String = ""
-    private var nombreClienteSeleccionado: String = ""
-    private var idSucursalSeleccionada: String = ""
-    private var nombreSucursalSeleccionada: String = ""
 
     // Lista dinámica de navegadores instalados (llena en runtime)
     private var navegadoresInstalados: List<CustomTabsHelper.InstalledBrowser> = emptyList()
@@ -142,7 +126,6 @@ class TelemedicineSettingsActivity : BaseActivity() {
         applySwitchTint(Color.parseColor(savedColor))
 
         loadSavedValues()
-        cargarClientes()
     }
 
     private fun initViews() {
@@ -152,8 +135,6 @@ class TelemedicineSettingsActivity : BaseActivity() {
         etBaseUrl = findViewById(R.id.etBaseUrl)
         spinnerBrowser = findViewById(R.id.spinnerBrowser)
         etCabina = findViewById(R.id.etCabinaNumber)
-        etCliente = findViewById(R.id.etCliente)
-        etSucursal = findViewById(R.id.etSucursal)
         btnGuardar = findViewById(R.id.btnGuardarTelemedicine)
     }
 
@@ -320,158 +301,6 @@ class TelemedicineSettingsActivity : BaseActivity() {
         spinnerBrowser.setSelection(browserKeyToPosition(savedBrowser))
 
         etCabina.setText(devicePrefs.getString(PREF_CABINA_NUMBER, ""))
-
-        idClienteSeleccionado = devicePrefs.getString(PREF_CLIENTE, "") ?: ""
-        nombreClienteSeleccionado = devicePrefs.getString(PREF_CLIENTE_NOMBRE, "") ?: ""
-        if (idClienteSeleccionado.isNotEmpty()) {
-            // setText(texto, false): precarga el campo SIN disparar el filtro de
-            // autocompletado. Si se usa el setText de 1 argumento (equivale a
-            // filter=true), el AutoCompleteTextView filtra su adapter contra este
-            // texto como si el usuario lo hubiera tecleado, dejando la lista
-            // "atascada" en 1 coincidencia hasta que se escribe algo nuevo — por
-            // eso antes no aparecían todos los clientes al abrir el desplegable.
-            etCliente.setText("$nombreClienteSeleccionado ($idClienteSeleccionado)", false)
-        }
-
-        idSucursalSeleccionada = devicePrefs.getString(PREF_SUCURSAL, "") ?: ""
-        nombreSucursalSeleccionada = devicePrefs.getString(PREF_SUCURSAL_NOMBRE, "") ?: ""
-        if (idSucursalSeleccionada.isNotEmpty()) {
-            etSucursal.setText("$nombreSucursalSeleccionada ($idSucursalSeleccionada)", false)
-        }
-
-        if (idClienteSeleccionado.isNotEmpty()) {
-            cargarSucursales(idClienteSeleccionado)
-        }
-    }
-
-    // ==========================================
-    // CLIENTES
-    // ==========================================
-    private fun cargarClientes() {
-        lifecycleScope.launch {
-            try {
-                val response = withContext(Dispatchers.IO) {
-                    RetrofitClient.apiService.obtenerClientes()
-                }
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    listaClientes = body?.clientes ?: emptyList()
-                    Log.d(TAG, "✅ Clientes cargados: ${listaClientes.size}")
-                    configurarAutoCompleteClientes()
-                } else {
-                    Log.e(TAG, "❌ Error HTTP clientes: ${response.code()}")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "🔥 Excepción cargando clientes: ${e.message}", e)
-            }
-        }
-    }
-
-    private fun configurarAutoCompleteClientes() {
-        val items = listaClientes.map {
-            "${it.nombreCliente ?: "Sin nombre"} (${it.idCliente ?: "-"})"
-        }
-
-        // ArrayAdapter normal: SÍ filtra al escribir (comportamiento esperado de
-        // autocompletado). El truco para que igual aparezcan todos al abrir el
-        // desplegable sin haber escrito nada está en usar setText(texto, false)
-        // al precargar/seleccionar, en vez del setText de un argumento.
-        val adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            items
-        )
-        etCliente.setAdapter(adapter)
-
-        etCliente.setOnClickListener {
-            if (listaClientes.isNotEmpty()) etCliente.showDropDown()
-        }
-        etCliente.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus && listaClientes.isNotEmpty()) etCliente.showDropDown()
-        }
-
-        etCliente.setOnItemClickListener { _, _, _, _ ->
-            val textoSeleccionado = etCliente.text.toString()
-            val cliente = listaClientes.firstOrNull {
-                "${it.nombreCliente ?: "Sin nombre"} (${it.idCliente ?: "-"})" == textoSeleccionado
-            }
-
-            if (cliente != null) {
-                idClienteSeleccionado = cliente.idCliente ?: ""
-                nombreClienteSeleccionado = cliente.nombreCliente ?: ""
-                etCliente.setText("$nombreClienteSeleccionado ($idClienteSeleccionado)", false)
-                etCliente.setSelection(etCliente.text.length)
-
-                idSucursalSeleccionada = ""
-                nombreSucursalSeleccionada = ""
-                etSucursal.setText("")
-                listaSucursales = emptyList()
-                etSucursal.setAdapter(null)
-
-                cargarSucursales(idClienteSeleccionado)
-
-                Log.d(TAG, "✅ Cliente seleccionado: $idClienteSeleccionado - $nombreClienteSeleccionado")
-            }
-        }
-    }
-
-    // ==========================================
-    // SUCURSALES
-    // ==========================================
-    private fun cargarSucursales(idCliente: String) {
-        lifecycleScope.launch {
-            try {
-                val response = withContext(Dispatchers.IO) {
-                    RetrofitClient.apiService.obtenerSucursales(idCliente)
-                }
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    listaSucursales = body?.sucursales ?: emptyList()
-                    Log.d(TAG, "✅ Sucursales cargadas: ${listaSucursales.size}")
-                    configurarAutoCompleteSucursales()
-                } else {
-                    Log.e(TAG, "❌ Error HTTP sucursales: ${response.code()}")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "🔥 Excepción cargando sucursales: ${e.message}", e)
-            }
-        }
-    }
-
-    private fun configurarAutoCompleteSucursales() {
-        val items = listaSucursales.map {
-            "${it.nombreSucursal ?: "Sin nombre"} (${it.idSucursal ?: "-"})"
-        }
-
-        val adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            items
-        )
-        etSucursal.setAdapter(adapter)
-
-        etSucursal.setOnClickListener {
-            if (listaSucursales.isNotEmpty()) etSucursal.showDropDown()
-        }
-        etSucursal.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus && listaSucursales.isNotEmpty()) etSucursal.showDropDown()
-        }
-
-        etSucursal.setOnItemClickListener { _, _, _, _ ->
-            val textoSeleccionado = etSucursal.text.toString()
-            val sucursal = listaSucursales.firstOrNull {
-                "${it.nombreSucursal ?: "Sin nombre"} (${it.idSucursal ?: "-"})" == textoSeleccionado
-            }
-
-            if (sucursal != null) {
-                idSucursalSeleccionada = sucursal.idSucursal ?: ""
-                nombreSucursalSeleccionada = sucursal.nombreSucursal ?: ""
-                etSucursal.setText("$nombreSucursalSeleccionada ($idSucursalSeleccionada)", false)
-                etSucursal.setSelection(etSucursal.text.length)
-
-                Log.d(TAG, "✅ Sucursal seleccionada: $idSucursalSeleccionada - $nombreSucursalSeleccionada")
-            }
-        }
     }
 
     // ==========================================
@@ -491,31 +320,13 @@ class TelemedicineSettingsActivity : BaseActivity() {
             .putString(PREF_TELEMEDICINE_BASE_URL, rawBaseUrl)
             .putString(PREF_CUSTOM_TAB_BROWSER, selectedBrowserKey)
             .putString(PREF_CABINA_NUMBER, cabina)
-            .putString(PREF_CLIENTE, idClienteSeleccionado)
-            .putString(PREF_CLIENTE_NOMBRE, nombreClienteSeleccionado)
-            .putString(PREF_SUCURSAL, idSucursalSeleccionada)
-            .putString(PREF_SUCURSAL_NOMBRE, nombreSucursalSeleccionada)
             .apply()
 
         Log.d(
             TAG,
-            "💾 Guardado: enabled=$enabled, baseUrl=$rawBaseUrl, browser=$selectedBrowserKey, cabina=$cabina, " +
-                    "cliente=$idClienteSeleccionado ($nombreClienteSeleccionado), " +
-                    "sucursal=$idSucursalSeleccionada ($nombreSucursalSeleccionada)"
+            "💾 Guardado: enabled=$enabled, baseUrl=$rawBaseUrl, browser=$selectedBrowserKey, cabina=$cabina"
         )
         Toast.makeText(this, "✅ Configuración guardada", Toast.LENGTH_SHORT).show()
-
-        // Al guardar el cliente/sucursal, sincroniza el logo de marca de la app
-        // (pantalla principal, PDF, etc.) con el logo del cliente activo.
-        if (idClienteSeleccionado.isNotBlank() || idSucursalSeleccionada.isNotBlank()) {
-            lifecycleScope.launch(Dispatchers.IO) {
-                LogoSyncHelper.sincronizarLogoDeCliente(
-                    this@TelemedicineSettingsActivity,
-                    idSucursalSeleccionada,
-                    idClienteSeleccionado
-                )
-            }
-        }
     }
 
     override fun onPause() {
