@@ -43,7 +43,7 @@ class CalibTestActivity : BaseActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_calib_test)
 
-        sideBarLayout = findViewById(R.id.sideBarLayout)
+        sideBarLayout = findViewById(R.id.themeAccentBar)
         btnBack = findViewById(R.id.btnBackMicTest)
         btnTestMic = findViewById(R.id.btnTestMic)
         btnTestCamera = findViewById(R.id.btnTestCamera)

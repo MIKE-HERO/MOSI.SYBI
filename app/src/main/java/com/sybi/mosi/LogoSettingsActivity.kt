@@ -57,7 +57,7 @@ class LogoSettingsActivity : BaseActivity() {
         setContentView(R.layout.activity_logo_settings)
 
         val rootView = findViewById<View>(android.R.id.content)
-        val sideBar = findViewById<View>(R.id.sideBarLayout)
+        val sideBar = findViewById<View>(R.id.themeAccentBar)
 
         // Inicializar TODAS las vistas ANTES de declarar el receiver
         btnChangeLogo = findViewById(R.id.btnChangeLogo)

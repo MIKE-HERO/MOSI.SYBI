@@ -30,7 +30,7 @@ class UserSettingsActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
-        val sideBar = findViewById<View>(R.id.sideBarLayout)
+        val sideBar = findViewById<View>(R.id.themeAccentBar)
 
         // --- RECEPTOR DE CAMBIO DE COLOR ---
         val colorReceiver = object : BroadcastReceiver() {

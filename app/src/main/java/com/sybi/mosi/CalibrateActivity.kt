@@ -87,7 +87,7 @@ class CalibrateActivity : BaseActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_calibrate)
 
-        sideBarLayout = findViewById(R.id.sideBarLayout)
+        sideBarLayout = findViewById(R.id.themeAccentBar)
         btnBack = findViewById(R.id.btnBackCalibrate)
         switchCalibracion = findViewById(R.id.switchCalibracion)
         tvTitle = findViewById(R.id.tvTitle)

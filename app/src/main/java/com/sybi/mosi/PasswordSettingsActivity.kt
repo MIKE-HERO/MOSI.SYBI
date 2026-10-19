@@ -43,7 +43,7 @@ class PasswordSettingsActivity : BaseActivity() {
         setContentView(R.layout.activity_password_settings)
 
         // Vistas
-        sideBarLayout = findViewById(R.id.sideBarLayout)
+        sideBarLayout = findViewById(R.id.themeAccentBar)
         switchEnablePassword = findViewById(R.id.switchEnablePassword)
         layoutPasswordFields = findViewById(R.id.layoutPasswordFields)
         editPassword = findViewById(R.id.editPassword)

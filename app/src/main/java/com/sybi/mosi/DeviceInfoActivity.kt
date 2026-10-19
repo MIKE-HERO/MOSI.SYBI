@@ -90,7 +90,7 @@ class DeviceInfoActivity : BaseActivity() {
 
         updateManager = UpdateManager(this)
 
-        sideBar = findViewById(R.id.sideBarLayout)
+        sideBar = findViewById(R.id.themeAccentBar)
         etModelo = findViewById(R.id.etDeviceModel)
         etSerie = findViewById(R.id.etDeviceSerial)
 
