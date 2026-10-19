@@ -1,28 +1,41 @@
 package com.sybi.mosi
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Matrix
 import android.os.Bundle
 import android.text.InputFilter
 import android.text.TextUtils
 import android.util.Log
 import android.util.Base64
+import android.view.TextureView
 import android.view.View
 import android.view.MotionEvent
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.*
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.database.AppDatabase
 import com.sybi.mosi.database.Paciente
+import com.sybi.mosi.helpers.Camera2Helper
+import com.sybi.mosi.helpers.FaceBiometricsHelper
+import com.sybi.mosi.helpers.MediaPipeFaceHelper
 import com.sybi.mosi.network.UsuarioWeb
 import com.sybi.mosi.repository.PacienteRemoteRepository
 import com.sybi.mosi.repository.PacienteSyncHelper
 import kotlinx.coroutines.runBlocking
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -65,13 +78,30 @@ class RegisterActivity : BaseActivity() {
     // ✅ Lista de resultados (búsqueda por folio)
     private lateinit var resultadosContainer: LinearLayout
     private lateinit var listaResultados: LinearLayout
-    private var initialPhotoBase64: String? = null
-    private var photoStepCompleted: Boolean = false
     private var swipeStartX = 0f
     private var swipeStartY = 0f
 
+    // Paso 2: registro facial (antes FaceRegistrationActivity, ahora un segundo paso
+    // de esta misma pantalla para que todo el alta de paciente quede en una sola vista).
+    private lateinit var tvRegisterStep: TextView
+    private lateinit var registerContent: View
+    private lateinit var stepFotoContent: View
+    private lateinit var textureView: TextureView
+    private lateinit var imgPhotoPreview: ImageView
+    private lateinit var faceRegistrationGuide: View
+    private lateinit var btnTakePhoto: Button
+    private lateinit var btnSkipPhoto: Button
+    private lateinit var btnRetakePhoto: Button
+    private lateinit var btnSavePhoto: Button
+    private lateinit var tvFaceStatus: TextView
+
+    private var camera2Helper: Camera2Helper? = null
+    private var capturedBitmap: Bitmap? = null
+    private var idLocalPendienteFoto: Long = 0
+
     companion object {
         private const val TAG = "RegisterActivity"
+        private const val CAMERA_PERMISSION_CODE = 100
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,12 +110,9 @@ class RegisterActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
-        photoStepCompleted = intent.getBooleanExtra("photo_step_completed", false)
-        intent.getStringExtra("captured_photo_path")?.let { path ->
-            runCatching {
-                initialPhotoBase64 = Base64.encodeToString(java.io.File(path).readBytes(), Base64.DEFAULT)
-            }
-        }
+        // Precarga de modelos de biometría facial (MediaPipe + FaceNet) para que el
+        // Paso 2 no tenga que esperar a inicializarlos cuando el usuario llegue a él.
+        FaceBiometricsHelper.init(this)
 
         // ── Referencias ──
         val sideBar = findViewById<View>(R.id.sideBarLayout)
@@ -154,6 +181,24 @@ class RegisterActivity : BaseActivity() {
         resultadosContainer = findViewById(R.id.resultadosContainer)
         listaResultados = findViewById(R.id.listaResultados)
 
+        // Paso 2: registro facial
+        tvRegisterStep = findViewById(R.id.tvRegisterStep)
+        registerContent = findViewById(R.id.registerContent)
+        stepFotoContent = findViewById(R.id.stepFotoContent)
+        textureView = findViewById(R.id.textureView)
+        imgPhotoPreview = findViewById(R.id.imgPhotoPreview)
+        faceRegistrationGuide = findViewById(R.id.faceRegistrationGuide)
+        btnTakePhoto = findViewById(R.id.btnTakePhoto)
+        btnSkipPhoto = findViewById(R.id.btnSkipPhoto)
+        btnRetakePhoto = findViewById(R.id.btnRetakePhoto)
+        btnSavePhoto = findViewById(R.id.btnSavePhoto)
+        tvFaceStatus = findViewById(R.id.tvFaceStatus)
+
+        btnTakePhoto.setOnClickListener { takePhoto() }
+        btnSkipPhoto.setOnClickListener { confirmSkipPhoto() }
+        btnRetakePhoto.setOnClickListener { retakePhoto() }
+        btnSavePhoto.setOnClickListener { savePatientWithPhoto() }
+
         // ── Tema ──
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val savedColor = prefs.getString("BackgroundColor", "#0F3E82")!!
@@ -171,7 +216,9 @@ class RegisterActivity : BaseActivity() {
             .registerReceiver(colorReceiver, IntentFilter("ACTION_UPDATE_THEME"))
 
         // ── Botones ──
-        findViewById<View>(R.id.btnBackRegister).setOnClickListener { finish() }
+        findViewById<View>(R.id.btnBackRegister).setOnClickListener {
+            if (stepFotoContent.visibility == View.VISIBLE) volverAPaso1() else finish()
+        }
         btnCancelar.setOnClickListener { finish() }
         btnGuardar.setOnClickListener { guardarPaciente() }
         btnSearch.setOnClickListener { buscarPaciente() }
@@ -184,6 +231,7 @@ class RegisterActivity : BaseActivity() {
         sideBar.setBackgroundColor(accent)
         btnGuardar.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#163F5B"))
         btnSearch.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#294F67"))
+        btnTakePhoto.compoundDrawableTintList = android.content.res.ColorStateList.valueOf(accent)
         findViewById<TextView>(R.id.tvRegisterTitle).setTextColor(Color.parseColor("#102A43"))
 
         val fields = listOf(
@@ -572,8 +620,7 @@ class RegisterActivity : BaseActivity() {
             correo = correo,
             direccion = direccion,
             tarjetaIc = tarjetaIc,
-            fecha_registro = fechaRegistro,
-            foto = initialPhotoBase64
+            fecha_registro = fechaRegistro
         )
 
         btnGuardar.isEnabled = false
@@ -601,7 +648,7 @@ class RegisterActivity : BaseActivity() {
                         val sobrescrito = nuevoPaciente.copy(
                             id_local = existente.id_local,
                             id_usuario_web = existente.id_usuario_web,
-                            foto = initialPhotoBase64 ?: existente.foto,
+                            foto = existente.foto,
                             sincronizado = false
                         )
                         dao.actualizarPaciente(sobrescrito)
@@ -616,13 +663,9 @@ class RegisterActivity : BaseActivity() {
                     val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
                     val faceLoginEnabled = userPrefs.getBoolean("login_face", true)
 
-                    if (faceLoginEnabled && !photoStepCompleted) {
-                        runOnUiThread {
-                            val intent = Intent(this@RegisterActivity, FaceRegistrationActivity::class.java)
-                            intent.putExtra("id_local", idLocal)
-                            startActivity(intent)
-                            finish()
-                        }
+                    if (faceLoginEnabled) {
+                        idLocalPendienteFoto = idLocal
+                        runOnUiThread { irAPasoFoto() }
                     } else {
                         runOnUiThread { btnGuardar.text = "Buscando en sistema..." }
 
@@ -725,8 +768,331 @@ class RegisterActivity : BaseActivity() {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 
+    // ==========================================
+    // PASO 2: REGISTRO FACIAL (antes FaceRegistrationActivity)
+    // ==========================================
+    private fun irAPasoFoto() {
+        registerContent.visibility = View.GONE
+        stepFotoContent.visibility = View.VISIBLE
+        tvRegisterStep.text = "PASO 2 DE 2  •  REGISTRO FACIAL"
+        findViewById<TextView>(R.id.tvRegisterTitle).text = "Prepara tu identificación facial"
+
+        if (!hasCameraPermission()) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_PERMISSION_CODE)
+        } else {
+            startCamera()
+        }
+    }
+
+    private fun volverAPaso1() {
+        camera2Helper?.stopCamera()
+        camera2Helper = null
+        capturedBitmap?.recycle()
+        capturedBitmap = null
+
+        stepFotoContent.visibility = View.GONE
+        registerContent.visibility = View.VISIBLE
+        tvRegisterStep.text = "PASO 1 DE 2  •  DATOS DEL PACIENTE"
+        findViewById<TextView>(R.id.tvRegisterTitle).text = "Completa tu registro"
+
+        btnGuardar.isEnabled = true
+        btnGuardar.text = "Completar registro"
+    }
+
+    private fun hasCameraPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun startCamera() {
+        camera2Helper?.stopCamera()
+        textureView.scaleX = -1f
+        camera2Helper = Camera2Helper(this, textureView).also { it.startCamera() }
+
+        textureView.visibility = View.VISIBLE
+        imgPhotoPreview.visibility = View.GONE
+        faceRegistrationGuide.visibility = View.VISIBLE
+        btnTakePhoto.visibility = View.VISIBLE
+        btnSkipPhoto.visibility = View.VISIBLE
+        btnRetakePhoto.visibility = View.GONE
+        btnSavePhoto.visibility = View.GONE
+
+        tvFaceStatus.text = "Coloque su rostro frente a la cámara"
+        tvFaceStatus.setTextColor(Color.parseColor("#FF9800"))
+    }
+
+    private fun takePhoto() {
+        val bitmap = camera2Helper?.takePhoto() ?: run {
+            toast("No se pudo capturar la foto")
+            return
+        }
+
+        val mirroredBitmap = mirrorBitmap(bitmap) // siempre espejamos (cámara frontal/USB)
+
+        tvFaceStatus.text = "Procesando rostro..."
+        tvFaceStatus.setTextColor(Color.parseColor("#FF9800"))
+
+        Thread {
+            try {
+                val mpResult = MediaPipeFaceHelper.detect(mirroredBitmap)
+                val hasFace = mpResult != null && mpResult.faceLandmarks().isNotEmpty()
+
+                if (!hasFace || mpResult == null) {
+                    runOnUiThread {
+                        toast("No se detectó un rostro claro. Intente de nuevo.")
+                        tvFaceStatus.text = "No se detectó rostro, intente de nuevo"
+                        tvFaceStatus.setTextColor(Color.parseColor("#F44336"))
+                    }
+                    return@Thread
+                }
+
+                val biometrics = FaceBiometricsHelper.processFace(mirroredBitmap, mpResult)
+                if (biometrics == null) {
+                    runOnUiThread {
+                        toast("No se pudo procesar el rostro. Intente de nuevo.")
+                        tvFaceStatus.text = "Rostro no válido, intente de nuevo"
+                        tvFaceStatus.setTextColor(Color.parseColor("#F44336"))
+                    }
+                    return@Thread
+                }
+
+                capturedBitmap = mirroredBitmap
+
+                runOnUiThread {
+                    showPhotoPreview(mirroredBitmap)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error procesando rostro: ${e.message}", e)
+                runOnUiThread {
+                    toast("Error: ${e.message}")
+                    tvFaceStatus.text = "Error al procesar la foto"
+                    tvFaceStatus.setTextColor(Color.parseColor("#F44336"))
+                }
+            }
+        }.start()
+    }
+
+    private fun mirrorBitmap(bitmap: Bitmap): Bitmap {
+        val matrix = Matrix().apply { preScale(-1.0f, 1.0f) }
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
+    private fun showPhotoPreview(bitmap: Bitmap) {
+        textureView.visibility = View.GONE
+        imgPhotoPreview.visibility = View.VISIBLE
+        faceRegistrationGuide.visibility = View.GONE
+        imgPhotoPreview.setImageBitmap(bitmap)
+
+        btnTakePhoto.visibility = View.GONE
+        btnSkipPhoto.visibility = View.VISIBLE
+        btnRetakePhoto.visibility = View.VISIBLE
+        btnSavePhoto.visibility = View.VISIBLE
+
+        tvFaceStatus.text = "Revisa tu fotografía. Si se ve clara, continúa con el registro."
+        tvFaceStatus.setTextColor(Color.parseColor("#4CAF50"))
+
+        camera2Helper?.stopCamera()
+        camera2Helper = null
+    }
+
+    private fun retakePhoto() {
+        capturedBitmap?.recycle()
+        capturedBitmap = null
+        startCamera()
+    }
+
+    private fun confirmSkipPhoto() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Omitir registro facial")
+            .setMessage("Si omite la toma de foto, no podrá iniciar sesión mediante reconocimiento facial en el quiosco.\n\n¿Desea continuar sin foto?")
+            .setPositiveButton("Sí, omitir") { _, _ -> skipPhoto() }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun skipPhoto() {
+        btnSkipPhoto.isEnabled = false
+        btnTakePhoto.isEnabled = false
+        btnRetakePhoto.isEnabled = false
+        btnSavePhoto.isEnabled = false
+        btnSkipPhoto.text = "Omitiendo..."
+
+        tvFaceStatus.text = "Guardando sin foto..."
+        tvFaceStatus.setTextColor(Color.parseColor("#FF9800"))
+
+        val database = AppDatabase.getInstance(this)
+        val pacienteDao = database.pacienteDao()
+        val idLocal = idLocalPendienteFoto
+
+        Thread {
+            runBlocking {
+                try {
+                    val pacienteLocal = pacienteDao.obtenerPacientePorIdLocal(idLocal)
+                    if (pacienteLocal == null) {
+                        runOnUiThread {
+                            toast("No se encontró el paciente en la BD local")
+                            btnSkipPhoto.isEnabled = true
+                            btnTakePhoto.isEnabled = true
+                            btnRetakePhoto.isEnabled = true
+                            btnSavePhoto.isEnabled = true
+                            btnSkipPhoto.text = "Continuar sin fotografía"
+                        }
+                        return@runBlocking
+                    }
+
+                    runOnUiThread { tvFaceStatus.text = "Buscando en sistema..." }
+
+                    val repo = PacienteRemoteRepository(this@RegisterActivity)
+                    val resultado = repo.buscarPacienteEnAPI(pacienteLocal)
+
+                    if (resultado != null) {
+                        val u = resultado.usuarioWeb
+                        val pacienteActualizado = pacienteLocal.copy(
+                            id_usuario_web = resultado.idPaciente,
+                            nombre = u.nombre?.ifBlank { null }?.uppercase() ?: pacienteLocal.nombre,
+                            apellido_paterno = u.apellidoPaterno?.ifBlank { null }?.uppercase() ?: pacienteLocal.apellido_paterno,
+                            apellido_materno = u.apellidoMaterno?.ifBlank { null }?.uppercase() ?: pacienteLocal.apellido_materno,
+                            fecha_nacimiento = parsearFechaNacimiento(u.fechaNacimiento) ?: pacienteLocal.fecha_nacimiento,
+                            curp = u.curp?.ifBlank { null }?.uppercase() ?: pacienteLocal.curp,
+                            telefono = u.celular ?: u.telefonoCasa ?: pacienteLocal.telefono,
+                            correo = u.correo?.trim()?.ifBlank { null }?.lowercase() ?: pacienteLocal.correo,
+                            folio = u.folio?.ifBlank { null } ?: pacienteLocal.folio,
+                            direccion = u.direccion?.uppercase() ?: pacienteLocal.direccion,
+                            fecha_registro_global = parsearFechaRegistroAPI(u.fechaRegistro),
+                            sincronizado = true
+                        )
+                        pacienteDao.actualizarPaciente(pacienteActualizado)
+                        runOnUiThread {
+                            toast("Registro completado sin foto. Paciente vinculado (ID: ${resultado.idPaciente})")
+                            irALogin()
+                        }
+                    } else {
+                        runOnUiThread {
+                            toast("Registro completado sin foto. Paciente guardado localmente.")
+                            irALogin()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error omitiendo foto: ${e.message}", e)
+                    runOnUiThread {
+                        toast("Error: ${e.message}")
+                        btnSkipPhoto.isEnabled = true
+                        btnTakePhoto.isEnabled = true
+                        btnRetakePhoto.isEnabled = true
+                        btnSavePhoto.isEnabled = true
+                        btnSkipPhoto.text = "Continuar sin fotografía"
+                    }
+                }
+            }
+        }.start()
+    }
+
+    private fun savePatientWithPhoto() {
+        val bitmap = capturedBitmap ?: run {
+            toast("Primero tome una foto")
+            return
+        }
+
+        btnSavePhoto.isEnabled = false
+        btnSavePhoto.text = "Guardando..."
+
+        val database = AppDatabase.getInstance(this)
+        val pacienteDao = database.pacienteDao()
+        val idLocal = idLocalPendienteFoto
+
+        Thread {
+            runBlocking {
+                try {
+                    // La compresión y codificación de una foto grande es costosa: nunca
+                    // debe ejecutarse en el hilo principal porque congela el botón y la UI.
+                    val base64Image = bitmapToBase64(bitmap)
+                    val pacienteLocal = pacienteDao.obtenerPacientePorIdLocal(idLocal)
+                    if (pacienteLocal == null) {
+                        runOnUiThread {
+                            toast("No se encontró el paciente en la BD local")
+                            btnSavePhoto.isEnabled = true
+                            btnSavePhoto.text = "Guardar y finalizar"
+                        }
+                        return@runBlocking
+                    }
+
+                    val pacienteConFoto = pacienteLocal.copy(foto = base64Image)
+                    pacienteDao.actualizarPaciente(pacienteConFoto)
+
+                    runOnUiThread { btnSavePhoto.text = "Buscando en sistema..." }
+
+                    val repo = PacienteRemoteRepository(this@RegisterActivity)
+                    val resultado = repo.buscarPacienteEnAPI(pacienteConFoto)
+
+                    if (resultado != null) {
+                        val u = resultado.usuarioWeb
+                        val pacienteActualizado = pacienteConFoto.copy(
+                            id_usuario_web = resultado.idPaciente,
+                            nombre = u.nombre?.ifBlank { null }?.uppercase() ?: pacienteConFoto.nombre,
+                            apellido_paterno = u.apellidoPaterno?.ifBlank { null }?.uppercase() ?: pacienteConFoto.apellido_paterno,
+                            apellido_materno = u.apellidoMaterno?.ifBlank { null }?.uppercase() ?: pacienteConFoto.apellido_materno,
+                            fecha_nacimiento = parsearFechaNacimiento(u.fechaNacimiento) ?: pacienteConFoto.fecha_nacimiento,
+                            curp = u.curp?.ifBlank { null }?.uppercase() ?: pacienteConFoto.curp,
+                            telefono = u.celular ?: u.telefonoCasa ?: pacienteConFoto.telefono,
+                            correo = u.correo?.trim()?.ifBlank { null }?.lowercase() ?: pacienteConFoto.correo,
+                            folio = u.folio?.ifBlank { null } ?: pacienteConFoto.folio,
+                            direccion = u.direccion?.uppercase() ?: pacienteConFoto.direccion,
+                            fecha_registro_global = parsearFechaRegistroAPI(u.fechaRegistro),
+                            sincronizado = true
+                        )
+                        pacienteDao.actualizarPaciente(pacienteActualizado)
+
+                        // Actualizar la caché de biometría en memoria con el nuevo paciente
+                        com.sybi.mosi.helpers.FaceBiometricsCache.refresh(this@RegisterActivity)
+
+                        runOnUiThread {
+                            toast("Paciente vinculado con datos reales (ID: ${resultado.idPaciente})")
+                            irALogin()
+                        }
+                    } else {
+                        com.sybi.mosi.helpers.FaceBiometricsCache.refresh(this@RegisterActivity)
+
+                        runOnUiThread {
+                            toast("Paciente guardado localmente.")
+                            irALogin()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error: ${e.message}", e)
+                    runOnUiThread {
+                        toast("Error al guardar: ${e.message}")
+                        btnSavePhoto.isEnabled = true
+                        btnSavePhoto.text = "Guardar y finalizar"
+                    }
+                }
+            }
+        }.start()
+    }
+
+    private fun bitmapToBase64(bitmap: Bitmap): String {
+        val stream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
+        return Base64.encodeToString(stream.toByteArray(), Base64.DEFAULT)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == CAMERA_PERMISSION_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startCamera()
+            } else {
+                toast("Se requiere permiso de cámara")
+                volverAPaso1()
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        camera2Helper?.stopCamera()
+        camera2Helper = null
+        capturedBitmap?.recycle()
+        capturedBitmap = null
         try {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(icCardReceiver)
         } catch (_: Exception) {}

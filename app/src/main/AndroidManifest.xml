@@ -132,7 +132,6 @@
         <activity android:name=".ReportSettingsActivity" android:exported="false" />
 
         <!-- Reconocimiento facial -->
-        <activity android:name=".FaceRegistrationActivity" android:exported="false" />
         <activity android:name=".FaceLoginActivity" android:exported="false" />
 
         <!-- Info del dispositivo -->
