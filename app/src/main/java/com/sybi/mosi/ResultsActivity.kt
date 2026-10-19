@@ -259,13 +259,30 @@ class ResultsActivity : BaseActivity() {
 
             val p = paciente
 
+            // Mismo motivo que en generarPdfBytes(): decodificar el logo (y la foto del
+            // paciente) AQUÍ, en este hilo de fondo, no dentro del uiHandler.post de abajo.
+            // Esta vista EN PANTALLA (no el PDF) se reconstruye cada vez que se abre
+            // ResultsActivity —incluyendo desde el histórico de mediciones— y antes hacía ese
+            // trabajo síncrono dentro del hilo principal; con hasta 21 mediciones de historial
+            // y una tablet de 2GB de RAM, eso es justo lo que puede congelar la app el tiempo
+            // suficiente para que el sistema muestre "Quiosco no responde".
+            val logoPath = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("LogoPath", null)
+            val logoBitmap = InformeBuilder.cargarLogoBitmap(this@ResultsActivity, logoPath)
+            val fotoBitmap = p?.foto
+                ?.takeIf { it.isNotBlank() }
+                ?.let { InformeBuilder.cargarFotoPaciente(it, dp(75), dp(85)) }
+
             uiHandler.post {
                 tvPlaceholder.visibility = View.GONE
                 resultsContainer.removeAllViews()
                 val colorTema = runCatching {
                     Color.parseColor(getSharedPreferences("AppPrefs", Context.MODE_PRIVATE).getString("BackgroundColor", "#0F3E82"))
                 }.getOrDefault(Color.parseColor("#0F3E82"))
-                val builder = InformeBuilder(this@ResultsActivity, resultsContainer, colorTema)
+                val builder = InformeBuilder(
+                    this@ResultsActivity, resultsContainer, colorTema,
+                    logoIzquierdoBitmapPrecargado = logoBitmap,
+                    fotoPacientePrecargada = fotoBitmap
+                )
                 if (mediciones.isEmpty()) {
                     builder.mensajeVacio("No hay mediciones registradas para este paciente.")
                 } else {
