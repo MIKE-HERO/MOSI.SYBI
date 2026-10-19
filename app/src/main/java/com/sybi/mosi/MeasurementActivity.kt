@@ -378,6 +378,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         statusSweep.setSweepColor(themeColor)
 
         measurementResults.applyLoaderColor(themeColor)
+        measuringAnimationView.setBarColor(themeColor)
         waveformView.setLineColor(themeColor)
     }
 
@@ -574,6 +575,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         switchTab("Composición Corporal", "composicion", groupComposicion, skipGenericGuide = true)
 
         if (completedMeasurements.contains("COMPOSICION") || state.hasComposition()) {
+            setGuideImage("composicion_sujetando")
             setHeightWeightPresentation(showResults = true)
             tvStatusProgress.visibility = View.GONE
             renderComposition()
@@ -605,6 +607,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         measurementResults.updatePressure(state.systolic, state.diastolic, state.pulse)
 
         if (completedMeasurements.contains("PRESION") || state.hasPressure()) {
+            setGuideImage("guia_presion")
             setHeightWeightPresentation(showResults = true)
             btnRepeat.visibility = View.VISIBLE
             showStatusMessage("Medición completada correctamente", "#4CAF50")
@@ -631,6 +634,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         measurementResults.updateTemperature(state.temperature, state.temperatureF)
 
         if (completedMeasurements.contains("TEMPERATURA") || state.hasTemperature()) {
+            setGuideImage("guia_temperatura")
             setHeightWeightPresentation(showResults = true)
             btnRepeat.visibility = View.VISIBLE
             showStatusMessage("Medición completada correctamente", "#4CAF50")
@@ -659,6 +663,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         measurementResults.updateOxygen(state.spo2, state.pulseRate, state.pi)
 
         if (completedMeasurements.contains("OXIGENO") || state.hasOxygen()) {
+            setGuideImage("guia_oximetro")
             setHeightWeightPresentation(showResults = true)
             btnRepeat.visibility = View.VISIBLE
             showStatusMessage("Medición completada correctamente", "#4CAF50")
