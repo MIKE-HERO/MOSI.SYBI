@@ -202,12 +202,7 @@
                 android:layout_height="match_parent"
                 android:orientation="vertical">
 
-                <ScrollView
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:fillViewport="true"
-                    android:scrollbars="none">
-                    <LinearLayout
+                <LinearLayout
                         android:id="@+id/resultsContainer"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
@@ -1376,13 +1371,12 @@
 
                                 <!-- Card 1: Oxígeno en Sangre (SpO2) -->
                                 <LinearLayout
-                                    android:id="@+id/cardSpO2"
                                     android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
+                                    android:layout_height="match_parent"
                                     android:layout_weight="1"
                                     android:background="@drawable/bg_measurement_card"
                                     android:orientation="vertical"
-                                    android:padding="4dp"
+                                    android:padding="6dp"
                                     android:gravity="center_horizontal"
                                     android:layout_marginEnd="4dp">
 
@@ -1392,38 +1386,29 @@
                                         android:gravity="center"
                                         android:maxLines="1"
                                         android:text="OXÍGENO EN SANGRE"
-                                        android:textSize="9sp"
+                                        android:textSize="11sp"
                                         android:autoSizeTextType="uniform"
-                                        android:autoSizeMinTextSize="6sp"
-                                        android:autoSizeMaxTextSize="9sp"
+                                        android:autoSizeMinTextSize="7sp"
+                                        android:autoSizeMaxTextSize="11sp"
                                         android:autoSizeStepGranularity="1sp"
                                         android:textStyle="bold"
                                         android:textColor="#5B7A8C" />
 
                                     <FrameLayout
                                         android:layout_width="match_parent"
-                                        android:layout_height="26dp">
+                                        android:layout_height="0dp"
+                                        android:layout_weight="1">
 
-                                        <TextView
-                                            android:id="@+id/tvSpO2Value"
+                                        <com.sybi.mosi.measurement.RingProgressView
+                                            android:id="@+id/ringSpO2"
                                             android:layout_width="match_parent"
                                             android:layout_height="match_parent"
-                                            android:layout_gravity="center"
-                                            android:gravity="center"
-                                            android:maxLines="1"
-                                            android:text="--"
-                                            android:textSize="16sp"
-                                            android:autoSizeTextType="uniform"
-                                            android:autoSizeMinTextSize="8sp"
-                                            android:autoSizeMaxTextSize="16sp"
-                                            android:autoSizeStepGranularity="1sp"
-                                            android:textStyle="bold"
-                                            android:textColor="#001B3A" />
+                                            android:visibility="visible" />
 
                                         <com.sybi.mosi.measurement.EqualizerLoaderView
                                             android:id="@+id/pbSpO2Loading"
-                                            android:layout_width="16dp"
-                                            android:layout_height="16dp"
+                                            android:layout_width="24dp"
+                                            android:layout_height="24dp"
                                             android:layout_gravity="center"
                                             android:visibility="visible" />
                                     </FrameLayout>
@@ -1436,10 +1421,10 @@
                                         android:maxLines="1"
                                         android:text=""
                                         android:textColor="#24A36A"
-                                        android:textSize="9sp"
+                                        android:textSize="11sp"
                                         android:autoSizeTextType="uniform"
-                                        android:autoSizeMinTextSize="6sp"
-                                        android:autoSizeMaxTextSize="9sp"
+                                        android:autoSizeMinTextSize="7sp"
+                                        android:autoSizeMaxTextSize="11sp"
                                         android:autoSizeStepGranularity="1sp"
                                         android:textStyle="bold"
                                         android:visibility="gone" />
@@ -1447,13 +1432,12 @@
 
                                 <!-- Card 2: Ritmo Cardíaco (BPM) -->
                                 <LinearLayout
-                                    android:id="@+id/cardHeartRate"
                                     android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
+                                    android:layout_height="match_parent"
                                     android:layout_weight="1"
                                     android:background="@drawable/bg_measurement_card"
                                     android:orientation="vertical"
-                                    android:padding="4dp"
+                                    android:padding="6dp"
                                     android:gravity="center_horizontal"
                                     android:layout_marginHorizontal="3dp">
 
@@ -1463,38 +1447,29 @@
                                         android:gravity="center"
                                         android:maxLines="1"
                                         android:text="RITMO CARDIACO"
-                                        android:textSize="9sp"
+                                        android:textSize="11sp"
                                         android:autoSizeTextType="uniform"
-                                        android:autoSizeMinTextSize="6sp"
-                                        android:autoSizeMaxTextSize="9sp"
+                                        android:autoSizeMinTextSize="7sp"
+                                        android:autoSizeMaxTextSize="11sp"
                                         android:autoSizeStepGranularity="1sp"
                                         android:textStyle="bold"
                                         android:textColor="#5B7A8C" />
 
                                     <FrameLayout
                                         android:layout_width="match_parent"
-                                        android:layout_height="26dp">
+                                        android:layout_height="0dp"
+                                        android:layout_weight="1">
 
-                                        <TextView
-                                            android:id="@+id/tvHeartRateValue"
+                                        <com.sybi.mosi.measurement.RingProgressView
+                                            android:id="@+id/ringHeartRate"
                                             android:layout_width="match_parent"
                                             android:layout_height="match_parent"
-                                            android:layout_gravity="center"
-                                            android:gravity="center"
-                                            android:maxLines="1"
-                                            android:text="--"
-                                            android:textSize="16sp"
-                                            android:autoSizeTextType="uniform"
-                                            android:autoSizeMinTextSize="8sp"
-                                            android:autoSizeMaxTextSize="16sp"
-                                            android:autoSizeStepGranularity="1sp"
-                                            android:textStyle="bold"
-                                            android:textColor="#001B3A" />
+                                            android:visibility="visible" />
 
                                         <com.sybi.mosi.measurement.EqualizerLoaderView
                                             android:id="@+id/pbHeartRateLoading"
-                                            android:layout_width="16dp"
-                                            android:layout_height="16dp"
+                                            android:layout_width="24dp"
+                                            android:layout_height="24dp"
                                             android:layout_gravity="center"
                                             android:visibility="visible" />
                                     </FrameLayout>
@@ -1502,13 +1477,12 @@
 
                                 <!-- Card 3: Índice de Perfusión (PI) -->
                                 <LinearLayout
-                                    android:id="@+id/cardPI"
                                     android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
+                                    android:layout_height="match_parent"
                                     android:layout_weight="1"
                                     android:background="@drawable/bg_measurement_card"
                                     android:orientation="vertical"
-                                    android:padding="4dp"
+                                    android:padding="6dp"
                                     android:gravity="center_horizontal"
                                     android:layout_marginStart="4dp">
 
@@ -1518,38 +1492,29 @@
                                         android:gravity="center"
                                         android:maxLines="1"
                                         android:text="ÍNDICE DE PERFUSIÓN"
-                                        android:textSize="9sp"
+                                        android:textSize="11sp"
                                         android:autoSizeTextType="uniform"
-                                        android:autoSizeMinTextSize="6sp"
-                                        android:autoSizeMaxTextSize="9sp"
+                                        android:autoSizeMinTextSize="7sp"
+                                        android:autoSizeMaxTextSize="11sp"
                                         android:autoSizeStepGranularity="1sp"
                                         android:textStyle="bold"
                                         android:textColor="#5B7A8C" />
 
                                     <FrameLayout
                                         android:layout_width="match_parent"
-                                        android:layout_height="26dp">
+                                        android:layout_height="0dp"
+                                        android:layout_weight="1">
 
-                                        <TextView
-                                            android:id="@+id/tvPIValue"
+                                        <com.sybi.mosi.measurement.RingProgressView
+                                            android:id="@+id/ringPI"
                                             android:layout_width="match_parent"
                                             android:layout_height="match_parent"
-                                            android:layout_gravity="center"
-                                            android:gravity="center"
-                                            android:maxLines="1"
-                                            android:text="--"
-                                            android:textSize="16sp"
-                                            android:autoSizeTextType="uniform"
-                                            android:autoSizeMinTextSize="8sp"
-                                            android:autoSizeMaxTextSize="16sp"
-                                            android:autoSizeStepGranularity="1sp"
-                                            android:textStyle="bold"
-                                            android:textColor="#001B3A" />
+                                            android:visibility="visible" />
 
                                         <com.sybi.mosi.measurement.EqualizerLoaderView
                                             android:id="@+id/pbPILoading"
-                                            android:layout_width="16dp"
-                                            android:layout_height="16dp"
+                                            android:layout_width="24dp"
+                                            android:layout_height="24dp"
                                             android:layout_gravity="center"
                                             android:visibility="visible" />
                                     </FrameLayout>
@@ -1886,7 +1851,6 @@
 
                         </LinearLayout>
                     </LinearLayout>
-                </ScrollView>
 
             </LinearLayout>
 
