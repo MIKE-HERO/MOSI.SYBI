@@ -163,13 +163,7 @@ class LoginActivity : BaseActivity() {
         }
 
         btnRegister.setOnClickListener {
-            val faceEnabled = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
-                .getBoolean("login_face", true)
-            val destination = if (faceEnabled) FaceRegistrationActivity::class.java else RegisterActivity::class.java
-            startActivity(Intent(this, destination).apply {
-                putExtra("capture_before_form", faceEnabled)
-                putExtra("photo_step_completed", !faceEnabled)
-            })
+            startActivity(Intent(this, RegisterActivity::class.java))
         }
 
         // ✅ Botón Regresar (esquina superior izquierda)
