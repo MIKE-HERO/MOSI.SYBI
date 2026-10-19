@@ -1,6 +1,7 @@
 package com.sybi.mosi
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.google.gson.Gson
 import com.sybi.mosi.network.LogoClienteDto
@@ -39,32 +40,102 @@ object ClienteLogoCache {
         val puesto: String?
     )
 
-    /** BLOQUEANTE. Devuelve null si el cliente no tiene logos o no se pudo resolver nada. */
+    /** BLOQUEANTE. Devuelve null si el cliente no tiene logos (ni locales ni de servidor). */
     fun obtener(context: Context, idCliente: String): Logos? {
         if (idCliente.isBlank()) return null
         val ctx = context.applicationContext
         val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-        val dto: LogoClienteDto = obtenerDto(prefs, idCliente) ?: return null
-
+        val dto: LogoClienteDto? = obtenerDto(prefs, idCliente)
         val dirLogos = File(ctx.cacheDir, "clienteLogos").apply { mkdirs() }
-        val izq = descargarSiHaceFalta(dirLogos, idCliente, "izq", dto.logoIzquierdo)
-        val der = descargarSiHaceFalta(dirLogos, idCliente, "der", dto.logoDerecho)
-        val firma = descargarSiHaceFalta(dirLogos, idCliente, "firma", dto.firma)
+
+        // Un override local (puesto a mano desde ClienteSettingsActivity) gana SIEMPRE sobre
+        // lo que traiga el servidor para ese slot: no se re-descarga ni se sobrescribe.
+        val izq = rutaOverride(ctx, idCliente, "izq")
+            ?: dto?.logoIzquierdo?.let { descargarSiHaceFalta(dirLogos, idCliente, "izq", it) }
+        val der = rutaOverride(ctx, idCliente, "der")
+            ?: dto?.logoDerecho?.let { descargarSiHaceFalta(dirLogos, idCliente, "der", it) }
+        val firma = rutaOverride(ctx, idCliente, "firma")
+            ?: dto?.firma?.let { descargarSiHaceFalta(dirLogos, idCliente, "firma", it) }
+
+        if (dto == null && izq == null && der == null && firma == null) return null
 
         return Logos(
-            idCliente = dto.idCliente,
-            razonSocial = dto.razonSocial,
-            direccion = dto.direccion,
-            codigoPostal = dto.codigoPostal,
-            estado = dto.estado,
-            rfc = dto.rfc,
+            idCliente = dto?.idCliente ?: idCliente.toIntOrNull(),
+            razonSocial = dto?.razonSocial,
+            direccion = dto?.direccion,
+            codigoPostal = dto?.codigoPostal,
+            estado = dto?.estado,
+            rfc = dto?.rfc,
             logoIzquierdoPath = izq,
             logoDerechoPath = der,
             firmaPath = firma,
-            nombreFirma = dto.nombreFirma,
-            puesto = dto.puesto
+            nombreFirma = dto?.nombreFirma,
+            puesto = dto?.puesto
         )
+    }
+
+    /** Nombre + etiqueta de cada slot de imagen que puede tener un cliente. */
+    val SLOTS: List<Pair<String, String>> = listOf(
+        "izq" to "Logo izquierdo",
+        "der" to "Logo derecho",
+        "firma" to "Firma"
+    )
+
+    private fun dirOverrides(ctx: Context): File =
+        File(ctx.filesDir, "clienteLogosOverride").apply { mkdirs() }
+
+    /** Archivo de override local para ese cliente/slot, si existe (sea cual sea su extensión). */
+    fun archivoOverride(context: Context, idCliente: String, slot: String): File? {
+        val dir = dirOverrides(context.applicationContext)
+        return dir.listFiles { f -> f.nameWithoutExtension == "${idCliente}_$slot" }?.firstOrNull()
+    }
+
+    private fun rutaOverride(ctx: Context, idCliente: String, slot: String): String? =
+        archivoOverride(ctx, idCliente, slot)?.absolutePath
+
+    /**
+     * Ruta de la imagen ACTUAL de un slot para previsualizar en ClienteSettingsActivity:
+     * el override local si hay uno, si no la última copia ya descargada del servidor (sin
+     * forzar una descarga nueva — eso lo hace [obtener] cuando de verdad hace falta el logo).
+     */
+    fun rutaImagenSlotActual(context: Context, idCliente: String, slot: String): File? {
+        val ctx = context.applicationContext
+        archivoOverride(ctx, idCliente, slot)?.let { return it }
+        val dirDescargas = File(ctx.cacheDir, "clienteLogos")
+        return dirDescargas.listFiles { f -> f.nameWithoutExtension == "${idCliente}_$slot" }?.firstOrNull()
+    }
+
+    /**
+     * Copia [uri] (elegida por el usuario en el selector de imágenes) como el override local
+     * de ese cliente/slot. BLOQUEANTE: llamar desde un hilo de fondo.
+     */
+    fun guardarOverrideDesdeUri(context: Context, idCliente: String, slot: String, uri: Uri): File? {
+        val ctx = context.applicationContext
+        return try {
+            val mimeType = ctx.contentResolver.getType(uri)
+            val esSvg = mimeType == "image/svg+xml" || uri.toString().endsWith(".svg", ignoreCase = true)
+            val extension = if (esSvg) "svg" else "png"
+
+            val dir = dirOverrides(ctx)
+            // Limpiar cualquier override previo de ese slot (pudo tener otra extensión).
+            dir.listFiles { f -> f.nameWithoutExtension == "${idCliente}_$slot" }?.forEach { it.delete() }
+            val destino = File(dir, "${idCliente}_$slot.$extension")
+
+            ctx.contentResolver.openInputStream(uri)?.use { input ->
+                destino.outputStream().use { output -> input.copyTo(output) }
+            } ?: return null
+
+            destino
+        } catch (e: Exception) {
+            Log.w(TAG, "No se pudo guardar el override de $slot para cliente $idCliente: ${e.message}")
+            null
+        }
+    }
+
+    /** Quita el override local de un slot (vuelve a depender de lo que traiga el servidor). */
+    fun quitarOverride(context: Context, idCliente: String, slot: String) {
+        archivoOverride(context.applicationContext, idCliente, slot)?.delete()
     }
 
     private fun obtenerDto(prefs: android.content.SharedPreferences, idCliente: String): LogoClienteDto? {

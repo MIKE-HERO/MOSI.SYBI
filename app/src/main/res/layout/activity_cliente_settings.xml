@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="#F5F5F5">
+
+    <!-- BARRA LATERAL AZUL -->
+    <LinearLayout
+        android:id="@+id/sideBarLayout"
+        android:layout_width="150dp"
+        android:layout_height="match_parent"
+        android:background="#0F3E82"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingTop="20dp">
+
+        <LinearLayout
+            android:id="@+id/btnBackCliente"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingBottom="20dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@drawable/ic_regresar"
+                android:rotation="180"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Regresar"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+
+    </LinearLayout>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cliente y Sucursal"
+            android:textSize="22sp"
+            android:textColor="#333333"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#FFFFFF"
+                    android:elevation="3dp"
+                    android:padding="16dp"
+                    android:layout_marginBottom="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Cliente y sucursal activos"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#333333"
+                        android:layout_marginBottom="12dp"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Cliente *"
+                        android:textSize="13sp"
+                        android:textColor="#555555"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp"/>
+
+                    <AutoCompleteTextView
+                        android:id="@+id/etCliente"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Toque para ver clientes o escriba para filtrar"
+                        android:inputType="text"
+                        android:padding="12dp"
+                        android:completionThreshold="0"
+                        android:background="@android:drawable/edit_text"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Escriba el nombre o ID para filtrar"
+                        android:textSize="11sp"
+                        android:textColor="#9E9E9E"
+                        android:layout_marginBottom="16dp"
+                        android:layout_marginTop="2dp"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sucursal *"
+                        android:textSize="13sp"
+                        android:textColor="#555555"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp"/>
+
+                    <AutoCompleteTextView
+                        android:id="@+id/etSucursal"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Escriba el nombre o ID de la sucursal"
+                        android:inputType="textCapWords"
+                        android:focusable="true"
+                        android:focusableInTouchMode="true"
+                        android:clickable="true"
+                        android:padding="12dp"
+                        android:completionThreshold="0"
+                        android:background="@android:drawable/edit_text"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Escriba para filtrar o toque para ver todas las sucursales"
+                        android:textSize="11sp"
+                        android:textColor="#9E9E9E"
+                        android:layout_marginTop="2dp"/>
+                </LinearLayout>
+
+                <!-- TARJETA: IMÁGENES DEL CLIENTE (logos izq/der y firma) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#FFFFFF"
+                    android:elevation="3dp"
+                    android:padding="16dp"
+                    android:layout_marginBottom="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Imágenes del cliente"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#333333"
+                        android:layout_marginBottom="4dp"/>
+
+                    <TextView
+                        android:id="@+id/tvImagenesHint"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Selecciona un cliente para ver sus imágenes"
+                        android:textSize="12sp"
+                        android:textColor="#9E9E9E"
+                        android:layout_marginBottom="12dp"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:weightSum="3">
+
+                        <LinearLayout
+                            android:id="@+id/cardSlotIzq"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="6dp"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:padding="8dp"
+                            android:background="@android:drawable/edit_text"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/imgSlotIzq"
+                                android:layout_width="match_parent"
+                                android:layout_height="70dp"
+                                android:scaleType="centerInside"
+                                android:src="@drawable/ic_info"
+                                app:tint="#CCCCCC"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Logo izquierdo"
+                                android:textSize="11sp"
+                                android:textColor="#555555"
+                                android:gravity="center"/>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/cardSlotDer"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginHorizontal="6dp"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:padding="8dp"
+                            android:background="@android:drawable/edit_text"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/imgSlotDer"
+                                android:layout_width="match_parent"
+                                android:layout_height="70dp"
+                                android:scaleType="centerInside"
+                                android:src="@drawable/ic_info"
+                                app:tint="#CCCCCC"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Logo derecho"
+                                android:textSize="11sp"
+                                android:textColor="#555555"
+                                android:gravity="center"/>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/cardSlotFirma"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="6dp"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:padding="8dp"
+                            android:background="@android:drawable/edit_text"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/imgSlotFirma"
+                                android:layout_width="match_parent"
+                                android:layout_height="70dp"
+                                android:scaleType="centerInside"
+                                android:src="@drawable/ic_info"
+                                app:tint="#CCCCCC"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Firma"
+                                android:textSize="11sp"
+                                android:textColor="#555555"
+                                android:gravity="center"/>
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#E0E0E0"
+                        android:layout_marginVertical="14dp"/>
+
+                    <TextView
+                        android:id="@+id/tvSlotSeleccionado"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Toca una imagen arriba para previsualizarla"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#555555"
+                        android:layout_marginBottom="8dp"/>
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="160dp"
+                        android:background="#F3F4F6"
+                        android:layout_marginBottom="12dp">
+
+                        <ImageView
+                            android:id="@+id/imgPreviewGrande"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerInside"
+                            android:padding="12dp"/>
+                    </FrameLayout>
+
+                    <Button
+                        android:id="@+id/btnSeleccionarImagen"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Seleccionar imagen"
+                        android:textColor="#FFFFFF"
+                        android:textAllCaps="false"
+                        android:backgroundTint="#0F3E82"
+                        android:enabled="false"/>
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnGuardarCliente"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Guardar Configuración"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:padding="14dp"
+                    android:backgroundTint="#0F3E82"
+                    android:layout_marginBottom="20dp"/>
+
+            </LinearLayout>
+        </ScrollView>
+
+    </LinearLayout>
+</LinearLayout>

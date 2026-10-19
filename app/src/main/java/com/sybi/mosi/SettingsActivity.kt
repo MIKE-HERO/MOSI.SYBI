@@ -101,6 +101,11 @@ class SettingsActivity : BaseActivity() {
             startActivity(Intent(this, TelemedicineSettingsActivity::class.java))
         }
 
+        // 5.1 Botón: Cliente (selección de cliente/sucursal, antes dentro de Telemedicina)
+        findViewById<LinearLayout>(R.id.btnClienteSettings)?.setOnClickListener {
+            startActivity(Intent(this, ClienteSettingsActivity::class.java))
+        }
+
         // 8. Botón: Información del dispositivo
         findViewById<LinearLayout>(R.id.btnDeviceInfo)?.setOnClickListener {
             startActivity(Intent(this, DeviceInfoActivity::class.java))
