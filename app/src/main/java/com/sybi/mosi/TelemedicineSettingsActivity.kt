@@ -129,7 +129,7 @@ class TelemedicineSettingsActivity : BaseActivity() {
     }
 
     private fun initViews() {
-        sideBar = findViewById(R.id.sideBarLayout)
+        sideBar = findViewById(R.id.themeAccentBar)
         switchTelemedicine = findViewById(R.id.switchTelemedicine)
         switchFallback = findViewById(R.id.switchFallback)
         etBaseUrl = findViewById(R.id.etBaseUrl)

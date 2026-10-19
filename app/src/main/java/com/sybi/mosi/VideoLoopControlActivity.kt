@@ -113,7 +113,7 @@ class VideoLoopControlActivity : BaseActivity() {
     private fun aplicarColorTema(hex: String) {
         val colorInt = Color.parseColor(hex)
         val colorStateList = android.content.res.ColorStateList.valueOf(colorInt)
-        findViewById<View>(R.id.sideBarLayout).setBackgroundColor(colorInt)
+        findViewById<View>(R.id.themeAccentBar).setBackgroundColor(colorInt)
         btnFindVideo.backgroundTintList = colorStateList
         btnSendVideo.backgroundTintList = colorStateList
         btnRefresh.backgroundTintList = colorStateList

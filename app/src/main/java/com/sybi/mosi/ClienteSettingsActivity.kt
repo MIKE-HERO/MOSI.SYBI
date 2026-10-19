@@ -73,7 +73,7 @@ class ClienteSettingsActivity : BaseActivity() {
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_cliente_settings)
 
-        sideBar = findViewById(R.id.sideBarLayout)
+        sideBar = findViewById(R.id.themeAccentBar)
         etCliente = findViewById(R.id.etCliente)
         etSucursal = findViewById(R.id.etSucursal)
         btnGuardar = findViewById(R.id.btnGuardarCliente)

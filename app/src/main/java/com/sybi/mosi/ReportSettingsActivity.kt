@@ -4,10 +4,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PorterDuff
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -35,11 +38,17 @@ class ReportSettingsActivity : BaseActivity() {
     private lateinit var etPdfSubtitle: EditText
 
     private val appPrefs by lazy { getSharedPreferences("AppPrefs", Context.MODE_PRIVATE) }
+    private val uiHandler = Handler(Looper.getMainLooper())
+
+    // Logo precargado en un hilo de fondo (ver recargarLogoBitmapYRenderizar): InformeBuilder
+    // puede llegar a decodificarlo de forma síncrona (SVG vía Coil, incluso por red si el logo
+    // viene de una URL) y hacerlo en el hilo principal durante onCreate causaba un ANR real al
+    // abrir esta pantalla.
+    private var logoBitmapPrecargado: Bitmap? = null
 
     private val logoReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            actualizarPrevisualizacion()
-            actualizarPrevisualizacionTicket()
+            recargarLogoBitmapYRenderizar()
         }
     }
 
@@ -48,7 +57,7 @@ class ReportSettingsActivity : BaseActivity() {
         setContentView(R.layout.activity_report_settings)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
-        val sideBar = findViewById<View>(R.id.sideBarLayout)
+        val sideBar = findViewById<View>(R.id.themeAccentBar)
 
         val colorReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
@@ -103,8 +112,8 @@ class ReportSettingsActivity : BaseActivity() {
         etPdfTitle.setText(savedPdfTitle)
         etPdfSubtitle.setText(savedPdfSubtitle)
 
-        actualizarPrevisualizacion()
         actualizarPrevisualizacionTicket()
+        recargarLogoBitmapYRenderizar()
 
         etPdfTitle.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -129,6 +138,24 @@ class ReportSettingsActivity : BaseActivity() {
         })
     }
 
+    /**
+     * Decodifica el logo configurado (AppPrefs.LogoPath) en un hilo de fondo y solo entonces
+     * renderiza la previsualización. InformeBuilder puede decodificarlo de forma síncrona
+     * (incluso por red, si el logo es una URL) cuando no se le pasa ya decodificado, y hacer
+     * eso en el hilo principal durante onCreate causaba un ANR real al abrir esta pantalla.
+     */
+    private fun recargarLogoBitmapYRenderizar() {
+        val logoPath = appPrefs.getString("LogoPath", null)
+        Thread {
+            val bitmap = InformeBuilder.cargarLogoBitmap(this, logoPath)
+            uiHandler.post {
+                logoBitmapPrecargado = bitmap
+                actualizarPrevisualizacion()
+                actualizarPrevisualizacionTicket()
+            }
+        }.start()
+    }
+
     private fun actualizarPrevisualizacion() {
         val container = findViewById<android.widget.LinearLayout>(R.id.previewInformeContainer) ?: return
         container.removeAllViews()
@@ -137,7 +164,10 @@ class ReportSettingsActivity : BaseActivity() {
             Color.parseColor(appPrefs.getString("BackgroundColor", "#0F3E82"))
         }.getOrDefault(Color.parseColor("#0F3E82"))
 
-        val builder = InformeBuilder(this, container, colorTema)
+        val builder = InformeBuilder(
+            this, container, colorTema,
+            logoIzquierdoBitmapPrecargado = logoBitmapPrecargado
+        )
 
         val samplePaciente = com.sybi.mosi.database.Paciente(
             id_local = 1L,

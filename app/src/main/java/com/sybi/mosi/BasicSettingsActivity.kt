@@ -139,7 +139,7 @@ class BasicSettingsActivity : BaseActivity() {
     }
 
     private fun initViews() {
-        sideBarLayout = findViewById(R.id.sideBarLayout)
+        sideBarLayout = findViewById(R.id.themeAccentBar)
 
         txtCurrentTime = findViewById(R.id.txtCurrentTime)
         txtCurrentDate = findViewById(R.id.txtCurrentDate)

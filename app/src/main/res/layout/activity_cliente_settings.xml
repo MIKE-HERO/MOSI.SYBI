@@ -6,44 +6,59 @@
     android:orientation="horizontal"
     android:background="#F5F5F5">
 
-    <!-- BARRA LATERAL AZUL -->
-    <LinearLayout
-        android:id="@+id/sideBarLayout"
-        android:layout_width="150dp"
+    <!-- BARRA LATERAL -->
+    <FrameLayout
+        android:layout_width="154dp"
         android:layout_height="match_parent"
-        android:background="#0F3E82"
-        android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:paddingTop="20dp">
+        android:elevation="12dp">
 
         <LinearLayout
-            android:id="@+id/btnBackCliente"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:id="@+id/sideBarLayout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_technical_sidebar"
+            android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:gravity="center"
-            android:paddingBottom="20dp"
-            android:clickable="true"
-            android:focusable="true">
+            android:paddingTop="28dp">
 
-            <ImageView
-                android:layout_width="80dp"
-                android:layout_height="80dp"
-                android:src="@drawable/ic_regresar"
-                android:rotation="180"
-                app:tint="#FFFFFF" />
+            <LinearLayout
+                android:id="@+id/btnBackCliente"
+                android:layout_width="116dp"
+                android:layout_height="112dp"
+                android:background="@drawable/bg_technical_back"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Regresar"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp" />
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:rotation="180"
+                    android:src="@drawable/ic_regresar"
+                    app:tint="#FFFFFF" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="REGRESAR"
+                    android:textColor="#E6F5FF"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <View android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
+
         </LinearLayout>
 
-        <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
-
-    </LinearLayout>
+        <View
+            android:id="@+id/themeAccentBar"
+            android:layout_width="5dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:background="#0F3E82" />
+    </FrameLayout>
 
     <!-- CONTENIDO PRINCIPAL -->
     <LinearLayout
@@ -78,7 +93,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:background="#FFFFFF"
+                    android:background="@drawable/bg_content_card"
                     android:elevation="3dp"
                     android:padding="16dp"
                     android:layout_marginBottom="16dp">
@@ -156,7 +171,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:background="#FFFFFF"
+                    android:background="@drawable/bg_content_card"
                     android:elevation="3dp"
                     android:padding="16dp"
                     android:layout_marginBottom="16dp">
