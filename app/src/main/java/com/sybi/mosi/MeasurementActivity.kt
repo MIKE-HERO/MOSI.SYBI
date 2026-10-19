@@ -32,8 +32,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 
-
-
 class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     companion object {
@@ -101,7 +99,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var cardEcgImage: CardView
 
     private lateinit var imgGuide: ImageView
-    private lateinit var tvGuideTitle: TextView
     private lateinit var tvGuideStep: TextView
     private lateinit var guidePanel: View
     private lateinit var measuringAnimationHost: View
@@ -136,9 +133,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var layoutResultadosComposicion: LinearLayout
 
     private lateinit var btnStarECG: Button
-    private lateinit var btnConfirmMeasurements: Button
-    private lateinit var btnRepeat: Button
+    private lateinit var btnConfirmMeasurements: View
+    private lateinit var btnRepeat: View
     private lateinit var tvCountdownMessage: TextView
+    private lateinit var tvMeasurementTitle: TextView // NUEVO
     private var countdownTimer: CountDownTimer? = null
     private var mediaPlayer: MediaPlayer? = null
 
@@ -258,7 +256,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         ecgImageView = findViewById(R.id.ecgImageView)
         cardEcgImage = findViewById(R.id.cardEcgImage)
         imgGuide = findViewById(R.id.imgMeasurementGuide)
-        tvGuideTitle = findViewById(R.id.tvGuideTitle)
         tvGuideStep = findViewById(R.id.tvGuideStep)
         guidePanel = findViewById(R.id.guidePanel)
         measuringAnimationHost = findViewById(R.id.measuringAnimationHost)
@@ -291,6 +288,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         btnConfirmMeasurements = findViewById(R.id.btnConfirmMeasurements)
         btnRepeat = findViewById(R.id.btnRepeatReading)
         tvCountdownMessage = findViewById(R.id.tvCountdownMessage)
+        tvMeasurementTitle = findViewById(R.id.tvMeasurementTitle) // NUEVO
         btnConfirmMeasurements.visibility = View.GONE
     }
 
@@ -358,12 +356,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     /** Repinta la pantalla con [color] — llamado al abrir la pantalla y cada vez que cambia
      *  el color de marca en vivo (ajuste manual o ciclo del modo multicolor). */
     private fun applyTheme(color: Int) {
-        // Las barras ya no son un azul fijo: se oscurece el propio color del tema para
-        // mantener el look "sobrio" mientras sí refleja la marca elegida (mismo criterio
-        // que la barra inferior de MainActivity).
-        val barraColor = darken(color, 0.4f)
-        findViewById<View>(R.id.topMeasurementBar).setBackgroundColor(barraColor)
-        findViewById<View>(R.id.bottomMeasurementBarContainer).setBackgroundColor(barraColor)
+        findViewById<View>(R.id.bottomMeasurementBarContainer).setBackgroundColor(color)
         btnStarECG.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         btnHeightNext.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         applyPillTheme(color)
@@ -371,17 +364,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         // Tono claro del propio color de marca para resaltar el ícono de la pestaña activa.
         tabIconActiveColor = lightenColor(color, 0.65f)
         if (::allButtons.isInitialized) actualizarTabSeleccionado(animar = false)
-    }
-
-    /** Oscurece un color manteniendo su matiz — mismo criterio que MainActivity.darken(). */
-    private fun darken(color: Int, factor: Float): Int {
-        val f = factor.coerceIn(0f, 1f)
-        return Color.argb(
-            Color.alpha(color),
-            (Color.red(color) * f).toInt().coerceIn(0, 255),
-            (Color.green(color) * f).toInt().coerceIn(0, 255),
-            (Color.blue(color) * f).toInt().coerceIn(0, 255)
-        )
     }
 
     /** Encapsula los valores de resultado y el mensaje de estado en píldoras con un tono claro
@@ -514,12 +496,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         btnColesterol.setOnClickListener { showUnavailable("Colesterol Total", "colesterol") }
         btnRepeat.setOnClickListener { repeatCurrent() }
 
-        findViewById<TextView>(R.id.btnExitMeasurement).setOnClickListener {
+        findViewById<View>(R.id.btnExitMeasurement).setOnClickListener {
             if (hayMedicionesTomadas()) mostrarDialogoSalirConInforme() else finish()
         }
         btnConfirmMeasurements.setOnClickListener {
             btnConfirmMeasurements.isEnabled = false
-            btnConfirmMeasurements.text = "Guardando..."
+            findViewById<TextView>(R.id.tvConfirmMeasurementsText)?.text = "Guardando..."
 
             Thread {
                 // Todo el trabajo pesado en background
@@ -569,7 +551,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun startHeightWeight() {
         currentMeasurementType = "ALTURA_PESO"
-        switchTab("Altura / Peso", "altura_peso", groupAlturaPeso, skipGenericGuide = true)
+        switchTab("Altura y Peso", "altura_peso", groupAlturaPeso, skipGenericGuide = true)
         measurementResults.updateHeightWeight(state.height, state.weight, state.imc)
 
         if (completedMeasurements.contains("ALTURA_PESO") || state.hasHeightWeight()) {
@@ -997,7 +979,13 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         loadLastResults(key)
 
         waveformView.visibility = if (key == "oxigeno") View.VISIBLE else View.GONE
-        tvGuideTitle.text = title
+
+        // --- CAMBIO: Actualizar título central ---
+        tvMeasurementTitle.text = title
+        tvMeasurementTitle.visibility = View.VISIBLE
+        tvCountdownMessage.visibility = View.GONE
+        // -----------------------------------------
+
         // Los tipos con su propia secuencia de guía (altura/peso, composición,
         // presión, temperatura, oxígeno) la ponen justo después de esta llamada;
         // si aquí también se pusiera la imagen genérica "instruccion_$key", se
@@ -1589,7 +1577,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
      * medición falló (sin resultado no había forma de volver a intentarla desde la barra superior).
      */
     private fun setRepeatMode(error: Boolean) {
-        btnRepeat.text = if (error) "Reintentar" else "Repetir"
+        findViewById<TextView>(R.id.tvRepeatReadingText)?.text = if (error) "Reintentar" else "Repetir"
         if (error) btnRepeat.visibility = View.VISIBLE
     }
 
@@ -1778,8 +1766,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         val nextButton = getNextVisibleButton() ?: return
 
-        tvCountdownMessage.text = "Siguiente medición en 5 segundos"
+        // --- CAMBIO: Ocultar título y mostrar cuenta regresiva ---
+        tvMeasurementTitle.visibility = View.GONE
         tvCountdownMessage.visibility = View.VISIBLE
+        // ---------------------------------------------------------
+
+        tvCountdownMessage.text = "Siguiente medición en 5 segundos"
 
         countdownTimer = object : CountDownTimer(5000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
@@ -1827,6 +1819,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     override fun onResume() {
         super.onResume()
         isActivityResumed = true
+        applyTheme()
         ecgManager.onResume()
         updateButtonVisibility()
         checkLastMeasurement()
