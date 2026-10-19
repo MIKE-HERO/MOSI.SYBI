@@ -697,7 +697,7 @@ class ResultsActivity : BaseActivity() {
 
         Thread {
             try {
-                val pdfBytes = generarPdfBytes()
+                var pdfBytes = generarPdfBytes()
                 if (pdfBytes == null) {
                     uiHandler.post {
                         dialogoGenerando.dismiss()
@@ -748,6 +748,15 @@ class ResultsActivity : BaseActivity() {
                 FileOutputStream(archivo).use { it.write(pdfBytes) }
 
                 Log.d(TAG, "📄 PDF guardado: ${archivo.absolutePath}")
+
+                // De aquí en adelante solo se usa el archivo en disco (PdfViewerActivity lo abre
+                // por ruta, no por bytes en memoria). Soltar esta referencia — y pedirle al GC
+                // que la recoja antes de que el visor empiece a reservar sus propios bitmaps —
+                // ayuda en un equipo de 2GB de RAM, donde el pico de memoria justo en esta
+                // transición (informe recién construido + primera página del visor) es el
+                // momento más sensible de todo el flujo.
+                pdfBytes = null
+                System.gc()
 
                 uiHandler.post {
                     dialogoGenerando.dismiss()
@@ -1043,6 +1052,14 @@ class ResultsActivity : BaseActivity() {
             ?.takeIf { it.isNotBlank() }
             ?.let { InformeBuilder.cargarLogoBitmap(this, it) }
 
+        // Misma razón que los logos: la foto del paciente se mostraba en una miniatura de
+        // 75x85dp pero se decodificaba a su resolución ORIGINAL de cámara, hasta 3 veces por
+        // PDF (una por página) — un gasto de memoria/CPU importante en un equipo de 2GB de RAM.
+        // Se decodifica una sola vez aquí, ya reducida al tamaño real que se necesita.
+        val fotoPacienteBitmap = paciente?.foto
+            ?.takeIf { it.isNotBlank() }
+            ?.let { InformeBuilder.cargarFotoPaciente(it, dp(75), dp(85)) }
+
         uiHandler.post {
             try {
                 val colorTema = runCatching {
@@ -1184,7 +1201,7 @@ class ResultsActivity : BaseActivity() {
                         paginaActual++
                         val numPag = paginaActual
                         agregarPaginaAlPdf(numPag, totalPaginas) { container ->
-                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap)
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap, fotoPacienteBitmap)
                             builder.construirPagina1(p, idLocal, meds)
                         }
                     }
@@ -1194,7 +1211,7 @@ class ResultsActivity : BaseActivity() {
                         paginaActual++
                         val numPag = paginaActual
                         agregarPaginaAlPdf(numPag, totalPaginas) { container ->
-                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap)
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap, fotoPacienteBitmap)
                             builder.construirPagina2(p, idLocal, meds)
                         }
                     }
@@ -1204,13 +1221,13 @@ class ResultsActivity : BaseActivity() {
                         paginaActual++
                         val numPag = paginaActual
                         agregarPaginaAlPdf(numPag, totalPaginas) { container ->
-                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap)
+                            val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap, fotoPacienteBitmap)
                             builder.construirPagina3(p, idLocal, meds)
                         }
                     }
                 } else {
                     agregarPaginaAlPdf(1, 1) { container ->
-                        val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap)
+                        val builder = InformeBuilder(this@ResultsActivity, container, colorTema, clienteLogo, logoIzquierdoBitmap, logoDerechoBitmap, fotoPacienteBitmap)
                         builder.mensajeVacio("No hay mediciones registradas para este paciente.")
                     }
                 }
