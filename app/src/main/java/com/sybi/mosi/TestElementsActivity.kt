@@ -41,6 +41,9 @@ class TestElementsActivity : BaseActivity() {
         const val PREF_DEVICE_IC_CARD = "device_ic_card"
         const val PREF_DEVICE_THERMAL_PRINTER = "device_thermal_printer"
 
+        /** Derivaciones de ECG (6 o 12) configuradas en Parámetros de medición. */
+        const val PREF_ECG_DERIVACIONES = "ecg_derivaciones"
+
         /** Marca de la línea divisoria en el selector de velocidad. */
         private const val SEPARATOR = -1
     }

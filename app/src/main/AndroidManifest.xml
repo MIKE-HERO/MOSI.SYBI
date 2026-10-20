@@ -126,6 +126,7 @@
         <activity android:name=".UserSettingsActivity" android:exported="false" />
         <activity android:name=".TelemedicineSettingsActivity" android:exported="false" />
         <activity android:name=".ClienteSettingsActivity" android:exported="false" />
+        <activity android:name=".MeasurementParametersActivity" android:exported="false" />
         <activity android:name=".PatientTableActivity" android:exported="false" />
         <activity android:name=".ResultTableActivity" android:exported="false" />
 

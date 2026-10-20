@@ -26,6 +26,7 @@ class CalibTestActivity : BaseActivity() {
     private lateinit var btnTestMic: Button
     private lateinit var btnTestCamera: Button
     private lateinit var btnCalibrate: Button
+    private lateinit var btnSendLog: Button
     private lateinit var etCardResult: android.widget.EditText
 
     private var icCardReceiver: BroadcastReceiver? = null
@@ -48,6 +49,7 @@ class CalibTestActivity : BaseActivity() {
         btnTestMic = findViewById(R.id.btnTestMic)
         btnTestCamera = findViewById(R.id.btnTestCamera)
         btnCalibrate = findViewById(R.id.btnCalibrate)
+        btnSendLog = findViewById(R.id.btnSendLog)
         etCardResult = findViewById(R.id.etCardResult)
 
         // --- RECEPTOR DE TARJETA IC ---
@@ -95,6 +97,8 @@ class CalibTestActivity : BaseActivity() {
         btnCalibrate.setOnClickListener {
             startActivity(Intent(this, CalibrateActivity::class.java))
         }
+
+        btnSendLog.setOnClickListener { mostrarDialogoEnviarLog() }
     }
 
     private fun aplicarColorTema(hexColor: String) {
@@ -105,6 +109,7 @@ class CalibTestActivity : BaseActivity() {
             btnTestMic.backgroundTintList = colorStateList
             btnTestCamera.backgroundTintList = colorStateList
             btnCalibrate.backgroundTintList = colorStateList
+            btnSendLog.backgroundTintList = colorStateList
         } catch (e: Exception) {
             Log.e(TAG, "Error aplicando color de tema: ${e.message}")
         }
@@ -140,6 +145,83 @@ class CalibTestActivity : BaseActivity() {
     private fun abrirTestUrl(url: String) {
         Log.d(TAG, "🌐 Abriendo test en CustomTabs: $url")
         CustomTabsHelper.openUrl(this, url, preferFirefox = true)
+    }
+
+    // ==========================================
+    // ENVIAR LOG DE ERRORES
+    // ==========================================
+    private fun mostrarDialogoEnviarLog() {
+        if (!EmailSender.estaConfigurado(this)) {
+            Toast.makeText(
+                this,
+                "Configura primero el correo en Configuración de informes > Configurar envío de correo (SMTP)",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        val input = android.widget.EditText(this).apply {
+            hint = "correo@ejemplo.com"
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS or android.text.InputType.TYPE_CLASS_TEXT
+            setSingleLine()
+        }
+        val paddingPx = (20 * resources.displayMetrics.density).toInt()
+        val contenedor = android.widget.FrameLayout(this).apply {
+            setPadding(paddingPx, paddingPx / 2, paddingPx, 0)
+            addView(input)
+        }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Enviar log de errores")
+            .setMessage("¿A qué correo deseas enviar el log de errores de esta sesión?")
+            .setView(contenedor)
+            .setPositiveButton("Enviar") { _, _ ->
+                val destino = input.text.toString().trim()
+                if (destino.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(destino).matches()) {
+                    Toast.makeText(this, "Ingresa un correo válido", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                enviarLogPorCorreo(destino)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun enviarLogPorCorreo(destino: String) {
+        btnSendLog.isEnabled = false
+        btnSendLog.text = "Enviando..."
+
+        val config = EmailSender.cargarConfig(this)
+
+        Thread {
+            val archivo = ErrorLogHelper.generarLogDeErrores(this)
+            val resultado = if (archivo != null) {
+                EmailSender.enviar(
+                    config = config,
+                    destino = destino,
+                    asunto = "Log de errores — Quiosco MOSI",
+                    cuerpoHtml = "<p>Se adjunta el log con los errores registrados por el quiosco.</p>",
+                    adjunto = archivo,
+                    nombreAdjunto = "mosi_errores.log"
+                )
+            } else {
+                Result.failure(IllegalStateException("No se pudo generar el archivo de log"))
+            }
+
+            runOnUiThread {
+                btnSendLog.isEnabled = true
+                btnSendLog.text = "Enviar"
+                if (resultado.isSuccess) {
+                    Toast.makeText(this, "Log enviado a $destino", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(
+                        this,
+                        "Error al enviar el log: ${resultado.exceptionOrNull()?.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }.start()
     }
 
     override fun onDestroy() {

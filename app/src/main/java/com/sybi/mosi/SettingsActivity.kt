@@ -106,6 +106,10 @@ class SettingsActivity : BaseActivity() {
             startActivity(Intent(this, ClienteSettingsActivity::class.java))
         }
 
+        findViewById<LinearLayout>(R.id.btnMeasurementParameters)?.setOnClickListener {
+            startActivity(Intent(this, MeasurementParametersActivity::class.java))
+        }
+
         // 8. Botón: Información del dispositivo
         findViewById<LinearLayout>(R.id.btnDeviceInfo)?.setOnClickListener {
             startActivity(Intent(this, DeviceInfoActivity::class.java))

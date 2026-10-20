@@ -1527,17 +1527,46 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
                                 android:orientation="vertical"
-                                android:gravity="center"
+                                android:gravity="bottom|center_horizontal"
                                 android:visibility="gone">
+
+                                <!-- Loader embebido en la propia tarjeta (no una superposición):
+                                     se muestra mientras se espera el resultado de la app externa
+                                     de ECG, en el mismo espacio donde luego aparece el resultado. -->
+                                <LinearLayout
+                                    android:id="@+id/ecgLoadingView"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="0dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical"
+                                    android:gravity="center"
+                                    android:visibility="gone">
+
+                                    <com.sybi.mosi.measurement.EqualizerLoaderView
+                                        android:id="@+id/ecgLoadingAnim"
+                                        android:layout_width="120dp"
+                                        android:layout_height="120dp" />
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="16dp"
+                                        android:gravity="center"
+                                        android:text="Procesando electrocardiograma…"
+                                        android:textColor="#17384D"
+                                        android:textSize="18sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
 
                                 <Button
                                     android:id="@+id/btnStarECG"
-                                    android:layout_width="260dp"
+                                    android:layout_width="match_parent"
                                     android:layout_height="70dp"
-                                    android:text="INICIAR ECG"
+                                    android:text="Comenzar medición"
                                     android:textColor="#FFFFFF"
-                                    android:textSize="22sp"
+                                    android:textSize="20sp"
                                     android:textStyle="bold"
+                                    android:textAllCaps="false"
                                     android:backgroundTint="#0F3E82"
                                     android:elevation="6dp"
                                     android:layout_margin="20dp"
@@ -1906,7 +1935,7 @@
             android:orientation="horizontal"
             android:gravity="center"
             android:paddingTop="10dp"
-            android:paddingBottom="10dp">
+            android:paddingBottom="20dp">
 
             <LinearLayout android:id="@+id/btnNavAlturaPeso" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center" android:clickable="true" android:focusable="true">
                 <ImageView

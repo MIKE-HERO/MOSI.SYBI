@@ -144,6 +144,20 @@ class ECGHelper(private val callback: ECGCallback) {
     }
 
     /**
+     * Reanuda la búsqueda de resultados para una medición iniciada antes de
+     * que esta instancia existiera (ver EcgManager.resumePendingMeasurement).
+     */
+    fun resumePolling(patientId: String, startTime: Long) {
+        currentPatientId = patientId
+        measurementStartTime = startTime
+        currentFileName = null
+        isRead = false
+        isMeasure = true
+        Log.d(TAG, "Reenganchando búsqueda de ECG para paciente=$patientId, startTime=$startTime")
+        handler.postDelayed({ readFileData() }, 500)
+    }
+
+    /**
      * Método legacy. Ya no se usa desde MeasurementActivity pero se deja por compatibilidad.
      */
     @Deprecated("Usar onResume() en su lugar")
