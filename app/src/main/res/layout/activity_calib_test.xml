@@ -216,6 +216,45 @@
                     android:layout_height="1dp"
                     android:background="#E0E0E0" />
 
+                <!-- ITEM 5: ENVIAR LOG DE ERRORES -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingVertical="12dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Enviar log de errores"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#333333"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Genera un reporte solo con los errores registrados por la app y lo envía por correo al destino que indiques."
+                        android:textSize="12sp"
+                        android:textColor="#757575"
+                        android:layout_marginBottom="10dp" />
+
+                    <Button
+                        android:id="@+id/btnSendLog"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end"
+                        android:text="Enviar"
+                        android:textColor="#FFFFFF"
+                        android:backgroundTint="#0F3E82" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#E0E0E0" />
+
             </LinearLayout>
         </ScrollView>
     </LinearLayout>

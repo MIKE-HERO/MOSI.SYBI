@@ -73,6 +73,18 @@ class EcgManager(
     }
 
     /**
+     * Reengancha la búsqueda del resultado de una medición que ya se había
+     * iniciado antes de que el proceso se recreara (Android mató la app en
+     * segundo plano mientras la app externa de ECG estaba al frente — típico
+     * en equipos de poca RAM). [helper] es una instancia nueva recién creada
+     * por [init], así que no sabe que hay una medición pendiente hasta que se
+     * lo decimos aquí.
+     */
+    fun resumePendingMeasurement(patientId: String, startTime: Long) {
+        helper?.resumePolling(patientId, startTime)
+    }
+
+    /**
      * Método legacy. Ya no se usa.
      */
     @Deprecated("Usar onResume() en su lugar")
@@ -84,7 +96,8 @@ class EcgManager(
         patientName: String,
         patientId: String,
         patientGender: String,
-        patientBirthDate: String
+        patientBirthDate: String,
+        derivaciones: Int = 6
     ): Boolean {
         val age = HWFatHelper(activity).calcularEdadDesdeFecha(patientBirthDate)
         val parts = patientBirthDate.split("/")
@@ -92,15 +105,16 @@ class EcgManager(
         val month = parts.getOrNull(1)?.toIntOrNull() ?: 1
         val day = parts.getOrNull(0)?.toIntOrNull() ?: 1
 
-        Log.d(TAG, "📤 Enviando datos al ECG: $patientName / $patientId / $patientGender / $age")
+        Log.d(TAG, "📤 Enviando datos al ECG: $patientName / $patientId / $patientGender / $age / ${derivaciones}d")
 
-        return helper?.openECG6(
-            activity,
-            patientName.ifEmpty { "Paciente" },
-            patientId.ifEmpty { "0000" },
-            patientGender,
-            age, year, month, day
-        ) ?: false
+        val name = patientName.ifEmpty { "Paciente" }
+        val id = patientId.ifEmpty { "0000" }
+
+        return if (derivaciones == 12) {
+            helper?.openECG12(activity, name, id, patientGender, age, year, month, day) ?: false
+        } else {
+            helper?.openECG6(activity, name, id, patientGender, age, year, month, day) ?: false
+        }
     }
 
     fun saveToPrefs(context: Context, results: EcgResults, image: Bitmap?) {

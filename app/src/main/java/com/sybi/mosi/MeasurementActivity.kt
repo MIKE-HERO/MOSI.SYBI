@@ -37,6 +37,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     companion object {
         private const val TAG = "MeasurementActivity"
         private const val ERROR_COLOR = "#F44336"
+        private const val KEY_CURRENT_MEASUREMENT_TYPE = "current_measurement_type"
+        private const val KEY_ECG_ESPERANDO_RESULTADO = "ecg_esperando_resultado"
+        private const val KEY_ECG_MEASUREMENT_START_TIME = "ecg_measurement_start_time"
     }
 
     // ── Estado y managers ─────────────────────────────────
@@ -97,6 +100,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var tvResultResCode: TextView
     private lateinit var ecgImageView: ImageView
     private lateinit var cardEcgImage: CardView
+    private lateinit var ecgLoadingView: View
+    private lateinit var ecgLoadingAnim: com.sybi.mosi.measurement.EqualizerLoaderView
+    private var ecgEsperandoResultado = false
+    private var ecgMeasurementStartTime = 0L
 
     private lateinit var imgGuide: ImageView
     private lateinit var tvGuideStep: TextView
@@ -180,10 +187,46 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         setupButtons()
         applyTheme()
         startGuideBreathing()
+        restoreEcgPendingState(savedInstanceState)
 
         controller.postDelayed({
             deviceManager.query()
         }, 300)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(KEY_CURRENT_MEASUREMENT_TYPE, currentMeasurementType)
+        outState.putBoolean(KEY_ECG_ESPERANDO_RESULTADO, ecgEsperandoResultado)
+        outState.putLong(KEY_ECG_MEASUREMENT_START_TIME, ecgMeasurementStartTime)
+    }
+
+    /**
+     * En equipos de poca RAM, Android puede matar esta Activity en segundo plano
+     * mientras la app externa de ECG está al frente. Al volver, el proceso se
+     * recrea desde cero: sin esto, se perdería el aviso de "procesando..." y la
+     * búsqueda del archivo de resultado nunca se reengancharía, dejando la
+     * medición colgada para siempre.
+     */
+    private fun restoreEcgPendingState(savedInstanceState: Bundle?) {
+        val savedState = savedInstanceState ?: return
+        if (savedState.getString(KEY_CURRENT_MEASUREMENT_TYPE) != "ECG") return
+
+        // Evita que el auto-clic del primer botón disponible (pensado solo para el
+        // arranque inicial) pise la pestaña de ECG que estamos restaurando.
+        firstButtonTriggered = true
+
+        showEcgTab()
+
+        val estabaEsperando = savedState.getBoolean(KEY_ECG_ESPERANDO_RESULTADO, false)
+        val startTime = savedState.getLong(KEY_ECG_MEASUREMENT_START_TIME, 0L)
+        if (estabaEsperando && startTime > 0L) {
+            ecgEsperandoResultado = true
+            ecgMeasurementStartTime = startTime
+            btnStarECG.visibility = View.GONE
+            ecgLoadingView.visibility = View.VISIBLE
+            ecgManager.resumePendingMeasurement(pacienteId.toString(), startTime)
+        }
     }
 
     // ── Setup ─────────────────────────────────────────────
@@ -255,6 +298,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         tvResultResCode = findViewById(R.id.tvResultResCode)
         ecgImageView = findViewById(R.id.ecgImageView)
         cardEcgImage = findViewById(R.id.cardEcgImage)
+        ecgLoadingView = findViewById(R.id.ecgLoadingView)
+        ecgLoadingAnim = findViewById(R.id.ecgLoadingAnim)
         imgGuide = findViewById(R.id.imgMeasurementGuide)
         tvGuideStep = findViewById(R.id.tvGuideStep)
         guidePanel = findViewById(R.id.guidePanel)
@@ -379,6 +424,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         measurementResults.applyLoaderColor(themeColor)
         measuringAnimationView.setBarColor(themeColor)
+        ecgLoadingAnim.setBarColor(themeColor)
         waveformView.setLineColor(themeColor)
     }
 
@@ -491,7 +537,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         btnTemperatura.setOnClickListener { startTemperature() }
         btnOxigeno.setOnClickListener { startOxygen() }
         btnEcg.setOnClickListener { showEcgTab() }
-        btnStarECG.setOnClickListener { btnStarECG.visibility = View.GONE; startEcg() }
+        btnStarECG.setOnClickListener { startEcg(ecgDerivacionesConfiguradas()) }
         btnAzucar.setOnClickListener { showUnavailable("Azúcar en Sangre", "azucar") }
         btnAcidoUrico.setOnClickListener { showUnavailable("Ácido Úrico", "acido_urico") }
         btnColesterol.setOnClickListener { showUnavailable("Colesterol Total", "colesterol") }
@@ -702,7 +748,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         } else {
             showStatusMessage("Presione el botón ECG para iniciar la medición", "#FF9800")
             showSuccessCheck(false)
-            btnStarECG.visibility = View.VISIBLE
+            btnStarECG.visibility = if (ecgEsperandoResultado) View.GONE else View.VISIBLE
+            ecgLoadingView.visibility = if (ecgEsperandoResultado) View.VISIBLE else View.GONE
             btnRepeat.visibility = View.GONE
         }
     }
@@ -715,11 +762,22 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         showStatusMessage("Función no disponible", "#FF9800")
     }
 
-    private fun startEcg() {
+    /** Derivaciones configuradas en "Parámetros de medición" (ver MeasurementParametersActivity). */
+    private fun ecgDerivacionesConfiguradas(): Int =
+        getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+            .getInt(TestElementsActivity.PREF_ECG_DERIVACIONES, 6)
+
+    private fun startEcg(derivaciones: Int) {
+        btnStarECG.visibility = View.GONE
+        val startTime = System.currentTimeMillis()
         val ok = ecgManager.startMeasurement(
-            pacienteNombre, pacienteId.toString(), pacienteGenero, pacienteFechaNacimiento
+            pacienteNombre, pacienteId.toString(), pacienteGenero, pacienteFechaNacimiento, derivaciones
         )
-        if (!ok) {
+        if (ok) {
+            ecgEsperandoResultado = true
+            ecgMeasurementStartTime = startTime
+            ecgLoadingView.visibility = View.VISIBLE
+        } else {
             Toast.makeText(this, "No se pudo encontrar la app de ECG", Toast.LENGTH_LONG).show()
             onMeasurementError()
         }
@@ -799,7 +857,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 layoutResultadosEcg.visibility = View.GONE
                 btnStarECG.visibility = View.GONE
                 btnRepeat.visibility = View.GONE
-                startEcg()
+                startEcg(ecgDerivacionesConfiguradas())
             }
         }
     }
@@ -944,6 +1002,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         updatePillColor(tvResultRV5, true)
         updatePillColor(tvResultSV1, true)
         updatePillColor(tvResultResCode, results.resCode.equals("Normal", ignoreCase = true) || results.resCode == "0")
+        ecgEsperandoResultado = false
+        ecgMeasurementStartTime = 0L
+        ecgLoadingView.visibility = View.GONE
         btnStarECG.visibility = View.GONE
         layoutResultadosEcg.visibility = View.VISIBLE
         groupEcg.visibility = View.VISIBLE
@@ -1321,8 +1382,11 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         // Oxígeno (gráfica de pulsaciones en tiempo real) y Composición (barra de
         // porcentaje) ya muestran su propio indicador de progreso específico —
         // taparlos con el loader genérico ocultaría información más útil que la
-        // propia animación genérica.
-        val tieneIndicadorPropio = currentMeasurementType == "OXIGENO" || currentMeasurementType == "COMPOSICION"
+        // propia animación genérica. ECG tampoco lo usa: la medición la realiza
+        // la app externa, así que aquí solo se necesita ver el botón "Comenzar
+        // medición" (u, obtenido el resultado, la imagen del trazo).
+        val tieneIndicadorPropio = currentMeasurementType == "OXIGENO" || currentMeasurementType == "COMPOSICION" ||
+            currentMeasurementType == "ECG"
         measuringAnimationHost.visibility = if (midiendo && !tieneIndicadorPropio) View.VISIBLE else View.GONE
     }
 
@@ -1347,7 +1411,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun updateButtonVisibility() {
         when (currentMeasurementType) {
             "ECG" -> {
-                btnStarECG.visibility = if (state.ecgResults == null) View.VISIBLE else View.GONE
+                btnStarECG.visibility = if (state.ecgResults == null && !ecgEsperandoResultado) View.VISIBLE else View.GONE
+                ecgLoadingView.visibility = if (ecgEsperandoResultado) View.VISIBLE else View.GONE
                 btnRepeat.visibility = if (state.ecgResults != null) View.VISIBLE else View.GONE
             }
             "ALTURA_PESO" -> {
@@ -1591,6 +1656,11 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
             cancelCountdownTimer()
             tvStatusProgress.visibility = View.GONE
+            if (currentMeasurementType == "ECG") {
+                ecgEsperandoResultado = false
+                ecgMeasurementStartTime = 0L
+                ecgLoadingView.visibility = View.GONE
+            }
             if (currentMeasurementType == "ALTURA_PESO") heightWeightActions.visibility = View.GONE
             if (currentMeasurementType in setOf("ALTURA_PESO", "COMPOSICION", "PRESION", "TEMPERATURA", "OXIGENO")) {
                 guideSequenceToken++
