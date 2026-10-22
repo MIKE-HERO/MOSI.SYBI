@@ -352,6 +352,19 @@ class ClienteSettingsActivity : BaseActivity() {
                 cargarImagenEnVista(vistaDelSlot(slot), guardado)
                 cargarImagenEnVista(imgPreviewGrande, guardado)
                 Toast.makeText(this@ClienteSettingsActivity, "Imagen actualizada para $idCliente", Toast.LENGTH_SHORT).show()
+
+                // Si el override es del logo izquierdo del cliente ACTIVO del kiosco, refleja el
+                // cambio de inmediato en la pantalla principal de la app, sin esperar a que el
+                // usuario presione "Guardar Configuración" por separado.
+                if (idCliente == TelemedicineSettingsActivity.getCliente(this@ClienteSettingsActivity)) {
+                    withContext(Dispatchers.IO) {
+                        LogoSyncHelper.sincronizarLogoDeCliente(
+                            this@ClienteSettingsActivity,
+                            idSucursalSeleccionada,
+                            idCliente
+                        )
+                    }
+                }
             } else {
                 Toast.makeText(this@ClienteSettingsActivity, "No se pudo guardar la imagen", Toast.LENGTH_LONG).show()
             }
