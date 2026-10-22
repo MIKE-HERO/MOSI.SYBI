@@ -6,38 +6,38 @@
     android:background="#F5F5F5">
 
     <!-- BARRA SUPERIOR -->
+    <!-- BARRA SUPERIOR -->
     <RelativeLayout
         android:id="@+id/topResultsBar"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
+        android:layout_height="wrap_content"
         android:background="#0F3E82"
-        android:paddingHorizontal="20dp">
+        android:paddingStart="24dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="10dp">
 
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+        <!-- Botón Salir (Estilo idéntico a Mediciones) -->
+        <ImageButton
+            android:id="@+id/btnExitResults"
+            android:layout_width="58dp"
+            android:layout_height="58dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="@drawable/bg_login_back"
+            android:contentDescription="Salir"
+            android:elevation="3dp"
+            android:padding="16dp"
+            android:rotation="180"
+            android:src="@drawable/ic_regresar"
+            android:tint="#31536A"
+            android:clickable="true"
+            android:focusable="true" />
 
-            <Button
-                android:id="@+id/btnExitResults"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Salir"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="#4D000000"
-                android:textSize="20sp"
-                android:gravity="center_vertical"
-                android:clickable="true"
-                android:focusable="true"
-                android:layout_marginEnd="5dp" />
-
-        </LinearLayout>
-
-
+        <!-- Título Central -->
         <TextView
             android:layout_width="wrap_content"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_centerInParent="true"
             android:text="Informe de resultados"
             android:textColor="#FFFFFF"
@@ -66,71 +66,139 @@
 
     </ScrollView>
 
-    <!-- BARRA INFERIOR -->
+    <!-- BARRA INFERIOR MEJORADA (Ancho fijo y alineado a la izquierda) -->
     <LinearLayout
         android:id="@+id/bottomResultsBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#0F3E82"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingHorizontal="20dp"
-        android:paddingVertical="15dp">
+        android:gravity="start|center_vertical"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="20dp">
 
-        <Button
+        <!-- BOTÓN 1: Iniciar Consulta -->
+        <LinearLayout
             android:id="@+id/btnStartConsultation"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Iniciar Consulta"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#4D000000"
-            android:textSize="20sp"
-            android:gravity="center_vertical"
+            android:layout_width="220dp"
+            android:layout_height="58dp"
+            android:layout_marginEnd="12dp"
+            android:background="@drawable/bg_settings_card"
             android:clickable="true"
+            android:elevation="3dp"
             android:focusable="true"
-            android:layout_marginEnd="5dp" />
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
 
-        <!-- Botón Imprimir resultados -->
-        <Button
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_telemedicina"
+                android:tint="#31536A" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Iniciar Consulta"
+                android:textColor="#31536A"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- BOTÓN 2: Imprimir PDF -->
+        <LinearLayout
             android:id="@+id/btnPrintResults"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Imprimir PDF"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#4D000000"
-            android:textSize="20sp"
-            android:gravity="center_vertical"
+            android:layout_width="220dp"
+            android:layout_height="58dp"
+            android:layout_marginEnd="12dp"
+            android:background="@drawable/bg_settings_card"
             android:clickable="true"
+            android:elevation="3dp"
             android:focusable="true"
-            android:layout_marginEnd="5dp" />
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
 
-        <!-- Botón Imprimir Ticket -->
-        <Button
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_print"
+                android:tint="#31536A" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Imprimir PDF"
+                android:textColor="#31536A"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- BOTÓN 3: Imprimir Ticket -->
+        <LinearLayout
             android:id="@+id/btnPrintTicket"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Imprimir Ticket"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#4D000000"
-            android:textSize="20sp"
-            android:gravity="center_vertical"
+            android:layout_width="220dp"
+            android:layout_height="58dp"
+            android:layout_marginEnd="12dp"
+            android:background="@drawable/bg_settings_card"
             android:clickable="true"
+            android:elevation="3dp"
             android:focusable="true"
-            android:layout_marginEnd="5dp" />
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
 
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_print"
+                android:tint="#31536A" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Imprimir Ticket"
+                android:textColor="#31536A"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
-        <Button
+        <!-- BOTÓN 4: Enviar por correo -->
+        <LinearLayout
             android:id="@+id/btnEmailResults"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Enviar por correo"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#4D000000"
-            android:textSize="20sp"
-            android:gravity="center_vertical"
+            android:layout_width="220dp"
+            android:layout_height="58dp"
+            android:background="@drawable/bg_settings_card"
             android:clickable="true"
-            android:focusable="true" />
+            android:elevation="3dp"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_email"
+                android:tint="#31536A" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Enviar Correo"
+                android:textColor="#31536A"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
     </LinearLayout>
 

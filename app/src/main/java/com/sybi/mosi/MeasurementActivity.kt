@@ -1786,15 +1786,11 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             return
         }
         val margenH = dp(6)
-        val margenV = dp(4)
         val destX = (target.left + margenH).toFloat()
         val destW = target.width - margenH * 2
-        // Alto fijo = el de la fila completa (no el de cada botón): las pestañas con
-        // etiqueta de una sola línea ("ECG") miden menos que las de dos líneas
-        // ("Composición\nCorporal"), así que usar target.height hacía que el selector
-        // "saltara" de alto al cambiar de pestaña en vez de verse uniforme.
-        val destY = (fila.top + fila.paddingTop + margenV).toFloat()
-        val destH = fila.height - fila.paddingTop - fila.paddingBottom - margenV * 2
+        // Alto completo de la barra de color inferior
+        val destY = fila.top.toFloat()
+        val destH = fila.height
 
         val params = tabSelectorIndicator.layoutParams
         if (!animar || tabSelectorIndicator.width == 0) {
