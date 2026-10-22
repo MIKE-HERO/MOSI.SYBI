@@ -1,7 +1,6 @@
 package com.sybi.mosi
 
 import android.content.Context
-import android.net.Uri
 import android.util.Log
 import com.google.gson.Gson
 import com.sybi.mosi.network.LogoClienteDto
@@ -105,33 +104,6 @@ object ClienteLogoCache {
         archivoOverride(ctx, idCliente, slot)?.let { return it }
         val dirDescargas = File(ctx.cacheDir, "clienteLogos")
         return dirDescargas.listFiles { f -> f.nameWithoutExtension == "${idCliente}_$slot" }?.firstOrNull()
-    }
-
-    /**
-     * Copia [uri] (elegida por el usuario en el selector de imágenes) como el override local
-     * de ese cliente/slot. BLOQUEANTE: llamar desde un hilo de fondo.
-     */
-    fun guardarOverrideDesdeUri(context: Context, idCliente: String, slot: String, uri: Uri): File? {
-        val ctx = context.applicationContext
-        return try {
-            val mimeType = ctx.contentResolver.getType(uri)
-            val esSvg = mimeType == "image/svg+xml" || uri.toString().endsWith(".svg", ignoreCase = true)
-            val extension = if (esSvg) "svg" else "png"
-
-            val dir = dirOverrides(ctx)
-            // Limpiar cualquier override previo de ese slot (pudo tener otra extensión).
-            dir.listFiles { f -> f.nameWithoutExtension == "${idCliente}_$slot" }?.forEach { it.delete() }
-            val destino = File(dir, "${idCliente}_$slot.$extension")
-
-            ctx.contentResolver.openInputStream(uri)?.use { input ->
-                destino.outputStream().use { output -> input.copyTo(output) }
-            } ?: return null
-
-            destino
-        } catch (e: Exception) {
-            Log.w(TAG, "No se pudo guardar el override de $slot para cliente $idCliente: ${e.message}")
-            null
-        }
     }
 
     /** Quita el override local de un slot (vuelve a depender de lo que traiga el servidor). */

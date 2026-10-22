@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -15,7 +14,6 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import coil.ImageLoader
@@ -56,6 +54,7 @@ class ClienteSettingsActivity : BaseActivity() {
     private lateinit var tvSlotSeleccionado: TextView
     private lateinit var imgPreviewGrande: ImageView
     private lateinit var btnSeleccionarImagen: Button
+    private lateinit var btnBuscarImagenesCliente: Button
 
     private var listaClientes: List<Cliente> = emptyList()
     private var listaSucursales: List<Sucursal> = emptyList()
@@ -88,6 +87,7 @@ class ClienteSettingsActivity : BaseActivity() {
         tvSlotSeleccionado = findViewById(R.id.tvSlotSeleccionado)
         imgPreviewGrande = findViewById(R.id.imgPreviewGrande)
         btnSeleccionarImagen = findViewById(R.id.btnSeleccionarImagen)
+        btnBuscarImagenesCliente = findViewById(R.id.btnBuscarImagenesCliente)
 
         findViewById<View>(R.id.btnBackCliente).setOnClickListener {
             saveClienteSettings()
@@ -98,7 +98,8 @@ class ClienteSettingsActivity : BaseActivity() {
         cardSlotIzq.setOnClickListener { mostrarPreviewGrande("izq") }
         cardSlotDer.setOnClickListener { mostrarPreviewGrande("der") }
         cardSlotFirma.setOnClickListener { mostrarPreviewGrande("firma") }
-        btnSeleccionarImagen.setOnClickListener { abrirSelectorDeImagen() }
+        btnSeleccionarImagen.setOnClickListener { aplicarComoLogoPorDefecto() }
+        btnBuscarImagenesCliente.setOnClickListener { buscarImagenesDeCliente() }
 
         val colorReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
@@ -277,10 +278,12 @@ class ClienteSettingsActivity : BaseActivity() {
         val idCliente = idClienteSeleccionado
         if (idCliente.isBlank()) {
             tvImagenesHint.text = "Selecciona un cliente para ver sus imágenes"
+            btnBuscarImagenesCliente.isEnabled = false
             ClienteLogoCache.SLOTS.forEach { (slot, _) -> vistaDelSlot(slot).setImageDrawable(null) }
             return
         }
-        tvImagenesHint.text = "Toca una imagen para previsualizarla o reemplazarla"
+        tvImagenesHint.text = "Toca una imagen para previsualizarla"
+        btnBuscarImagenesCliente.isEnabled = true
 
         lifecycleScope.launch {
             val archivos = withContext(Dispatchers.IO) {
@@ -338,58 +341,67 @@ class ClienteSettingsActivity : BaseActivity() {
         }
     }
 
-    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    /**
+     * "Seleccionar imagen" no abre ningún selector de archivos: su única función es tomar la
+     * imagen que ya se está previsualizando (izq/der del cliente elegido, ya sea la descargada
+     * del servidor o un override previo) y aplicarla como logo por defecto de la app (pantalla
+     * principal, PDF, etc.), sin importar si este cliente es el "activo" del dispositivo. La
+     * firma no cuenta como logotipo de marca, así que el botón no aplica para ese slot.
+     */
+    private fun aplicarComoLogoPorDefecto() {
         val slot = slotSeleccionado
         val idCliente = idClienteSeleccionado
-        if (result.resultCode != RESULT_OK || slot == null || idCliente.isBlank()) return@registerForActivityResult
-        val uri: Uri = result.data?.data ?: return@registerForActivityResult
-
-        lifecycleScope.launch {
-            val guardado = withContext(Dispatchers.IO) {
-                ClienteLogoCache.guardarOverrideDesdeUri(this@ClienteSettingsActivity, idCliente, slot, uri)
-            }
-            if (guardado != null) {
-                cargarImagenEnVista(vistaDelSlot(slot), guardado)
-                cargarImagenEnVista(imgPreviewGrande, guardado)
-                Toast.makeText(this@ClienteSettingsActivity, "Imagen actualizada para $idCliente", Toast.LENGTH_SHORT).show()
-
-                // Si el override es de un logotipo (izquierdo o derecho; la firma no cuenta
-                // como logotipo de marca) del cliente ACTIVO del kiosco, refleja el cambio de
-                // inmediato en la pantalla principal de la app, sin esperar a que el usuario
-                // presione "Guardar Configuración" por separado. El slot elegido aquí queda
-                // como preferido para este cliente en sincronizaciones futuras.
-                if ((slot == "izq" || slot == "der") &&
-                    idCliente == TelemedicineSettingsActivity.getCliente(this@ClienteSettingsActivity)
-                ) {
-                    withContext(Dispatchers.IO) {
-                        LogoSyncHelper.aplicarLogoSeleccionado(
-                            this@ClienteSettingsActivity,
-                            idCliente,
-                            slot,
-                            guardado.absolutePath
-                        )
-                    }
-                }
-            } else {
-                Toast.makeText(this@ClienteSettingsActivity, "No se pudo guardar la imagen", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun abrirSelectorDeImagen() {
-        if (idClienteSeleccionado.isBlank() || slotSeleccionado == null) {
+        if (idCliente.isBlank() || slot == null) {
             Toast.makeText(this, "Selecciona primero un cliente y una imagen", Toast.LENGTH_SHORT).show()
             return
         }
-        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-            type = "*/*"
-            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "image/svg+xml"))
-            addCategory(Intent.CATEGORY_OPENABLE)
+        if (slot != "izq" && slot != "der") {
+            Toast.makeText(this, "La firma no se puede usar como logo de la app", Toast.LENGTH_SHORT).show()
+            return
         }
-        try {
-            pickImageLauncher.launch(intent)
-        } catch (e: Exception) {
-            pickImageLauncher.launch(Intent(Intent.ACTION_PICK).apply { type = "image/*" })
+        val archivo = ClienteLogoCache.archivoOverride(this, idCliente, slot)
+            ?: ClienteLogoCache.rutaImagenSlotActual(this, idCliente, slot)
+        if (archivo == null) {
+            Toast.makeText(this, "Este cliente no tiene imagen en ese slot. Usa \"Buscar imágenes de cliente\" primero.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                LogoSyncHelper.aplicarLogoSeleccionado(this@ClienteSettingsActivity, idCliente, slot, archivo.absolutePath)
+            }
+            Toast.makeText(this@ClienteSettingsActivity, "✅ Logo de la app actualizado", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Descarga/actualiza explícitamente desde el servidor los logos y la firma del cliente
+     * seleccionado (usuariosWeb/logosCliente), y refresca las previsualizaciones. Un override
+     * local (imagen elegida a mano) sigue ganando siempre sobre lo que traiga el servidor para
+     * ese mismo slot — este botón no lo reemplaza, solo refresca los slots sin override.
+     */
+    private fun buscarImagenesDeCliente() {
+        val idCliente = idClienteSeleccionado
+        if (idCliente.isBlank()) {
+            Toast.makeText(this, "Selecciona primero un cliente", Toast.LENGTH_SHORT).show()
+            return
+        }
+        btnBuscarImagenesCliente.isEnabled = false
+        btnBuscarImagenesCliente.text = "Buscando imágenes..."
+
+        lifecycleScope.launch {
+            val logos = withContext(Dispatchers.IO) {
+                runCatching { ClienteLogoCache.obtener(this@ClienteSettingsActivity, idCliente) }.getOrNull()
+            }
+            actualizarSlotsImagenes()
+            btnBuscarImagenesCliente.isEnabled = true
+            btnBuscarImagenesCliente.text = "Buscar imágenes de cliente"
+
+            if (logos != null) {
+                Toast.makeText(this@ClienteSettingsActivity, "✅ Imágenes de $idCliente actualizadas", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this@ClienteSettingsActivity, "No se encontraron imágenes para este cliente en el servidor", Toast.LENGTH_LONG).show()
+            }
         }
     }
 

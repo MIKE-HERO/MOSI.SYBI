@@ -194,6 +194,17 @@
                         android:textColor="#9E9E9E"
                         android:layout_marginBottom="12dp"/>
 
+                    <Button
+                        android:id="@+id/btnBuscarImagenesCliente"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Buscar imágenes de cliente"
+                        android:textColor="#0F3E82"
+                        android:textAllCaps="false"
+                        android:backgroundTint="#E8EEF7"
+                        android:layout_marginBottom="12dp"
+                        android:enabled="false"/>
+
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
