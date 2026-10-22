@@ -32,7 +32,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -80,9 +79,8 @@ class MainActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ✅ PRECARGAR BIOMETRÍA DE PACIENTES Y CAMERAX EN SEGUNDO PLANO
+        // ✅ PRECARGAR BIOMETRÍA DE PACIENTES EN SEGUNDO PLANO
         com.sybi.mosi.helpers.FaceBiometricsCache.preload(this)
-        precargarCameraX()
 
         // Solicitar permisos al iniciar la app
         solicitarPermisos()
@@ -374,48 +372,6 @@ class MainActivity : BaseActivity() {
             } else {
                 Log.d(TAG, "✅ Todos los permisos concedidos")
             }
-        }
-    }
-
-    // ==========================================
-    // PRECARGAR CAMERAX (usando addListener)
-    // ==========================================
-    private fun esCamaraUtilizable(): Boolean {
-        return try {
-            val cameraManager = getSystemService(Context.CAMERA_SERVICE) as android.hardware.camera2.CameraManager
-            cameraManager.cameraIdList.any { id ->
-                cameraManager.getCameraCharacteristics(id)
-                    .get(android.hardware.camera2.CameraCharacteristics.LENS_FACING) != null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error verificando disponibilidad de cámara: ${e.message}")
-            false
-        }
-    }
-
-    private fun precargarCameraX() {
-        val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-        if (prefs.getBoolean("camera_incompatible", false)) {
-            Log.d(TAG, "⏭️ CameraX precarga omitida: cámara ya detectada como no utilizable en este equipo")
-            return
-        }
-        if (!esCamaraUtilizable()) {
-            Log.w(TAG, "⚠️ Cámara sin 'lens facing' válido: se omite la precarga de CameraX (hardware incompatible)")
-            prefs.edit().putBoolean("camera_incompatible", true).apply()
-            return
-        }
-        try {
-            val future = ProcessCameraProvider.getInstance(this)
-            future.addListener({
-                try {
-                    future.get()
-                    Log.d(TAG, "✅ CameraX precargado correctamente")
-                } catch (e: Exception) {
-                    Log.e(TAG, "❌ Error al precargar CameraX: ${e.message}")
-                }
-            }, ContextCompat.getMainExecutor(this))
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error inicializando CameraX: ${e.message}")
         }
     }
 

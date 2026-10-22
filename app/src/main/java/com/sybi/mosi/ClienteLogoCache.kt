@@ -197,6 +197,12 @@ object ClienteLogoCache {
             return file.absolutePath
         }
 
+        // Se descarga primero a un archivo temporal y solo se reemplaza el definitivo si la
+        // descarga termina completa: si se escribiera directo sobre `file` y la conexión se
+        // cortara a medias (p. ej. el servidor no manda el certificado intermedio y falla el
+        // TLS mid-transfer), `file.outputStream()` ya habría truncado cualquier copia buena
+        // anterior, dejando un archivo corrupto que luego se reusaría como si fuera válido.
+        val temp = File(dir, "${idCliente}_$slot.$ext.tmp")
         return try {
             val conn = (normalizarUrl(url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 8000
@@ -207,13 +213,16 @@ object ClienteLogoCache {
                 conn.disconnect()
                 return null
             }
-            conn.inputStream.use { input -> file.outputStream().use { out -> input.copyTo(out) } }
+            conn.inputStream.use { input -> temp.outputStream().use { out -> input.copyTo(out) } }
             conn.disconnect()
+            temp.copyTo(file, overwrite = true)
+            temp.delete()
             marcadorUrl.writeText(url)
             file.absolutePath
         } catch (e: Exception) {
             Log.w(TAG, "No se pudo descargar logo ($slot, .$ext) del cliente $idCliente: ${e.message}")
-            // Si ya había una copia previa (de otra URL), mejor usarla que no mostrar nada.
+            temp.delete()
+            // Si ya había una copia previa COMPLETA (de otra URL), mejor usarla que no mostrar nada.
             if (file.exists()) file.absolutePath else null
         }
     }
