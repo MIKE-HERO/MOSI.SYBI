@@ -353,15 +353,20 @@ class ClienteSettingsActivity : BaseActivity() {
                 cargarImagenEnVista(imgPreviewGrande, guardado)
                 Toast.makeText(this@ClienteSettingsActivity, "Imagen actualizada para $idCliente", Toast.LENGTH_SHORT).show()
 
-                // Si el override es del logo izquierdo del cliente ACTIVO del kiosco, refleja el
-                // cambio de inmediato en la pantalla principal de la app, sin esperar a que el
-                // usuario presione "Guardar Configuración" por separado.
-                if (idCliente == TelemedicineSettingsActivity.getCliente(this@ClienteSettingsActivity)) {
+                // Si el override es de un logotipo (izquierdo o derecho; la firma no cuenta
+                // como logotipo de marca) del cliente ACTIVO del kiosco, refleja el cambio de
+                // inmediato en la pantalla principal de la app, sin esperar a que el usuario
+                // presione "Guardar Configuración" por separado. El slot elegido aquí queda
+                // como preferido para este cliente en sincronizaciones futuras.
+                if ((slot == "izq" || slot == "der") &&
+                    idCliente == TelemedicineSettingsActivity.getCliente(this@ClienteSettingsActivity)
+                ) {
                     withContext(Dispatchers.IO) {
-                        LogoSyncHelper.sincronizarLogoDeCliente(
+                        LogoSyncHelper.aplicarLogoSeleccionado(
                             this@ClienteSettingsActivity,
-                            idSucursalSeleccionada,
-                            idCliente
+                            idCliente,
+                            slot,
+                            guardado.absolutePath
                         )
                     }
                 }

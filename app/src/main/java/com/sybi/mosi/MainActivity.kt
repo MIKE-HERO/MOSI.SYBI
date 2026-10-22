@@ -465,8 +465,8 @@ class MainActivity : BaseActivity() {
             val request = ImageRequest.Builder(imageView.context)
                 .data(data)
                 .target(imageView)
-                .error(R.drawable.sybi_logo_blanco)
                 .placeholder(R.drawable.sybi_logo_blanco)
+                .error(R.drawable.sybi_logo_blanco)
                 .build()
 
             imageLoader.enqueue(request)
