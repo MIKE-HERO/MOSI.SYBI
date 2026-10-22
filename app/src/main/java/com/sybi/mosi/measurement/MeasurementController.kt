@@ -133,6 +133,13 @@ class MeasurementController(
         handler.postDelayed(statusMessageRunnable!!, delayMs)
     }
 
+    /** Cancela el "Esperando resultados..." programado por [postStatusDelayed] si el resultado
+     *  ya llegó antes de que se cumpliera el delay (si no, pisa la pantalla de éxito). */
+    fun cancelStatusDelayed() {
+        statusMessageRunnable?.let { handler.removeCallbacks(it) }
+        statusMessageRunnable = null
+    }
+
     fun postDelayed(action: () -> Unit, delayMs: Long) {
         handler.postDelayed(action, delayMs)
     }
