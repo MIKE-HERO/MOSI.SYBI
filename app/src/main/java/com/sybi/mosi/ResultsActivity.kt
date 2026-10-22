@@ -40,10 +40,12 @@ class ResultsActivity : BaseActivity() {
     private lateinit var topBar: View
     private lateinit var bottomBar: View
     private lateinit var resultsContainer: LinearLayout
-    private lateinit var btnStartConsultation: Button
-    private lateinit var btnPrintResults: Button
-    private lateinit var btnPrintTicket: Button
-    private lateinit var btnEmailResults: Button
+    private lateinit var btnStartConsultation: View
+    private lateinit var tvStartConsultation: TextView
+    private lateinit var btnPrintResults: View
+    private lateinit var btnPrintTicket: View
+    private lateinit var btnEmailResults: View
+    private lateinit var tvEmailResults: TextView
     private lateinit var btnExitResults: View
 
     private var idLocal: Long = 0L
@@ -93,9 +95,11 @@ class ResultsActivity : BaseActivity() {
         bottomBar = findViewById(R.id.bottomResultsBar)
         resultsContainer = findViewById(R.id.resultsContainer)
         btnStartConsultation = findViewById(R.id.btnStartConsultation)
+        tvStartConsultation = findViewById(R.id.tvStartConsultation)
         btnPrintResults = findViewById(R.id.btnPrintResults)
         btnPrintTicket = findViewById(R.id.btnPrintTicket)
         btnEmailResults = findViewById(R.id.btnEmailResults)
+        tvEmailResults = findViewById(R.id.tvEmailResults)
         btnExitResults = findViewById(R.id.btnExitResults)
 
         idLocal = intent.getLongExtra("id_local", 0L)
@@ -309,7 +313,7 @@ class ResultsActivity : BaseActivity() {
     private fun enviarMedicionesAlDoctor(p: Paciente) {
         uiHandler.post {
             btnStartConsultation.isEnabled = false
-            btnStartConsultation.text = "Enviando resultados..."
+            tvStartConsultation.text = "Enviando resultados..."
 
             enviandoMediciones = true
             contadorMensajesEnvio = 0
@@ -326,7 +330,7 @@ class ResultsActivity : BaseActivity() {
                     uiHandler.post {
                         detenerMensajesEnvio()
                         btnStartConsultation.isEnabled = true
-                        btnStartConsultation.text = "Iniciar consulta"
+                        tvStartConsultation.text = "Iniciar consulta"
                     }
                     return@Thread
                 }
@@ -347,7 +351,7 @@ class ResultsActivity : BaseActivity() {
                     detenerMensajesEnvio()
                     envioExitoso = exito
                     btnStartConsultation.isEnabled = true
-                    btnStartConsultation.text = "Iniciar consulta"
+                    tvStartConsultation.text = "Iniciar consulta"
 
                     Toast.makeText(
                         this@ResultsActivity,
@@ -361,7 +365,7 @@ class ResultsActivity : BaseActivity() {
                 uiHandler.post {
                     detenerMensajesEnvio()
                     btnStartConsultation.isEnabled = true
-                    btnStartConsultation.text = "Iniciar consulta"
+                    tvStartConsultation.text = "Iniciar consulta"
                     Toast.makeText(this@ResultsActivity, "❌ Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
@@ -928,8 +932,8 @@ class ResultsActivity : BaseActivity() {
         }
 
         btnEmailResults.isEnabled = false
-        val textoOriginal = btnEmailResults.text
-        btnEmailResults.text = "Enviando correo..."
+        val textoOriginal = tvEmailResults.text
+        tvEmailResults.text = "Enviando correo..."
         val dialogoGenerando = mostrarDialogoGenerandoInforme("Generando informe, por favor espera…")
 
         Thread {
@@ -939,7 +943,7 @@ class ResultsActivity : BaseActivity() {
                     uiHandler.post {
                         dialogoGenerando.dismiss()
                         btnEmailResults.isEnabled = true
-                        btnEmailResults.text = textoOriginal
+                        tvEmailResults.text = textoOriginal
                         Toast.makeText(this, "No se pudo generar el PDF (tardó demasiado o falló). Intenta de nuevo.", Toast.LENGTH_LONG).show()
                     }
                     return@Thread
@@ -972,7 +976,7 @@ class ResultsActivity : BaseActivity() {
 
                 uiHandler.post {
                     btnEmailResults.isEnabled = true
-                    btnEmailResults.text = textoOriginal
+                    tvEmailResults.text = textoOriginal
                     if (resultado.isSuccess) {
                         Toast.makeText(this, "✅ Resultados enviados a $destinatario", Toast.LENGTH_LONG).show()
                     } else {
@@ -986,7 +990,7 @@ class ResultsActivity : BaseActivity() {
                 uiHandler.post {
                     if (dialogoGenerando.isShowing) dialogoGenerando.dismiss()
                     btnEmailResults.isEnabled = true
-                    btnEmailResults.text = textoOriginal
+                    tvEmailResults.text = textoOriginal
                     Toast.makeText(this, "❌ Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }

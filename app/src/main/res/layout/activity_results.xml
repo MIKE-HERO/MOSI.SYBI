@@ -100,6 +100,7 @@
                 app:tint="#31536A" />
 
             <TextView
+                android:id="@+id/tvStartConsultation"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
@@ -192,6 +193,7 @@
                 app:tint="#31536A" />
 
             <TextView
+                android:id="@+id/tvEmailResults"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
