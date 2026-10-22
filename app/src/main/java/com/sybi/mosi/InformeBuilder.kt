@@ -482,6 +482,14 @@ class InformeBuilder(
          * medir/layout/draw de Views, no decodificación de imágenes.
          */
         fun cargarLogoBitmap(context: Context, path: String?): Bitmap? {
+            // catch (Throwable), no solo Exception: un archivo de logo corrupto o truncado
+            // (p. ej. una descarga interrumpida a medias por un error de red/TLS, que deja un
+            // archivo parcial en caché) puede hacer que el decoder de imagen intente reservar
+            // un bitmap gigantesco con datos basura, lanzando OutOfMemoryError — que es un
+            // Error, no una Exception, y por lo tanto NO lo atrapa un catch (e: Exception),
+            // tumbando toda la app justo al generar el informe. Atrapar Throwable aquí asegura
+            // que, pase lo que pase con el logo del cliente, como mínimo cae al logo por
+            // defecto en vez de cerrar la app.
             val original: Bitmap? = try {
                 if (!path.isNullOrBlank()) {
                     val esSvg = path.substringAfterLast('.', "").equals("svg", ignoreCase = true)
@@ -501,10 +509,10 @@ class InformeBuilder(
                 } else {
                     ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
                 }
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
                 try {
                     ContextCompat.getDrawable(context, R.drawable.sybi_logo_blanco)?.toBitmap()
-                } catch (_: Exception) {
+                } catch (_: Throwable) {
                     null
                 }
             }
@@ -519,7 +527,7 @@ class InformeBuilder(
                 val request = ImageRequest.Builder(context).data(data).build()
                 val resultado = kotlinx.coroutines.runBlocking { obtenerImageLoader(context).execute(request) }
                 resultado.drawable?.toBitmap()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 null
             }
         }
