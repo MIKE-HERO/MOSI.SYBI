@@ -8,6 +8,7 @@ import com.sybi.mosi.network.LogoClienteDto
 import com.sybi.mosi.network.RetrofitClient
 import java.io.File
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 
 /**
@@ -198,6 +199,23 @@ object ClienteLogoCache {
         return url.substring(0, ultimoPunto) + ".svg"
     }
 
+    /**
+     * La API devuelve las URLs de logos/firmas tal cual quedó el nombre del archivo en el
+     * servidor (p. ej. ".../136/68374e1871692_LOGO ML OK.svg", con espacio literal sin
+     * codificar). `URL(url).openConnection()` manda ese espacio crudo en la petición y el
+     * servidor (IIS) responde 400 Bad Request, así que el logo "existe" pero nunca se
+     * encuentra. Aquí se reconstruye la URI codificando correctamente el path (espacios,
+     * acentos, etc.) sin tocar esquema/host/puerto.
+     */
+    private fun normalizarUrl(url: String): URL {
+        return try {
+            URI(url).toURL()
+        } catch (e: Exception) {
+            val tmp = URL(url)
+            URI(tmp.protocol, tmp.userInfo, tmp.host, tmp.port, tmp.path, tmp.query, null).toURL()
+        }
+    }
+
     private fun intentarDescargar(dir: File, idCliente: String, slot: String, url: String, ext: String): String? {
         val file = File(dir, "${idCliente}_$slot.$ext")
         val marcadorUrl = File(dir, "${idCliente}_$slot.url")
@@ -208,7 +226,7 @@ object ClienteLogoCache {
         }
 
         return try {
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            val conn = (normalizarUrl(url).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 8000
                 readTimeout = 15000
             }
