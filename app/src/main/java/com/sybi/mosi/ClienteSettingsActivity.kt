@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
+import android.widget.Filterable
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -166,18 +167,69 @@ class ClienteSettingsActivity : BaseActivity() {
         }
     }
 
+    /**
+     * ArrayAdapter con un Filter propio que busca por NOMBRE o ID como substring en
+     * cualquier parte (no solo prefijo de palabra, que es lo que hace el Filter por
+     * defecto de ArrayAdapter — por eso buscar por ID nunca encontraba nada: el id
+     * siempre aparece envuelto en paréntesis "(136)", así que ningún "word" de la
+     * cadena empieza nunca con el id tal cual lo escribe el usuario).
+     */
+    private fun crearAdapterFiltrable(itemsConId: List<Pair<String, String>>): ArrayAdapter<String> {
+        return object : ArrayAdapter<String>(
+            this, android.R.layout.simple_dropdown_item_1line, itemsConId.map { it.first }
+        ) {
+            override fun getFilter(): android.widget.Filter {
+                return object : android.widget.Filter() {
+                    override fun performFiltering(constraint: CharSequence?): FilterResults {
+                        val query = constraint?.toString()?.trim()?.lowercase() ?: ""
+                        val resultados = if (query.isBlank()) {
+                            itemsConId.map { it.first }
+                        } else {
+                            itemsConId.filter { (texto, id) ->
+                                texto.lowercase().contains(query) || id.lowercase().contains(query)
+                            }.map { it.first }
+                        }
+                        return FilterResults().apply { values = resultados; count = resultados.size }
+                    }
+
+                    @Suppress("UNCHECKED_CAST")
+                    override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                        clear()
+                        (results?.values as? List<String>)?.let { addAll(it) }
+                        notifyDataSetChanged()
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Prepara un AutoCompleteTextView para que, al tocarlo, SIEMPRE muestre el
+     * desplegable completo (seleccionando el texto actual para que escribir lo
+     * reemplace de inmediato) — en vez de depender de que el usuario borre el valor
+     * previamente elegido a mano. Sin esto, tocar el campo con un cliente/sucursal ya
+     * seleccionado abría un desplegable VACÍO: el Filter de Android solo corre cuando
+     * el texto cambia, y `setText(valor, false)` (usado al seleccionar un item) se
+     * salta deliberadamente ese disparo, así que nunca había resultados que mostrar.
+     */
+    private fun habilitarDropdownCompleto(campo: AutoCompleteTextView, hayItems: () -> Boolean) {
+        val abrirConTodo = {
+            if (hayItems()) {
+                campo.selectAll()
+                (campo.adapter as? Filterable)?.filter?.filter("") { campo.showDropDown() }
+            }
+        }
+        campo.setOnClickListener { abrirConTodo() }
+        campo.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) abrirConTodo() }
+    }
+
     private fun configurarAutoCompleteClientes() {
-        val items = listaClientes.map { "${it.nombreCliente ?: "Sin nombre"} (${it.idCliente ?: "-"})" }
-
-        val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, items)
-        etCliente.setAdapter(adapter)
-
-        etCliente.setOnClickListener {
-            if (listaClientes.isNotEmpty()) etCliente.showDropDown()
+        val itemsConId = listaClientes.map {
+            "${it.nombreCliente ?: "Sin nombre"} (${it.idCliente ?: "-"})" to (it.idCliente ?: "")
         }
-        etCliente.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus && listaClientes.isNotEmpty()) etCliente.showDropDown()
-        }
+
+        etCliente.setAdapter(crearAdapterFiltrable(itemsConId))
+        habilitarDropdownCompleto(etCliente) { listaClientes.isNotEmpty() }
 
         etCliente.setOnItemClickListener { _, _, _, _ ->
             val textoSeleccionado = etCliente.text.toString()
@@ -228,17 +280,12 @@ class ClienteSettingsActivity : BaseActivity() {
     }
 
     private fun configurarAutoCompleteSucursales() {
-        val items = listaSucursales.map { "${it.nombreSucursal ?: "Sin nombre"} (${it.idSucursal ?: "-"})" }
-
-        val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, items)
-        etSucursal.setAdapter(adapter)
-
-        etSucursal.setOnClickListener {
-            if (listaSucursales.isNotEmpty()) etSucursal.showDropDown()
+        val itemsConId = listaSucursales.map {
+            "${it.nombreSucursal ?: "Sin nombre"} (${it.idSucursal ?: "-"})" to (it.idSucursal ?: "")
         }
-        etSucursal.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus && listaSucursales.isNotEmpty()) etSucursal.showDropDown()
-        }
+
+        etSucursal.setAdapter(crearAdapterFiltrable(itemsConId))
+        habilitarDropdownCompleto(etSucursal) { listaSucursales.isNotEmpty() }
 
         etSucursal.setOnItemClickListener { _, _, _, _ ->
             val textoSeleccionado = etSucursal.text.toString()
