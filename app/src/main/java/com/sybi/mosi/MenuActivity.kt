@@ -82,7 +82,12 @@ class MenuActivity : BaseActivity() {
             startActivity(Intent(this, ResultTableActivity::class.java))
         }
 
-        // 3. Configuración
+        // 3. Ajustes Básicos (NUEVO)
+        findViewById<LinearLayout>(R.id.btnBasicSettingsMenu)?.setOnClickListener {
+            startActivity(Intent(this, BasicSettingsActivity::class.java))
+        }
+
+        // 4. Ajustes Avanzados (Configuración)
         findViewById<LinearLayout>(R.id.btnSettingsMenu)?.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }

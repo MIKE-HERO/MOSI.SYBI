@@ -10,7 +10,7 @@
     android:paddingEnd="34dp"
     android:paddingBottom="24dp">
 
-    <!-- HEADER SUPERIOR -->
+    <!-- HEADER SUPERIOR (Sin cambios) -->
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -110,123 +110,164 @@
         </LinearLayout>
     </RelativeLayout>
 
-    <!-- CONTENEDOR CON PESO PARA CENTRAR VERTICALMENTE -->
-    <!-- Al tener layout_weight="1" y height="0dp", ocupa todo el espacio debajo del header -->
-    <!-- android:gravity="center_vertical" centra sus hijos (las tarjetas) verticalmente -->
+    <!-- CONTENEDOR CENTRAL PARA LIMITAR EL ANCHO -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:gravity="center_vertical"
+        android:gravity="center"
         android:orientation="vertical">
 
-        <!-- CONTENEDOR DE LOS 3 BOTONES -->
+        <!-- Cuadrícula con ancho máximo de 500dp para que no se estiren -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:weightSum="3">
+            android:orientation="vertical"
+            android:gravity="center">
 
-            <!-- BOTÓN PACIENTES -->
+            <!-- FILA 1 -->
             <LinearLayout
-                android:id="@+id/btnPatientTableMenu"
-                android:layout_width="0dp"
-                android:layout_height="350dp"
-                android:layout_weight="1"
-                android:layout_margin="16dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="6dp"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="16dp">
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
 
-                <ImageView
-                    android:layout_width="200dp"
-                    android:layout_height="200dp"
-                    android:adjustViewBounds="true"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/settings_patients_3d"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Pacientes"
-                    android:textColor="#333333"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
+                <!-- BOTÓN PACIENTES -->
+                <LinearLayout
+                    android:id="@+id/btnPatientTableMenu"
+                    android:layout_width="350dp"
+                    android:layout_height="250dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/bg_settings_card"
+                    android:elevation="6dp"
+                    android:orientation="vertical"
                     android:gravity="center"
-                    android:layout_marginTop="24dp"/>
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="100dp"
+                        android:layout_height="100dp"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/settings_patients_3d"/>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Pacientes"
+                        android:textColor="#333333"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:layout_marginTop="12dp"/>
+                </LinearLayout>
+
+                <!-- BOTÓN HISTORIAL -->
+                <LinearLayout
+                    android:id="@+id/btnResultTableMenu"
+                    android:layout_width="350dp"
+                    android:layout_height="250dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_settings_card"
+                    android:elevation="6dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="100dp"
+                        android:layout_height="100dp"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/settings_history_3d"/>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Historial de\nmediciones"
+                        android:textColor="#333333"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:layout_marginTop="12dp"/>
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- BOTÓN HISTORIAL -->
+            <!-- FILA 2 -->
             <LinearLayout
-                android:id="@+id/btnResultTableMenu"
-                android:layout_width="0dp"
-                android:layout_height="350dp"
-                android:layout_weight="1"
-                android:layout_margin="16dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="6dp"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="16dp">
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
-                <ImageView
-                    android:layout_width="200dp"
-                    android:layout_height="200dp"
-                    android:adjustViewBounds="true"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/settings_history_3d"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Historial de\nmediciones"
-                    android:textColor="#333333"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
+                <!-- BOTÓN AJUSTES BÁSICOS -->
+                <LinearLayout
+                    android:id="@+id/btnBasicSettingsMenu"
+                    android:layout_width="350dp"
+                    android:layout_height="250dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/bg_settings_card"
+                    android:elevation="6dp"
+                    android:orientation="vertical"
                     android:gravity="center"
-                    android:layout_marginTop="24dp"/>
-            </LinearLayout>
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="16dp">
 
-            <!-- BOTÓN CONFIGURACIÓN -->
-            <LinearLayout
-                android:id="@+id/btnSettingsMenu"
-                android:layout_width="0dp"
-                android:layout_height="350dp"
-                android:layout_weight="1"
-                android:layout_margin="16dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="6dp"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="16dp">
+                    <ImageView
+                        android:layout_width="100dp"
+                        android:layout_height="100dp"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/settings_basic_3d"/>
 
-                <ImageView
-                    android:layout_width="200dp"
-                    android:layout_height="200dp"
-                    android:adjustViewBounds="true"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/settings_basic_3d"/>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Ajustes básicos"
+                        android:textColor="#333333"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:layout_marginTop="12dp"/>
+                </LinearLayout>
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Configuración"
-                    android:textColor="#333333"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
+                <!-- BOTÓN AJUSTES AVANZADOS -->
+                <LinearLayout
+                    android:id="@+id/btnSettingsMenu"
+                    android:layout_width="350dp"
+                    android:layout_height="250dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_settings_card"
+                    android:elevation="6dp"
+                    android:orientation="vertical"
                     android:gravity="center"
-                    android:layout_marginTop="24dp"/>
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="100dp"
+                        android:layout_height="100dp"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/settings_customize_3d"/>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Ajustes avanzados"
+                        android:textColor="#333333"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:gravity="center"
+                        android:layout_marginTop="12dp"/>
+                </LinearLayout>
             </LinearLayout>
 
         </LinearLayout>
     </LinearLayout>
-
 </LinearLayout>

@@ -83,9 +83,6 @@ class ResultsActivity : BaseActivity() {
     // ✅ Flag para bloquear la navegación mientras el diálogo de impresión está abierto
     @Volatile private var impresionEnCurso = false
 
-    // ✅ Overlay flotante para regresar desde PrintShare
-    private var overlayView: View? = null
-    private var monitorVisorActivo = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -403,20 +400,18 @@ class ResultsActivity : BaseActivity() {
                     Intent.FLAG_ACTIVITY_NEW_TASK
         )
         startActivity(intent)
+        super.onBackPressed()
         finish()
     }
 
     override fun onResume() {
         super.onResume()
-        quitarBotonFlotanteRegreso()
         impresionEnCurso = false
-        monitorVisorActivo = false
-        Log.d(TAG, "▶️ ResultsActivity en primer plano, overlay limpiado")
+        Log.d(TAG, "▶️ ResultsActivity en primer plano")
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        quitarBotonFlotanteRegreso()
         detenerMensajesEnvio()
         clearResults()
     }
@@ -747,7 +742,6 @@ class ResultsActivity : BaseActivity() {
                             if (res.ok) "🖨️ ${res.mensaje}" else "Error de impresión: ${res.mensaje}",
                             Toast.LENGTH_LONG
                         ).show()
-                        if (res.ok) mostrarBotonFlotanteRegreso()
                     }
                     return@Thread
                 }
@@ -788,7 +782,6 @@ class ResultsActivity : BaseActivity() {
                         }
                         startActivity(intent)
                         impresionEnCurso = false
-                        mostrarBotonFlotanteRegreso()
                     } catch (e: Throwable) {
                         impresionEnCurso = false
                         Toast.makeText(
@@ -1409,115 +1402,7 @@ class ResultsActivity : BaseActivity() {
         return sb.toString()
     }
 
-    // ==========================================
-    // OVERLAY FLOTANTE PARA REGRESAR DESDE PRINTSHARE
-    // ==========================================
-    private fun mostrarBotonFlotanteRegreso() {
-        // Si ya hay uno, no crear otro
-        if (overlayView != null) return
 
-        // Verificar permiso
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            if (!android.provider.Settings.canDrawOverlays(this)) {
-                Log.w(TAG, "⚠️ Sin permiso SYSTEM_ALERT_WINDOW, usando timer de respaldo")
-                iniciarTimerRegresoFallback()
-                return
-            }
-        }
-
-        try {
-            val windowManager = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
-
-            // Contenedor con el botón
-            val container = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(16), dp(12), dp(16), dp(12))
-                background = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(Color.parseColor("#0F3E82"))
-                    cornerRadius = dp(28).toFloat()
-                    setStroke(dp(2), Color.WHITE)
-                }
-                elevation = dp(8).toFloat()
-            }
-
-            val btn = Button(this).apply {
-                text = "← Regresar a Resultados"
-                setTextColor(Color.WHITE)
-                textSize = 16f
-                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#0F3E82"))
-                setOnClickListener {
-                    quitarBotonFlotanteRegreso()
-                    traerResultsActivityAlFrente()
-                }
-            }
-
-            container.addView(btn)
-
-            val type = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            } else {
-                @Suppress("DEPRECATION")
-                android.view.WindowManager.LayoutParams.TYPE_PHONE
-            }
-
-            val params = android.view.WindowManager.LayoutParams(
-                android.view.WindowManager.LayoutParams.WRAP_CONTENT,
-                android.view.WindowManager.LayoutParams.WRAP_CONTENT,
-                type,
-                android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        or android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                android.graphics.PixelFormat.TRANSLUCENT
-            ).apply {
-                gravity = android.view.Gravity.TOP or android.view.Gravity.END
-                x = dp(20)
-                y = dp(20)
-            }
-
-            windowManager.addView(container, params)
-            overlayView = container
-            Log.d(TAG, "✅ Botón flotante de regreso mostrado")
-
-            // Timer de respaldo por si el usuario no toca el botón
-            iniciarTimerRegresoFallback()
-
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error mostrando overlay: ${e.message}", e)
-            iniciarTimerRegresoFallback()
-        }
-    }
-
-    private fun quitarBotonFlotanteRegreso() {
-        try {
-            overlayView?.let {
-                val windowManager = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
-                windowManager.removeView(it)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error quitando overlay: ${e.message}")
-        }
-        overlayView = null
-    }
-
-    private fun iniciarTimerRegresoFallback() {
-        uiHandler.postDelayed({
-            Log.d(TAG, "⏰ Timer de respaldo: regresando a ResultsActivity")
-            quitarBotonFlotanteRegreso()
-            traerResultsActivityAlFrente()
-        }, 120_000L)  // 2 minutos
-    }
-
-    private fun traerResultsActivityAlFrente() {
-        monitorVisorActivo = false
-
-        val intent = Intent(this, ResultsActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            // ✅ SIN FLAG_ACTIVITY_NEW_TASK
-            // ✅ SIN putExtra: no queremos recrear la activity, solo traerla al frente
-        }
-        startActivity(intent)
-        Log.d(TAG, "🔙 ResultsActivity traída al frente")
-    }
 
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
