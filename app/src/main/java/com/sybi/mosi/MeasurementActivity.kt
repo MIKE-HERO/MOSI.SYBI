@@ -1622,6 +1622,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     override fun onMeasurementComplete() {
         runOnUiThread {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
+            controller.cancelStatusDelayed()
             showStatusMessage("Medición completada correctamente", "#4CAF50")
             if (currentMeasurementType == "ALTURA_PESO") {
                 guideSequenceToken++
@@ -1654,6 +1655,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     override fun onMeasurementError() {
         runOnUiThread {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
+            controller.cancelStatusDelayed()
             cancelCountdownTimer()
             tvStatusProgress.visibility = View.GONE
             if (currentMeasurementType == "ECG") {
