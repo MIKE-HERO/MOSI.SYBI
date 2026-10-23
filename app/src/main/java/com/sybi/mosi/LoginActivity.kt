@@ -158,6 +158,12 @@ class LoginActivity : BaseActivity() {
 
         // ✅ Botón de invitado: va directo a mediciones sin login ni perfil
         btnGuestAccess.setOnClickListener {
+            // ✅ Marcar modo invitado para que ResultsActivity lo detecte
+            getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("guest_mode_enabled", true)
+                .apply()
+
             val intent = Intent(this, MeasurementActivity::class.java)
             startActivity(intent)
         }

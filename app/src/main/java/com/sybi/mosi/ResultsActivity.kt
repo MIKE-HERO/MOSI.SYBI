@@ -35,6 +35,9 @@ class ResultsActivity : BaseActivity() {
 
     companion object {
         private const val TAG = "ResultsActivity"
+        // ✅ CAMBIO MODO INVITADO: id_usuario_web fijo usado en modo invitado
+        //    para armar la URL de la consulta.
+        private const val ID_USUARIO_WEB_INVITADO = 4721085
     }
 
     private lateinit var topBar: View
@@ -88,6 +91,10 @@ class ResultsActivity : BaseActivity() {
 
     // ✅ Flag para bloquear la navegación mientras el diálogo de impresión está abierto
     @Volatile private var impresionEnCurso = false
+
+    // ✅ CAMBIO MODO INVITADO: flag leído en onCreate; se usa en el listener del botón
+    //    "Iniciar consulta" para decidir si se usa el id fijo o el real del paciente.
+    @Volatile private var modoInvitado = false
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -144,9 +151,23 @@ class ResultsActivity : BaseActivity() {
         val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         val telemedicineEnabled = devicePrefs.getBoolean("telemedicine_enabled", false)
 
+        // ✅ CAMBIO MODO INVITADO: leer el flag de modo invitado.
+        //    Si tu app ya usa otra clave (p. ej. "modo_invitado", "is_guest",
+        //    "guest_mode"), cámbiala aquí por la correcta.
+        modoInvitado = devicePrefs.getBoolean("guest_mode_enabled", false)
+        Log.d(TAG, "🎭 modoInvitado=$modoInvitado")
+
         if (telemedicineEnabled) {
             btnStartConsultation.visibility = View.VISIBLE
             btnStartConsultation.setOnClickListener {
+                // ✅ CAMBIO MODO INVITADO: si estamos en invitado, usar el id fijo
+                //    y no bloquear por envío ni por id del paciente.
+                if (modoInvitado) {
+                    Log.d(TAG, "🎭 Modo invitado: usando id_usuario_web fijo=$ID_USUARIO_WEB_INVITADO")
+                    iniciarVideollamada(ID_USUARIO_WEB_INVITADO)
+                    return@setOnClickListener
+                }
+
                 if (!envioExitoso) {
                     Toast.makeText(
                         this,
@@ -201,6 +222,7 @@ class ResultsActivity : BaseActivity() {
                 Toast.makeText(this, "Espera a que termine la impresión", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
+            limpiarModoInvitado()   // ✅ CAMBIO
             clearResults()
             val intent = Intent(this, MainActivity::class.java)
             intent.addFlags(
@@ -297,6 +319,15 @@ class ResultsActivity : BaseActivity() {
                 }
 
                 htmlReporte = buildResultsHtml()
+
+                // ✅ CAMBIO MODO INVITADO: en invitado no se llama a
+                //    enviarMedicionesAlDoctor() (no hay paciente real con
+                //    id_usuario_web), así que el botón nunca se habilitaría.
+                //    Lo habilitamos aquí explícitamente.
+                if (modoInvitado) {
+                    btnStartConsultation.isEnabled = true
+                    btnStartConsultation.text = "Iniciar consulta"
+                }
             }
 
             if (p != null && p.id_usuario_web != null) {
@@ -399,6 +430,7 @@ class ResultsActivity : BaseActivity() {
             return
         }
 
+        limpiarModoInvitado()   // ✅ CAMBIO
         clearResults()
         val intent = Intent(this, MainActivity::class.java)
         intent.addFlags(
@@ -419,6 +451,7 @@ class ResultsActivity : BaseActivity() {
     override fun onDestroy() {
         super.onDestroy()
         detenerMensajesEnvio()
+        limpiarModoInvitado()   // ✅ CAMBIO
         clearResults()
     }
 
@@ -1406,6 +1439,20 @@ class ResultsActivity : BaseActivity() {
 
         sb.append("</body></html>")
         return sb.toString()
+    }
+
+    /**
+     * ✅ Limpia el flag de modo invitado en DevicePrefs.
+     *    Se llama al salir del flujo de resultados (botón salir o back)
+     *    para que la próxima medición normal no herede el modo invitado.
+     */
+    private fun limpiarModoInvitado() {
+        getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("guest_mode_enabled", false)
+            .apply()
+        modoInvitado = false
+        Log.d(TAG, "🧹 guest_mode_enabled limpiado al salir de ResultsActivity")
     }
 
 
