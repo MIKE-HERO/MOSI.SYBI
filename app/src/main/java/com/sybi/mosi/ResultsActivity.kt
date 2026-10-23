@@ -160,14 +160,6 @@ class ResultsActivity : BaseActivity() {
         if (telemedicineEnabled) {
             btnStartConsultation.visibility = View.VISIBLE
             btnStartConsultation.setOnClickListener {
-                // ✅ CAMBIO MODO INVITADO: si estamos en invitado, usar el id fijo
-                //    y no bloquear por envío ni por id del paciente.
-                if (modoInvitado) {
-                    Log.d(TAG, "🎭 Modo invitado: usando id_usuario_web fijo=$ID_USUARIO_WEB_INVITADO")
-                    iniciarVideollamada(ID_USUARIO_WEB_INVITADO)
-                    return@setOnClickListener
-                }
-
                 if (!envioExitoso) {
                     Toast.makeText(
                         this,
@@ -176,7 +168,9 @@ class ResultsActivity : BaseActivity() {
                     ).show()
                     return@setOnClickListener
                 }
-                if (idUsuarioWebCargado <= 0) {
+
+                val targetId = if (modoInvitado) ID_USUARIO_WEB_INVITADO else idUsuarioWebCargado
+                if (targetId <= 0) {
                     Toast.makeText(
                         this,
                         "Este paciente no está dado de alta en el sistema del doctor",
@@ -184,7 +178,8 @@ class ResultsActivity : BaseActivity() {
                     ).show()
                     return@setOnClickListener
                 }
-                iniciarVideollamada(idUsuarioWebCargado)
+
+                iniciarVideollamada(targetId)
             }
         } else {
             btnStartConsultation.visibility = View.GONE
@@ -314,27 +309,19 @@ class ResultsActivity : BaseActivity() {
                     builder.construir(p, idLocal, mediciones)
                 }
 
-                if (p?.correo.isNullOrBlank()) {
+                if (!modoInvitado && p?.correo.isNullOrBlank()) {
                     addEmailWarning()
                 }
 
                 htmlReporte = buildResultsHtml()
-
-                // ✅ CAMBIO MODO INVITADO: en invitado no se llama a
-                //    enviarMedicionesAlDoctor() (no hay paciente real con
-                //    id_usuario_web), así que el botón nunca se habilitaría.
-                //    Lo habilitamos aquí explícitamente.
-                if (modoInvitado) {
-                    btnStartConsultation.isEnabled = true
-                    btnStartConsultation.text = "Iniciar consulta"
-                }
             }
 
-            if (p != null && p.id_usuario_web != null) {
-                idUsuarioWebCargado = p.id_usuario_web!!
+            val targetId = if (modoInvitado) ID_USUARIO_WEB_INVITADO else (p?.id_usuario_web ?: 0)
+            if (targetId > 0) {
+                idUsuarioWebCargado = targetId
                 if (!medicionesEnviadas) {
                     medicionesEnviadas = true
-                    enviarMedicionesAlDoctor(p)
+                    enviarMedicionesAlDoctor(targetId)
                 }
             }
         }.start()
@@ -343,7 +330,7 @@ class ResultsActivity : BaseActivity() {
     // ==========================================
     // ENVIAR MEDICIONES A LA API
     // ==========================================
-    private fun enviarMedicionesAlDoctor(p: Paciente) {
+    private fun enviarMedicionesAlDoctor(idUsuarioWeb: Int) {
         uiHandler.post {
             btnStartConsultation.isEnabled = false
             btnStartConsultation.text = "Enviando resultados..."
@@ -357,8 +344,7 @@ class ResultsActivity : BaseActivity() {
             try {
                 val sender = MedicionesSender(this@ResultsActivity)
 
-                val idUsuarioWeb = p.id_usuario_web
-                if (idUsuarioWeb == null) {
+                if (idUsuarioWeb <= 0) {
                     Log.w(TAG, "⚠️ Paciente sin id_usuario_web")
                     uiHandler.post {
                         detenerMensajesEnvio()

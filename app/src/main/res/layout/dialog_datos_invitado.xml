@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/bg_consent_dialog"
+    android:paddingBottom="8dp">
+
+    <!-- ✅ TÍTULO FIJO ARRIBA -->
+    <LinearLayout
+        android:id="@+id/headerConsentBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#193447"
+        android:paddingStart="28dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="28dp"
+        android:paddingBottom="20dp"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/tvHeaderTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="DATOS DEL INVITADO PARA MEDICIÓN"
+            android:textColor="#FFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+    </LinearLayout>
+
+    <!-- ✅ CONTENIDO CON SCROLL VERTICAL -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingStart="28dp"
+        android:paddingTop="24dp"
+        android:paddingEnd="28dp"
+        android:paddingBottom="20dp"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Por favor, ingresa tu edad y género para calcular adecuadamente los parámetros de composición corporal y salud."
+                android:textSize="15sp"
+                android:textColor="#344B5B"
+                android:lineSpacingExtra="4dp"
+                android:layout_marginBottom="24dp" />
+
+            <!-- GÉNERO -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Género"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#193447"
+                android:layout_marginBottom="10dp" />
+
+            <RadioGroup
+                android:id="@+id/rgGeneroInvitado"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="24dp">
+
+                <RadioButton
+                    android:id="@+id/rbMasculinoInvitado"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="52dp"
+                    android:text="Masculino"
+                    android:textSize="16sp"
+                    android:textColor="#344B5B"
+                    android:checked="true"
+                    android:buttonTint="#193447" />
+
+                <RadioButton
+                    android:id="@+id/rbFemeninoInvitado"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="52dp"
+                    android:text="Femenino"
+                    android:textSize="16sp"
+                    android:textColor="#344B5B"
+                    android:buttonTint="#193447" />
+            </RadioGroup>
+
+            <!-- EDAD -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Edad (años)"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#193447"
+                android:layout_marginBottom="10dp" />
+
+            <EditText
+                android:id="@+id/etEdadInvitado"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:background="@drawable/bg_input_rounded"
+                android:hint="Ej. 30"
+                android:text="30"
+                android:inputType="number"
+                android:maxLength="3"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:textSize="18sp"
+                android:textColor="#193447"
+                android:textColorHint="#90A4AE" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- ✅ BOTONES FIJOS ABAJO -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="28dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="28dp"
+        android:paddingBottom="20dp"
+        android:gravity="center"
+        android:background="#F1F5F7">
+
+        <Button
+            android:id="@+id/btnCancelDatos"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="54dp"
+            android:text="Cancelar"
+            android:backgroundTint="#DEE7EB"
+            android:textAllCaps="false"
+            android:textColor="#304A5A"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/btnConfirmDatos"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="54dp"
+            android:layout_marginStart="16dp"
+            android:text="Aceptar"
+            android:backgroundTint="#193447"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+</LinearLayout>

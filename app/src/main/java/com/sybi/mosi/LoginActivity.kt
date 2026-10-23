@@ -6,15 +6,19 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
+import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.RadioButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -53,6 +57,7 @@ class LoginActivity : BaseActivity() {
     companion object {
         private const val TAG = "LoginActivity"
         private const val INACTIVITY_TIMEOUT_MS = 10_000L
+        private const val ID_USUARIO_WEB_INVITADO = 4721085
     }
 
     private fun resetInactivityTimer() {
@@ -156,16 +161,21 @@ class LoginActivity : BaseActivity() {
             startActivity(intent)
         }
 
-        // ✅ Botón de invitado: va directo a mediciones sin login ni perfil
+        // ✅ Botón de invitado: si es Medición solicita edad/género, si es Consulta abre Telemedicina
         btnGuestAccess.setOnClickListener {
-            // ✅ Marcar modo invitado para que ResultsActivity lo detecte
-            getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
-                .edit()
-                .putBoolean("guest_mode_enabled", true)
-                .apply()
+            if (isMedicionSelected) {
+                mostrarDialogoDatosInvitado()
+            } else {
+                getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("guest_mode_enabled", true)
+                    .apply()
 
-            val intent = Intent(this, MeasurementActivity::class.java)
-            startActivity(intent)
+                val intent = Intent(this, TelemedicineActivity::class.java).apply {
+                    putExtra(TelemedicineActivity.EXTRA_ID_USUARIO_WEB, ID_USUARIO_WEB_INVITADO)
+                }
+                startActivity(intent)
+            }
         }
 
         btnRegister.setOnClickListener {
@@ -206,8 +216,8 @@ class LoginActivity : BaseActivity() {
         val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
         val guestEnabled = userPrefs.getBoolean("guest_enable", true)
 
-        // ✅ Solo se muestra en la pestaña de Medición si está activado
-        if (isMedicionSelected && guestEnabled) {
+        // ✅ Se muestra tanto en la pestaña de Medición como en Consulta si está activado
+        if (guestEnabled) {
             btnGuestAccess.visibility = View.VISIBLE
             (btnGuestAccess.layoutParams as LinearLayout.LayoutParams).apply {
                 weight = 1f
@@ -354,5 +364,109 @@ class LoginActivity : BaseActivity() {
         val g = (Color.green(c) + (255 - Color.green(c)) * factor).toInt()
         val b = (Color.blue(c) + (255 - Color.blue(c)) * factor).toInt()
         return String.format("#%02X%02X%02X", r, g, b)
+    }
+
+    private fun getThemeColorInt(): Int {
+        val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val isMulticolor = prefs.getBoolean("MulticolorEnabled", false)
+        val themeColorHex = if (isMulticolor) {
+            prefs.getString("MulticolorColorVivo", null)
+                ?: prefs.getString("BackgroundColor", currentColor)
+                ?: currentColor
+        } else {
+            prefs.getString("BackgroundColor", currentColor)
+                ?: currentColor
+        }
+
+        return try {
+            Color.parseColor(themeColorHex)
+        } catch (_: Exception) {
+            try { Color.parseColor(currentColor) } catch (_: Exception) { Color.parseColor("#0F3E82") }
+        }
+    }
+
+    private fun mostrarDialogoDatosInvitado() {
+        val dialog = android.app.Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_datos_invitado)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        val themeColorInt = getThemeColorInt()
+
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+
+        val width = (screenWidth * 0.50).toInt()
+        val height = (screenHeight * 0.80).toInt()
+
+        dialog.window?.setLayout(width, height)
+        dialog.window?.setGravity(android.view.Gravity.CENTER)
+
+        val headerBar = dialog.findViewById<View>(R.id.headerConsentBar)
+        if (headerBar != null) {
+            val r22 = 22.dp.toFloat()
+            val headerBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(themeColorInt)
+                cornerRadii = floatArrayOf(
+                    r22, r22,
+                    r22, r22,
+                    0f, 0f,
+                    0f, 0f
+                )
+            }
+            headerBar.background = headerBg
+        }
+
+        val btnConfirm = dialog.findViewById<Button>(R.id.btnConfirmDatos)
+        btnConfirm.backgroundTintList = ColorStateList.valueOf(themeColorInt)
+
+        val rbMasculino = dialog.findViewById<RadioButton>(R.id.rbMasculinoInvitado)
+        val rbFemenino = dialog.findViewById<RadioButton>(R.id.rbFemeninoInvitado)
+        val etEdad = dialog.findViewById<EditText>(R.id.etEdadInvitado)
+
+        rbMasculino.buttonTintList = ColorStateList.valueOf(themeColorInt)
+        rbFemenino.buttonTintList = ColorStateList.valueOf(themeColorInt)
+
+        val btnCancel = dialog.findViewById<Button>(R.id.btnCancelDatos)
+
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        btnConfirm.setOnClickListener {
+            val edadText = etEdad.text.toString().trim()
+            val edad = edadText.toIntOrNull()
+            if (edad == null || edad !in 1..120) {
+                Toast.makeText(this, "Por favor, ingrese una edad válida (1 - 120)", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val genero = if (rbMasculino.isChecked) "M" else "F"
+
+            dialog.dismiss()
+
+            // ✅ Marcar modo invitado para que ResultsActivity lo detecte
+            getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("guest_mode_enabled", true)
+                .apply()
+
+            val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+            val birthYear = currentYear - edad
+            val fechaNacimiento = "01/01/$birthYear"
+
+            val intent = Intent(this, MeasurementActivity::class.java).apply {
+                putExtra("id_usuario_web", ID_USUARIO_WEB_INVITADO)
+                putExtra("genero", genero)
+                putExtra("fecha_nacimiento", fechaNacimiento)
+                putExtra("nombre", "Invitado")
+            }
+            startActivity(intent)
+        }
+
+        dialog.show()
+        dialog.window?.setLayout(width, height)
+        dialog.window?.setGravity(android.view.Gravity.CENTER)
     }
 }

@@ -1556,7 +1556,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             } else null
         }
 
-        val idUsuarioWebFinal = pacienteActual?.id_usuario_web ?: 0
+        val idUsuarioWebFinal = pacienteActual?.id_usuario_web ?: pacienteId
         Log.d(TAG, "💾 Guardando resultado: id_local=$pacienteIdLocal, id_usuario_web=$idUsuarioWebFinal")
 
         val r = Resultado(
