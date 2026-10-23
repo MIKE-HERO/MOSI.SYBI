@@ -40,10 +40,6 @@ class ReportSettingsActivity : BaseActivity() {
     private val appPrefs by lazy { getSharedPreferences("AppPrefs", Context.MODE_PRIVATE) }
     private val uiHandler = Handler(Looper.getMainLooper())
 
-    // Logo precargado en un hilo de fondo (ver recargarLogoBitmapYRenderizar): InformeBuilder
-    // puede llegar a decodificarlo de forma síncrona (SVG vía Coil, incluso por red si el logo
-    // viene de una URL) y hacerlo en el hilo principal durante onCreate causaba un ANR real al
-    // abrir esta pantalla.
     private var logoBitmapPrecargado: Bitmap? = null
 
     private val logoReceiver = object : BroadcastReceiver() {
@@ -88,17 +84,6 @@ class ReportSettingsActivity : BaseActivity() {
         setupSwitch(R.id.switchEnableEmail, PREF_ALLOW_EMAIL, prefs)
         setupSwitch(R.id.switchEnableTicketPrint, PREF_ALLOW_TICKET_PRINT, prefs)
 
-        // IP de la impresora de red (impresión directa por IPP)
-        val etPrinterIp = findViewById<EditText>(R.id.etPrinterIp)
-        etPrinterIp.setText(prefs.getString(PREF_PRINTER_IP, "") ?: "")
-        etPrinterIp.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                prefs.edit().putString(PREF_PRINTER_IP, s.toString().trim()).apply()
-            }
-        })
-
         applySwitchTint(Color.parseColor(savedColor))
 
         // Personalización de PDF
@@ -138,12 +123,6 @@ class ReportSettingsActivity : BaseActivity() {
         })
     }
 
-    /**
-     * Decodifica el logo configurado (AppPrefs.LogoPath) en un hilo de fondo y solo entonces
-     * renderiza la previsualización. InformeBuilder puede decodificarlo de forma síncrona
-     * (incluso por red, si el logo es una URL) cuando no se le pasa ya decodificado, y hacer
-     * eso en el hilo principal durante onCreate causaba un ANR real al abrir esta pantalla.
-     */
     private fun recargarLogoBitmapYRenderizar() {
         val logoPath = appPrefs.getString("LogoPath", null)
         Thread {

@@ -6,24 +6,19 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PorterDuff
-import android.graphics.drawable.GradientDrawable
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
 import android.os.Bundle
 import android.text.InputType
-import android.view.Gravity
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.Spinner
 import android.widget.Switch
-import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.sybi.mosi.helpers.Camera2Helper
 import java.io.File
 
 class TestElementsActivity : BaseActivity() {
@@ -41,7 +36,7 @@ class TestElementsActivity : BaseActivity() {
         const val PREF_DEVICE_IC_CARD = "device_ic_card"
         const val PREF_DEVICE_THERMAL_PRINTER = "device_thermal_printer"
 
-        /** Derivaciones de ECG (6 o 12) configuradas en Parámetros de medición. */
+        /** Derivaciones de ECG (6 o 12) configuradas en Elementos de prueba. */
         const val PREF_ECG_DERIVACIONES = "ecg_derivaciones"
 
         /** Marca de la línea divisoria en el selector de velocidad. */
@@ -49,7 +44,7 @@ class TestElementsActivity : BaseActivity() {
     }
 
     private val allSwitches = mutableListOf<Switch>()
-    private val configRowsMap = mutableMapOf<String, View>()
+    private val allRadioButtons = mutableListOf<RadioButton>()
     private var themeColor: Int = Color.parseColor("#0F3E82")
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,7 +53,6 @@ class TestElementsActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
-        val sideBar = findViewById<View>(R.id.sideBarLayout)
         val themeAccentBar = findViewById<View>(R.id.themeAccentBar)
         val colorReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
@@ -67,7 +61,6 @@ class TestElementsActivity : BaseActivity() {
                     themeColor = Color.parseColor(newColor)
                     themeAccentBar.setBackgroundColor(themeColor)
                     applySwitchTint(themeColor)
-                    applyCardAccents()
                 }
             }
         }
@@ -85,117 +78,123 @@ class TestElementsActivity : BaseActivity() {
         }
 
         val availablePorts = scanAvailablePorts()
-        val container = findViewById<LinearLayout>(R.id.deviceListContainer)
         val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         DeviceDefaults.ensureDefaultPorts(devicePrefs)
 
-        // --- CREAR ALTURA/PESO ---
-        val alturaPesoRow = createDeviceRow("Altura / Peso", PREF_DEVICE_ALTURA_PESO, devicePrefs, availablePorts)
-        container.addView(alturaPesoRow)
-        configRowsMap[PREF_DEVICE_ALTURA_PESO] = alturaPesoRow
+        // 1. Altura / Peso
+        val switchAlturaPeso = findViewById<Switch>(R.id.switchAlturaPeso)
+        val layoutAlturaPesoConfig = findViewById<LinearLayout>(R.id.layoutAlturaPesoConfig)
+        val spinnerAlturaPesoPort = findViewById<Spinner>(R.id.spinnerAlturaPesoPort)
+        val spinnerAlturaPesoBaud = findViewById<Spinner>(R.id.spinnerAlturaPesoBaud)
+        allSwitches.add(switchAlturaPeso)
+        setupSerialDevice(PREF_DEVICE_ALTURA_PESO, switchAlturaPeso, layoutAlturaPesoConfig, spinnerAlturaPesoPort, spinnerAlturaPesoBaud, devicePrefs, availablePorts)
 
-        // --- CREAR COMPOSICIÓN (debajo de Altura/Peso) ---
-        val composicionRow = createComposicionRow(devicePrefs, availablePorts)
-        container.addView(composicionRow)
-        configRowsMap[PREF_DEVICE_COMPOSICION] = composicionRow
+        // 2. Composición Corporal
+        val switchComposicion = findViewById<Switch>(R.id.switchComposicion)
+        val layoutComposicionConfig = findViewById<LinearLayout>(R.id.layoutComposicionConfig)
+        val cardComposicion = findViewById<LinearLayout>(R.id.cardComposicion)
+        allSwitches.add(switchComposicion)
 
-        // --- LÍNEA DIVISORIA DESPUÉS DE COMPOSICIÓN ---
-        container.addView(createDividerLine())
-
-        // --- CREAR PRESIÓN ARTERIAL ---
-        val presionRow = createDeviceRow("Presión Arterial", PREF_DEVICE_PRESION, devicePrefs, availablePorts)
-        container.addView(presionRow)
-        configRowsMap[PREF_DEVICE_PRESION] = presionRow
-
-        // --- LÍNEA DIVISORIA ---
-        container.addView(createDividerLine())
-
-        // --- CREAR TEMPERATURA ---
-        val temperaturaRow = createDeviceRow("Temperatura Corporal", PREF_DEVICE_TEMPERATURA, devicePrefs, availablePorts)
-        container.addView(temperaturaRow)
-        configRowsMap[PREF_DEVICE_TEMPERATURA] = temperaturaRow
-
-        // --- LÍNEA DIVISORIA ---
-        container.addView(createDividerLine())
-
-        // --- CREAR OXÍGENO ---
-        val oxigenoRow = createDeviceRow("Oxígeno en Sangre", PREF_DEVICE_OXIGENO, devicePrefs, availablePorts)
-        container.addView(oxigenoRow)
-        configRowsMap[PREF_DEVICE_OXIGENO] = oxigenoRow
-
-        // --- LÍNEA DIVISORIA ---
-        container.addView(createDividerLine())
-
-        // --- CREAR ECG ---
-        val ecgRow = createDeviceRow("ECG", PREF_DEVICE_ECG, devicePrefs, availablePorts)
-        container.addView(ecgRow)
-        configRowsMap[PREF_DEVICE_ECG] = ecgRow
-
-        // --- LÍNEA DIVISORIA ---
-        container.addView(createDividerLine())
-
-        // --- CREAR AZÚCAR ---
-        val azucarRow = createDeviceRow("Azúcar en Sangre", PREF_DEVICE_AZUCAR, devicePrefs, availablePorts)
-        container.addView(azucarRow)
-        configRowsMap[PREF_DEVICE_AZUCAR] = azucarRow
-
-        // --- LÍNEA DIVISORIA ---
-        container.addView(createDividerLine())
-
-        // --- CREAR ÁCIDO ÚRICO ---
-        val acidoUricoRow = createDeviceRow("Ácido Úrico", PREF_DEVICE_ACIDO_URICO, devicePrefs, availablePorts)
-        container.addView(acidoUricoRow)
-        configRowsMap[PREF_DEVICE_ACIDO_URICO] = acidoUricoRow
-
-        // --- LÍNEA DIVISORIA ---
-        container.addView(createDividerLine())
-
-        // --- CREAR COLESTEROL ---
-        val colesterolRow = createDeviceRow("Colesterol Total", PREF_DEVICE_COLESTEROL, devicePrefs, availablePorts)
-        container.addView(colesterolRow)
-        configRowsMap[PREF_DEVICE_COLESTEROL] = colesterolRow
-
-        // --- LÍNEA DIVISORIA ---
-        container.addView(createDividerLine())
-
-        // --- CREAR LECTOR TARJETA IC ---
-        val icCardRow = createDeviceRow("Lector de Tarjeta IC", PREF_DEVICE_IC_CARD, devicePrefs, availablePorts)
-        container.addView(icCardRow)
-        configRowsMap[PREF_DEVICE_IC_CARD] = icCardRow
-
-        // --- LÍNEA DIVISORIA ---
-        container.addView(createDividerLine())
-
-        // --- CREAR IMPRESORA TÉRMICA DE TICKETS ---
-        val thermalPrinterRow = createDeviceRow("Impresora de Tickets (SP-RMD8CS1H)", PREF_DEVICE_THERMAL_PRINTER, devicePrefs, availablePorts)
-        container.addView(thermalPrinterRow)
-        configRowsMap[PREF_DEVICE_THERMAL_PRINTER] = thermalPrinterRow
-
-        // --- LÍNEA DIVISORIA ---
-        container.addView(createDividerLine())
-
-        // --- CREAR CONFIGURACIÓN DE CÁMARAS (Principal y Secundaria) ---
-        val availableCameras = Camera2Helper.getAvailableCameraIds(this).ifEmpty { listOf("0") }
-
-        val cameraHeader = TextView(this).apply {
-            tag = "section_header"
-            text = "Configuración de Cámaras"
-            textSize = 20f
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setTextColor(Color.parseColor("#0F3E82"))
-            setPadding(0, 16, 0, 12)
+        if (!devicePrefs.contains(PREF_DEVICE_COMPOSICION)) {
+            devicePrefs.edit().putBoolean(PREF_DEVICE_COMPOSICION, true).apply()
         }
-        container.addView(cameraHeader)
+        switchComposicion.isChecked = devicePrefs.getBoolean(PREF_DEVICE_COMPOSICION, true)
+        layoutComposicionConfig.visibility = if (switchComposicion.isChecked) View.VISIBLE else View.GONE
+        cardComposicion.visibility = if (switchAlturaPeso.isChecked) View.VISIBLE else View.GONE
 
-        val mainCameraRow = createCameraConfigRow("Cámara Principal", "pref_main_camera_id", "pref_main_camera_mirror", true, devicePrefs, availableCameras)
-        container.addView(mainCameraRow)
+        switchComposicion.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked && !devicePrefs.getBoolean(PREF_DEVICE_ALTURA_PESO, true)) {
+                Toast.makeText(this, "Debe activar primero Altura / Peso", Toast.LENGTH_LONG).show()
+                switchComposicion.isChecked = false
+                return@setOnCheckedChangeListener
+            }
+            devicePrefs.edit().putBoolean(PREF_DEVICE_COMPOSICION, isChecked).apply()
+            layoutComposicionConfig.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
 
-        val secondaryCameraRow = createCameraConfigRow("Cámara Secundaria", "pref_secondary_camera_id", "pref_secondary_camera_mirror", false, devicePrefs, availableCameras)
-        container.addView(secondaryCameraRow)
+        // Listener especial de Altura / Peso para actualizar Composición
+        switchAlturaPeso.setOnCheckedChangeListener { _, isChecked ->
+            if (!isChecked && !checkActiveDevicesCount(PREF_DEVICE_ALTURA_PESO, devicePrefs)) {
+                Toast.makeText(this, "Debe tener activado al menos un elemento de medición", Toast.LENGTH_LONG).show()
+                switchAlturaPeso.isChecked = true
+                return@setOnCheckedChangeListener
+            }
+            devicePrefs.edit().putBoolean(PREF_DEVICE_ALTURA_PESO, isChecked).apply()
+            layoutAlturaPesoConfig.visibility = if (isChecked) View.VISIBLE else View.GONE
+            cardComposicion.visibility = if (isChecked) View.VISIBLE else View.GONE
+            if (!isChecked) {
+                devicePrefs.edit().putBoolean(PREF_DEVICE_COMPOSICION, false).apply()
+                switchComposicion.isChecked = false
+                layoutComposicionConfig.visibility = View.GONE
+            }
+        }
+
+        // 3. Presión Arterial
+        val switchPresion = findViewById<Switch>(R.id.switchPresion)
+        val layoutPresionConfig = findViewById<LinearLayout>(R.id.layoutPresionConfig)
+        val spinnerPresionPort = findViewById<Spinner>(R.id.spinnerPresionPort)
+        val spinnerPresionBaud = findViewById<Spinner>(R.id.spinnerPresionBaud)
+        allSwitches.add(switchPresion)
+        setupSerialDevice(PREF_DEVICE_PRESION, switchPresion, layoutPresionConfig, spinnerPresionPort, spinnerPresionBaud, devicePrefs, availablePorts)
+
+        // 4. Temperatura Corporal
+        val switchTemperatura = findViewById<Switch>(R.id.switchTemperatura)
+        val layoutTemperaturaConfig = findViewById<LinearLayout>(R.id.layoutTemperaturaConfig)
+        val spinnerTemperaturaPort = findViewById<Spinner>(R.id.spinnerTemperaturaPort)
+        val spinnerTemperaturaBaud = findViewById<Spinner>(R.id.spinnerTemperaturaBaud)
+        allSwitches.add(switchTemperatura)
+        setupSerialDevice(PREF_DEVICE_TEMPERATURA, switchTemperatura, layoutTemperaturaConfig, spinnerTemperaturaPort, spinnerTemperaturaBaud, devicePrefs, availablePorts)
+
+        // 5. Oxígeno en Sangre
+        val switchOxigeno = findViewById<Switch>(R.id.switchOxigeno)
+        val layoutOxigenoConfig = findViewById<LinearLayout>(R.id.layoutOxigenoConfig)
+        allSwitches.add(switchOxigeno)
+        setupSimpleDevice(PREF_DEVICE_OXIGENO, switchOxigeno, layoutOxigenoConfig, devicePrefs)
+
+        // 6. ECG
+        val switchEcg = findViewById<Switch>(R.id.switchEcg)
+        val layoutEcgConfig = findViewById<LinearLayout>(R.id.layoutEcgConfig)
+        val rgEcgDerivaciones = findViewById<RadioGroup>(R.id.rgEcgDerivaciones)
+        val rbEcg6 = findViewById<RadioButton>(R.id.rbEcg6)
+        val rbEcg12 = findViewById<RadioButton>(R.id.rbEcg12)
+        allSwitches.add(switchEcg)
+        allRadioButtons.add(rbEcg6)
+        allRadioButtons.add(rbEcg12)
+        setupSimpleDevice(PREF_DEVICE_ECG, switchEcg, layoutEcgConfig, devicePrefs)
+
+        val currentDerivations = devicePrefs.getInt(PREF_ECG_DERIVACIONES, 6)
+        if (currentDerivations == 12) rbEcg12.isChecked = true else rbEcg6.isChecked = true
+        rgEcgDerivaciones.setOnCheckedChangeListener { _, checkedId ->
+            val derivaciones = if (checkedId == R.id.rbEcg12) 12 else 6
+            devicePrefs.edit().putInt(PREF_ECG_DERIVACIONES, derivaciones).apply()
+        }
+
+        // 7. Azúcar en Sangre
+        val switchAzucar = findViewById<Switch>(R.id.switchAzucar)
+        val layoutAzucarConfig = findViewById<LinearLayout>(R.id.layoutAzucarConfig)
+        val spinnerAzucarPort = findViewById<Spinner>(R.id.spinnerAzucarPort)
+        val spinnerAzucarBaud = findViewById<Spinner>(R.id.spinnerAzucarBaud)
+        allSwitches.add(switchAzucar)
+        setupSerialDevice(PREF_DEVICE_AZUCAR, switchAzucar, layoutAzucarConfig, spinnerAzucarPort, spinnerAzucarBaud, devicePrefs, availablePorts)
+
+        // 8. Ácido Úrico
+        val switchAcidoUrico = findViewById<Switch>(R.id.switchAcidoUrico)
+        val layoutAcidoUricoConfig = findViewById<LinearLayout>(R.id.layoutAcidoUricoConfig)
+        val spinnerAcidoUricoPort = findViewById<Spinner>(R.id.spinnerAcidoUricoPort)
+        val spinnerAcidoUricoBaud = findViewById<Spinner>(R.id.spinnerAcidoUricoBaud)
+        allSwitches.add(switchAcidoUrico)
+        setupSerialDevice(PREF_DEVICE_ACIDO_URICO, switchAcidoUrico, layoutAcidoUricoConfig, spinnerAcidoUricoPort, spinnerAcidoUricoBaud, devicePrefs, availablePorts)
+
+        // 9. Colesterol Total
+        val switchColesterol = findViewById<Switch>(R.id.switchColesterol)
+        val layoutColesterolConfig = findViewById<LinearLayout>(R.id.layoutColesterolConfig)
+        val spinnerColesterolPort = findViewById<Spinner>(R.id.spinnerColesterolPort)
+        val spinnerColesterolBaud = findViewById<Spinner>(R.id.spinnerColesterolBaud)
+        allSwitches.add(switchColesterol)
+        setupSerialDevice(PREF_DEVICE_COLESTEROL, switchColesterol, layoutColesterolConfig, spinnerColesterolPort, spinnerColesterolBaud, devicePrefs, availablePorts)
 
         val initialColor = Color.parseColor(savedColor)
         applySwitchTint(initialColor)
-        applyCardAccents()
     }
 
     override fun onPause() {
@@ -206,7 +205,6 @@ class TestElementsActivity : BaseActivity() {
     }
 
     private fun saveAllPendingSettings() {
-        val prefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         val updateIntent = Intent("UPDATE_SERIAL_PORTS")
         LocalBroadcastManager.getInstance(this).sendBroadcast(updateIntent)
     }
@@ -231,403 +229,90 @@ class TestElementsActivity : BaseActivity() {
         return ports
     }
 
-    private fun createDividerLine(): View {
-        return View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                10.dp
-            ).apply {
-                setMargins(0, 0, 0, 0)
+    private fun checkActiveDevicesCount(prefKeyToDisable: String, prefs: android.content.SharedPreferences): Boolean {
+        val allKeys = listOf(
+            PREF_DEVICE_ALTURA_PESO,
+            PREF_DEVICE_PRESION,
+            PREF_DEVICE_TEMPERATURA,
+            PREF_DEVICE_OXIGENO,
+            PREF_DEVICE_ECG,
+            PREF_DEVICE_AZUCAR,
+            PREF_DEVICE_ACIDO_URICO,
+            PREF_DEVICE_COLESTEROL
+        )
+        var activeCount = 0
+        for (key in allKeys) {
+            if (key == prefKeyToDisable) continue
+            if (prefs.getBoolean(key, true)) {
+                activeCount++
             }
-            setBackgroundColor(Color.TRANSPARENT)
         }
+        return activeCount >= 1
     }
 
-    // Extensión para convertir dp a píxeles
-    private val Int.dp: Int
-        get() = (this * resources.displayMetrics.density).toInt()
-
-    private fun createComposicionRow(
-        prefs: android.content.SharedPreferences,
-        availablePorts: List<String>
-    ): View {
-        val row = LinearLayout(this).apply {
-            tag = "device_card"
-            orientation = LinearLayout.VERTICAL
-            setPadding(22.dp, 17.dp, 22.dp, 17.dp)
-            background = createDeviceCardBackground(themeColor)
-            elevation = 3.dp.toFloat()
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 2.dp) }
-
-            // Ocultar si Altura/Peso no está activado
-            val alturaPesoActive = prefs.getBoolean(PREF_DEVICE_ALTURA_PESO, true)
-            visibility = if (alturaPesoActive) View.VISIBLE else View.GONE
-        }
-
-        // Fila superior con nombre y switch
-        val topRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val textView = TextView(this).apply {
-            text = "Composición Corporal"
-            textSize = 16f
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.DKGRAY)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-
-        val switchView = Switch(this)
-        allSwitches.add(switchView)
-        switchView.apply {
-            // ✅ CAMBIO 1: Leer el valor guardado (default true en primera instalación,
-            //    igual que el resto de switches).
-            if (!prefs.contains(PREF_DEVICE_COMPOSICION)) {
-                prefs.edit().putBoolean(PREF_DEVICE_COMPOSICION, true).apply()
-            }
-            isChecked = prefs.getBoolean(PREF_DEVICE_COMPOSICION, true)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        topRow.addView(textView)
-        topRow.addView(switchView)
-        row.addView(topRow)
-
-        // --- FILA DE CONFIGURACIÓN ---
-        val configRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 16, 0, 0)
-            gravity = Gravity.CENTER_VERTICAL
-            visibility = if (switchView.isChecked) View.VISIBLE else View.GONE
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        // Mensaje indicando que comparte puerto
-        val infoLabel = TextView(this).apply {
-            text = "Comparte puerto con Altura / Peso"
-            textSize = 12f
-            setTextColor(android.graphics.Color.GRAY)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            setPadding(0, 8, 0, 8)
-        }
-        configRow.addView(infoLabel)
-
-        row.addView(configRow)
-
-        // --- Lógica del Switch ---
-        switchView.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                // Verificar que Altura/Peso esté activado
-                val alturaPesoActive = prefs.getBoolean(PREF_DEVICE_ALTURA_PESO, true)
-                if (!alturaPesoActive) {
-                    Toast.makeText(
-                        row.context,
-                        "Debe activar primero Altura / Peso",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    switchView.isChecked = false
-                    return@setOnCheckedChangeListener
-                }
-            }
-
-            // Guardar estado del switch
-            prefs.edit().putBoolean(PREF_DEVICE_COMPOSICION, isChecked).apply()
-
-            // Mostrar/ocultar configuración
-            configRow.visibility = if (isChecked) View.VISIBLE else View.GONE
-        }
-
-        return row
-    }
-
-    private fun createDeviceRow(
-        deviceName: String,
+    private fun setupSimpleDevice(
         prefKey: String,
+        switchView: Switch,
+        configLayout: LinearLayout,
+        prefs: android.content.SharedPreferences
+    ) {
+        switchView.isChecked = prefs.getBoolean(prefKey, true)
+        configLayout.visibility = if (switchView.isChecked) View.VISIBLE else View.GONE
+
+        switchView.setOnCheckedChangeListener { _, isChecked ->
+            if (!isChecked && !checkActiveDevicesCount(prefKey, prefs)) {
+                Toast.makeText(this, "Debe tener activado al menos un elemento de medición", Toast.LENGTH_LONG).show()
+                switchView.isChecked = true
+                return@setOnCheckedChangeListener
+            }
+            prefs.edit().putBoolean(prefKey, isChecked).apply()
+            configLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun setupSerialDevice(
+        prefKey: String,
+        switchView: Switch,
+        configLayout: LinearLayout,
+        spinnerPort: Spinner,
+        spinnerBaud: Spinner,
         prefs: android.content.SharedPreferences,
         availablePorts: List<String>
-    ): View {
-        val row = LinearLayout(this).apply {
-            tag = "device_card"
-            orientation = LinearLayout.VERTICAL
-            setPadding(22.dp, 17.dp, 22.dp, 17.dp)
-            background = createDeviceCardBackground(themeColor)
-            elevation = 3.dp.toFloat()
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 2.dp) }
+    ) {
+        setupSimpleDevice(prefKey, switchView, configLayout, prefs)
+
+        val portAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, availablePorts)
+        portAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerPort.adapter = portAdapter
+
+        val savedPort = prefs.getString("${prefKey}_port", null)
+        val defaultPort = DeviceDefaults.DEFAULT_PORTS[prefKey]
+
+        val portToSelect = when {
+            savedPort != null && availablePorts.contains(savedPort) -> savedPort
+            defaultPort != null && availablePorts.contains(defaultPort) -> defaultPort
+            else -> null
         }
 
-        // Fila superior con nombre y switch
-        val topRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val textView = TextView(this).apply {
-            text = deviceName
-            textSize = 18f
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.DKGRAY)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-
-        val switchView = Switch(this)
-        allSwitches.add(switchView)
-        switchView.apply {
-            isChecked = prefs.getBoolean(prefKey, true)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        topRow.addView(textView)
-        topRow.addView(switchView)
-        row.addView(topRow)
-
-        // --- FILA DE CONFIGURACIÓN ---
-        val configRow = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, 16, 0, 0)
-            gravity = Gravity.CENTER_VERTICAL
-            visibility = if (switchView.isChecked) View.VISIBLE else View.GONE
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        var spinnerPort: Spinner? = null
-
-        // --- CONFIGURACIÓN SOLO PARA DISPOSITIVOS QUE USAN PUERTO SERIAL ---
-        val shouldShowConfig = prefKey == PREF_DEVICE_ALTURA_PESO ||
-                prefKey == PREF_DEVICE_PRESION ||
-                prefKey == PREF_DEVICE_TEMPERATURA ||
-                prefKey == PREF_DEVICE_AZUCAR ||
-                prefKey == PREF_DEVICE_ACIDO_URICO ||
-                prefKey == PREF_DEVICE_COLESTEROL ||
-                prefKey == PREF_DEVICE_IC_CARD ||
-                prefKey == PREF_DEVICE_THERMAL_PRINTER
-
-        val isUsbDevice = prefKey == PREF_DEVICE_OXIGENO || prefKey == PREF_DEVICE_ECG
-
-        if (shouldShowConfig) {
-            // Spinner de Puertos
-            val portLabel = TextView(this).apply {
-                text = "Puerto:"
-                textSize = 14f
-                setTextColor(android.graphics.Color.DKGRAY)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { setMargins(0, 0, 8, 0) }
-            }
-
-            spinnerPort = Spinner(this)
-            val portAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, availablePorts)
-            portAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinnerPort?.adapter = portAdapter
-            spinnerPort?.layoutParams = LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f
-            )
-
-            // Cargar puerto guardado o, si no hay, el puerto por defecto del dispositivo
-            val savedPort = prefs.getString("${prefKey}_port", null)
-            val defaultPort = DeviceDefaults.DEFAULT_PORTS[prefKey]
-
-            val portToSelect = when {
-                savedPort != null && availablePorts.contains(savedPort) -> savedPort
-                defaultPort != null && availablePorts.contains(defaultPort) -> defaultPort
-                else -> null
-            }
-
-            if (portToSelect != null) {
-                val position = availablePorts.indexOf(portToSelect)
-                if (position >= 0) {
-                    spinnerPort?.setSelection(position)
-                    if (savedPort == null) {
-                        prefs.edit().putString("${prefKey}_port", portToSelect).apply()
-                    }
-                }
-            } else if (defaultPort != null) {
-                Toast.makeText(
-                    this,
-                    "Puerto por defecto $defaultPort no disponible para $deviceName",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-
-            // Guardar automáticamente cuando se selecciona un puerto
-            spinnerPort?.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    val selectedPort = availablePorts[position]
-                    prefs.edit().putString("${prefKey}_port", selectedPort).apply()
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
-
-            val portRow = createConfigLine()
-            portRow.addView(portLabel)
-            portRow.addView(spinnerPort)
-            configRow.addView(portRow)
-
-            // Velocidad (baudios) del puerto, en su propia línea
-            val baudLabel = TextView(this).apply {
-                text = "Velocidad:"
-                textSize = 14f
-                setTextColor(android.graphics.Color.DKGRAY)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { setMargins(0, 0, 8, 0) }
-            }
-            val baudRow = createConfigLine()
-            baudRow.addView(baudLabel)
-            baudRow.addView(createBaudSpinner(prefs, prefKey))
-            configRow.addView(baudRow)
-        } else if (isUsbDevice) {
-            // Oxígeno y ECG: mostrar mensaje de conexión USB
-            val infoLabel = TextView(this).apply {
-                text = if (prefKey == PREF_DEVICE_OXIGENO) {
-                    "Se conecta por USB (no requiere puerto serial)"
-                } else {
-                    "Se conecta por USB o es una app externa"
-                }
-                textSize = 12f
-                setTextColor(android.graphics.Color.GRAY)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-                setPadding(0, 8, 0, 8)
-            }
-            configRow.addView(infoLabel)
-        }
-
-        row.addView(configRow)
-
-        // --- Lógica del Switch ---
-        switchView.setOnCheckedChangeListener { _, isChecked ->
-            if (!isChecked) {
-                // Verificar que al menos un dispositivo esté activo
-                val allKeys = listOf(
-                    PREF_DEVICE_ALTURA_PESO,
-                    PREF_DEVICE_PRESION,
-                    PREF_DEVICE_TEMPERATURA,
-                    PREF_DEVICE_OXIGENO,
-                    PREF_DEVICE_ECG,
-                    PREF_DEVICE_AZUCAR,
-                    PREF_DEVICE_ACIDO_URICO,
-                    PREF_DEVICE_COLESTEROL,
-                    PREF_DEVICE_IC_CARD,
-                    PREF_DEVICE_THERMAL_PRINTER
-                )
-                var activeCount = 0
-                for (key in allKeys) {
-                    if (prefs.getBoolean(key, true)) {
-                        activeCount++
-                    }
-                }
-                if (activeCount <= 1) {
-                    Toast.makeText(
-                        row.context,
-                        "Debe tener activado al menos un elemento de medición",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    switchView.isChecked = true
-                    return@setOnCheckedChangeListener
-                }
-
-                // Si desactiva Altura/Peso, desactivar Composición también
-                if (prefKey == PREF_DEVICE_ALTURA_PESO) {
-                    prefs.edit().putBoolean(PREF_DEVICE_COMPOSICION, false).apply()
-                    configRowsMap[PREF_DEVICE_COMPOSICION]?.visibility = View.GONE
-                    // ✅ CAMBIO 2: Reflejar en el switch de Composición el apagado
-                    updateComposicionSwitch(false)
-                }
-            }
-
-            // Guardar estado del switch
-            prefs.edit().putBoolean(prefKey, isChecked).apply()
-
-            // Mostrar/ocultar configuración
-            configRow.visibility = if (isChecked) View.VISIBLE else View.GONE
-
-            // Si es Altura/Peso, mostrar/ocultar Composición
-            if (prefKey == PREF_DEVICE_ALTURA_PESO) {
-                configRowsMap[PREF_DEVICE_COMPOSICION]?.visibility =
-                    if (isChecked) View.VISIBLE else View.GONE
-
-                // ✅ CAMBIO 3: Al activar Altura/Peso NO forzamos Composición a false.
-                //    Solo se muestra la fila y se respeta lo que el usuario haya elegido
-                //    (que ya está persistido en prefs).
-            }
-        }
-
-        return row
-    }
-
-    /**
-     * ✅ NUEVO: Refleja visualmente el estado del switch de Composición Corporal
-     * sin disparar loops raros. Se usa cuando Altura/Peso se desactiva.
-     */
-    private fun updateComposicionSwitch(checked: Boolean) {
-        val composicionRow = configRowsMap[PREF_DEVICE_COMPOSICION] as? LinearLayout ?: return
-        for (i in 0 until composicionRow.childCount) {
-            val child = composicionRow.getChildAt(i)
-            if (child is LinearLayout) {
-                for (j in 0 until child.childCount) {
-                    val subChild = child.getChildAt(j)
-                    if (subChild is Switch) {
-                        if (subChild.isChecked != checked) {
-                            subChild.isChecked = checked
-                        }
-                    }
+        if (portToSelect != null) {
+            val position = availablePorts.indexOf(portToSelect)
+            if (position >= 0) {
+                spinnerPort.setSelection(position)
+                if (savedPort == null) {
+                    prefs.edit().putString("${prefKey}_port", portToSelect).apply()
                 }
             }
         }
-    }
 
-    /** Línea horizontal (etiqueta + selector) dentro de la configuración de un dispositivo. */
-    private fun createConfigLine() = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-    }
+        spinnerPort.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedPort = availablePorts[position]
+                prefs.edit().putString("${prefKey}_port", selectedPort).apply()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
 
-    private fun createBaudSpinner(prefs: android.content.SharedPreferences, prefKey: String): Spinner {
-        val spinner = Spinner(this)
-        spinner.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-        bindBaudSpinner(spinner, prefs, prefKey)
-        return spinner
+        bindBaudSpinner(spinnerBaud, prefs, prefKey)
     }
 
     private fun bindBaudSpinner(spinner: Spinner, prefs: android.content.SharedPreferences, prefKey: String) {
@@ -712,148 +397,8 @@ class TestElementsActivity : BaseActivity() {
             sw.thumbDrawable?.setColorFilter(originalColor, PorterDuff.Mode.SRC_ATOP)
             sw.trackDrawable?.setColorFilter(originalColor, PorterDuff.Mode.SRC_ATOP)
         }
-    }
-
-    private fun createDeviceCardBackground(accent: Int): GradientDrawable {
-        val border = Color.argb(90, Color.red(accent), Color.green(accent), Color.blue(accent))
-        return GradientDrawable().apply {
-            cornerRadius = 18.dp.toFloat()
-            setColor(Color.WHITE)
-            setStroke(1.dp, border)
+        for (rb in allRadioButtons) {
+            rb.buttonTintList = android.content.res.ColorStateList.valueOf(originalColor)
         }
-    }
-
-    private fun applyCardAccents() {
-        val container = findViewById<LinearLayout>(R.id.deviceListContainer)
-        for (index in 0 until container.childCount) {
-            val child = container.getChildAt(index)
-            if (child.tag == "device_card") child.background = createDeviceCardBackground(themeColor)
-            if (child.tag == "section_header" && child is TextView) {
-                child.setTextColor(themeColor)
-            }
-        }
-    }
-
-    private fun createCameraConfigRow(
-        title: String,
-        prefIdKey: String,
-        prefMirrorKey: String,
-        defaultMirror: Boolean,
-        prefs: android.content.SharedPreferences,
-        availableCameras: List<String>
-    ): View {
-        val row = LinearLayout(this).apply {
-            tag = "device_card"
-            orientation = LinearLayout.VERTICAL
-            setPadding(16, 16, 16, 16)
-            background = createDeviceCardBackground(themeColor)
-            elevation = 3.dp.toFloat()
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 8) }
-        }
-
-        // Top row: Title and Switch (Modo Espejo)
-        val topRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val textView = TextView(this).apply {
-            text = title
-            textSize = 18f
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setTextColor(android.graphics.Color.DKGRAY)
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-
-        val switchMirror = Switch(this).apply {
-            text = "Modo Espejo"
-            textSize = 14f
-            if (!prefs.contains(prefMirrorKey)) {
-                prefs.edit().putBoolean(prefMirrorKey, defaultMirror).apply()
-            }
-            isChecked = prefs.getBoolean(prefMirrorKey, defaultMirror)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        allSwitches.add(switchMirror)
-
-        topRow.addView(textView)
-        topRow.addView(switchMirror)
-        row.addView(topRow)
-
-        // Bottom row: Spinner for Camera USB selection
-        val bottomRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 12, 0, 0)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val labelSpinner = TextView(this).apply {
-            text = "Seleccionar Cámara USB:"
-            textSize = 14f
-            setTextColor(android.graphics.Color.GRAY)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 16, 0) }
-        }
-
-        val spinner = Spinner(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f
-            )
-        }
-
-        val displayNames = availableCameras.map { id ->
-            when (id) {
-                "0" -> "Cámara 0 (Frontal)"
-                "1" -> "Cámara 1 (Externa)"
-                else -> "Cámara $id (Externa)"
-            }
-        }
-
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, displayNames.ifEmpty { listOf("Cámara 0 (USB / Estándar)") })
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinner.adapter = adapter
-
-        val savedId = prefs.getString(prefIdKey, availableCameras.firstOrNull() ?: "0")
-        val savedIndex = availableCameras.indexOf(savedId)
-        if (savedIndex >= 0) {
-            spinner.setSelection(savedIndex)
-        }
-
-        bottomRow.addView(labelSpinner)
-        bottomRow.addView(spinner)
-        row.addView(bottomRow)
-
-        // Listeners
-        switchMirror.setOnCheckedChangeListener { _, isChecked ->
-            prefs.edit().putBoolean(prefMirrorKey, isChecked).apply()
-        }
-
-        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
-                val selectedCameraId = availableCameras.getOrNull(position) ?: "0"
-                prefs.edit().putString(prefIdKey, selectedCameraId).apply()
-            }
-            override fun onNothingSelected(parent: AdapterView<*>) {}
-        }
-
-        return row
     }
 }

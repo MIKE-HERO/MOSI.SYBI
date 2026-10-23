@@ -284,7 +284,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Parámetros\nde medición"
+                    android:text="Configuración\nde periféricos"
                     android:textColor="#333333"
                     android:textSize="18sp"
                     android:textStyle="bold"

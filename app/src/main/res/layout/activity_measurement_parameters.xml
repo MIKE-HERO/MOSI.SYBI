@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
-    android:background="#F5F5F5">
+    android:background="#EFF4F8">
 
     <!-- BARRA LATERAL -->
     <FrameLayout
@@ -65,106 +65,426 @@
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:orientation="vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Parámetros de medición"
-            android:textSize="22sp"
-            android:textColor="#333333"
-            android:textStyle="bold"
-            android:layout_marginBottom="20dp"/>
+        <!-- HEADER CON TÍTULO -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="112dp"
+            android:background="#F9FCFE"
+            android:elevation="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="38dp"
+            android:paddingEnd="38dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvPeripheralsTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Configuración de periféricos"
+                    android:textColor="#102A43"
+                    android:textSize="29sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="Configuración del lector de tarjetas, impresoras y cámaras"
+                    android:textColor="#607D92"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_technical_status"
+                android:drawableStart="@drawable/ic_test"
+                android:drawablePadding="10dp"
+                android:fontFamily="sans-serif-medium"
+                android:paddingStart="18dp"
+                android:paddingTop="11dp"
+                android:paddingEnd="18dp"
+                android:paddingBottom="11dp"
+                android:text="PANEL TÉCNICO"
+                android:textColor="#17648B"
+                android:textSize="12sp" />
+        </LinearLayout>
 
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:fillViewport="true">
+            android:clipToPadding="false"
+            android:fillViewport="true"
+            android:paddingStart="34dp"
+            android:paddingTop="24dp"
+            android:paddingEnd="34dp"
+            android:paddingBottom="16dp"
+            android:scrollbarStyle="outsideOverlay">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingBottom="16dp">
 
-                <!-- SECCIÓN: DERIVACIONES DE ECG -->
+                <!-- TARJETA: LECTOR DE TARJETA IC -->
                 <LinearLayout
+                    android:id="@+id/cardIcCard"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
                     android:background="@drawable/bg_content_card"
-                    android:elevation="2dp"
-                    android:padding="16dp"
+                    android:elevation="3dp"
+                    android:orientation="vertical"
+                    android:padding="20dp"
+                    android:layout_marginBottom="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Lector de Tarjeta IC"
+                            android:textColor="#333333"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <Switch
+                            android:id="@+id/switchIcCard"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checked="true" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/layoutIcCardConfig"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginTop="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:text="Puerto:"
+                            android:textColor="#333333"
+                            android:textSize="14sp" />
+
+                        <Spinner
+                            android:id="@+id/spinnerIcCardPort"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="20dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:text="Velocidad:"
+                            android:textColor="#333333"
+                            android:textSize="14sp" />
+
+                        <Spinner
+                            android:id="@+id/spinnerIcCardBaud"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- TARJETA: CONFIGURACIÓN DE IMPRESORAS (TÉRMICA Y DE RED) -->
+                <LinearLayout
+                    android:id="@+id/cardPrinters"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_content_card"
+                    android:elevation="3dp"
+                    android:orientation="vertical"
+                    android:padding="20dp"
                     android:layout_marginBottom="16dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Derivaciones de ECG"
-                        android:textSize="16sp"
-                        android:textStyle="bold"
+                        android:text="Configuración de Impresoras"
                         android:textColor="#333333"
-                        android:layout_marginBottom="4dp"/>
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- IMPRESORA TÉRMICA DE TICKETS -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Impresora Térmica de Tickets (SP-RMD8CS1H)"
+                            android:textColor="#333333"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <Switch
+                            android:id="@+id/switchThermalPrinter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checked="true" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/layoutThermalPrinterConfig"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginTop="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:text="Puerto:"
+                            android:textColor="#333333"
+                            android:textSize="14sp" />
+
+                        <Spinner
+                            android:id="@+id/spinnerThermalPrinterPort"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="20dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:text="Velocidad:"
+                            android:textColor="#333333"
+                            android:textSize="14sp" />
+
+                        <Spinner
+                            android:id="@+id/spinnerThermalPrinterBaud"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+
+                    <!-- LÍNEA SEPARADORA -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#E0E0E0"
+                        android:layout_marginTop="16dp"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- IMPRESORA DE RED (IPP) -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Impresora de Red (PDF por IPP)"
+                        android:textColor="#333333"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="6dp" />
 
                     <TextView
-                        android:layout_width="match_parent"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Elige con cuántas derivaciones se inicia cada medición de ECG. Ya no se preguntará en cada toma."
+                        android:text="IP de la impresora de red:"
+                        android:textColor="#555555"
                         android:textSize="13sp"
-                        android:textColor="#757575"
-                        android:layout_marginBottom="16dp"/>
+                        android:layout_marginBottom="4dp" />
 
-                    <RadioGroup
-                        android:id="@+id/rgEcgDerivaciones"
+                    <EditText
+                        android:id="@+id/etPrinterIp"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical">
+                        android:background="@android:drawable/editbox_background_normal"
+                        android:digits="0123456789."
+                        android:hint="Ej. 192.168.1.50 (vacío = usar visor de PDF)"
+                        android:inputType="text"
+                        android:padding="12dp"
+                        android:textSize="15sp" />
 
-                        <RadioButton
-                            android:id="@+id/rbEcg6"
-                            android:layout_width="match_parent"
-                            android:layout_height="56dp"
-                            android:background="@drawable/bg_auth_instruction"
-                            android:button="@android:drawable/btn_radio"
-                            android:buttonTint="#0F3E82"
-                            android:gravity="center_vertical"
-                            android:paddingStart="16dp"
-                            android:paddingEnd="16dp"
-                            android:drawablePadding="12dp"
-                            android:text="6 derivaciones"
-                            android:textColor="#36566C"
-                            android:textSize="15sp"
-                            android:layout_marginBottom="10dp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Impresión directa por red sin diálogo (requiere puerto IPP 631)."
+                        android:textColor="#888888"
+                        android:textSize="12sp" />
 
-                        <RadioButton
-                            android:id="@+id/rbEcg12"
-                            android:layout_width="match_parent"
-                            android:layout_height="56dp"
-                            android:background="@drawable/bg_auth_instruction"
-                            android:button="@android:drawable/btn_radio"
-                            android:buttonTint="#0F3E82"
-                            android:gravity="center_vertical"
-                            android:paddingStart="16dp"
-                            android:paddingEnd="16dp"
-                            android:drawablePadding="12dp"
-                            android:text="12 derivaciones"
-                            android:textColor="#36566C"
-                            android:textSize="15sp"/>
-                    </RadioGroup>
                 </LinearLayout>
+
+                <!-- ENCABEZADO DE SECCIÓN CÁMARAS -->
+                <TextView
+                    android:id="@+id/tvCameraSectionHeader"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Configuración de Cámaras"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="#0F3E82"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="12dp" />
+
+                <!-- TARJETA: CÁMARA PRINCIPAL -->
+                <LinearLayout
+                    android:id="@+id/cardMainCamera"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_content_card"
+                    android:elevation="3dp"
+                    android:orientation="vertical"
+                    android:padding="20dp"
+                    android:layout_marginBottom="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Cámara Principal"
+                            android:textColor="#333333"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <Switch
+                            android:id="@+id/switchMainCameraMirror"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Modo Espejo"
+                            android:textSize="14sp"
+                            android:checked="true" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="16dp"
+                            android:text="Seleccionar Cámara USB:"
+                            android:textColor="#757575"
+                            android:textSize="14sp" />
+
+                        <Spinner
+                            android:id="@+id/spinnerMainCameraId"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- TARJETA: CÁMARA SECUNDARIA -->
+                <LinearLayout
+                    android:id="@+id/cardSecondaryCamera"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_content_card"
+                    android:elevation="3dp"
+                    android:orientation="vertical"
+                    android:padding="20dp"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Cámara Secundaria"
+                            android:textColor="#333333"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <Switch
+                            android:id="@+id/switchSecondaryCameraMirror"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Modo Espejo"
+                            android:textSize="14sp"
+                            android:checked="false" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="16dp"
+                            android:text="Seleccionar Cámara USB:"
+                            android:textColor="#757575"
+                            android:textSize="14sp" />
+
+                        <Spinner
+                            android:id="@+id/spinnerSecondaryCameraId"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+                </LinearLayout>
+
             </LinearLayout>
         </ScrollView>
 
-        <Button
-            android:id="@+id/btnGuardarParametros"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Guardar Configuración"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:padding="14dp"
-            android:backgroundTint="#0F3E82"
-            android:layout_marginTop="16dp"/>
+            android:paddingStart="34dp"
+            android:paddingEnd="34dp"
+            android:paddingBottom="20dp">
+
+            <Button
+                android:id="@+id/btnGuardarParametros"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Aceptar"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:padding="14dp"
+                android:backgroundTint="#0F3E82" />
+        </LinearLayout>
+
     </LinearLayout>
 </LinearLayout>
