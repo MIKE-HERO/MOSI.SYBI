@@ -33,3 +33,16 @@ data class LogoClienteDto(
     @SerializedName("nombreFirma") val nombreFirma: String? = null,
     @SerializedName("puesto") val puesto: String? = null
 )
+
+/**
+ * POST usuariosWeb/logosCliente (multipart/form-data): sube/actualiza la imagen de un cliente
+ * en un slot ("izquierdo" | "derecho" | "firma"). En éxito, el servidor devuelve el mismo shape
+ * que el GET (con las URLs ya actualizadas) más el slot guardado, para refrescar sin otra llamada.
+ */
+data class ActualizarLogoResponse(
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("codigo") val codigo: String? = null,
+    @SerializedName("mensaje") val mensaje: String? = null,
+    @SerializedName("slot") val slot: String? = null,
+    @SerializedName("logos") val logos: LogoClienteDto? = null
+)

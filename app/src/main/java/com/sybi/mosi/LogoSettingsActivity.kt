@@ -29,11 +29,21 @@ import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
+import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import coil.ImageLoader
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import coil.target.Target
+import com.sybi.mosi.network.RetrofitClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.google.gson.Gson
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -546,6 +556,14 @@ class LogoSettingsActivity : BaseActivity() {
                     }
 
                     Toast.makeText(this, "Logo actualizado correctamente", Toast.LENGTH_SHORT).show()
+
+                    // Guardar en el servidor solo tiene sentido para SVG: es el único formato que
+                    // ClienteLogoCache intenta primero (construirUrlSvgHermana) y el que de verdad
+                    // queremos distribuir al resto de kioscos de este cliente. Un PNG/JPG cargado
+                    // aquí se queda como configuración puramente local de este dispositivo.
+                    if (savedPath.endsWith(".svg", ignoreCase = true)) {
+                        ofrecerGuardarImagenParaCliente(File(savedPath))
+                    }
                 } else {
                     Toast.makeText(this, "Error al guardar la imagen", Toast.LENGTH_SHORT).show()
                 }
@@ -555,26 +573,117 @@ class LogoSettingsActivity : BaseActivity() {
         }
     }
 
+    /**
+     * Tras cargar un SVG localmente, pregunta si además se quiere subir al servidor como
+     * imagen oficial del cliente ACTIVO del dispositivo (el mismo que usa ClienteLogoCache),
+     * y en qué slot (logo izquierdo, logo derecho o firma).
+     */
+    private fun ofrecerGuardarImagenParaCliente(archivoSvg: File) {
+        val idCliente = TelemedicineSettingsActivity.getCliente(this)
+        if (idCliente.isBlank()) {
+            return // Sin cliente activo configurado: no hay a quién asociar la imagen en el servidor.
+        }
+
+        val slots = ClienteLogoCache.SLOTS // [("izq","Logo izquierdo"), ("der","Logo derecho"), ("firma","Firma")]
+        val etiquetas = slots.map { it.second }.toTypedArray()
+        var slotElegido = slots.first().first
+
+        AlertDialog.Builder(this)
+            .setTitle("¿Guardar esta imagen para el cliente?")
+            .setSingleChoiceItems(etiquetas, 0) { _, which -> slotElegido = slots[which].first }
+            .setPositiveButton("Guardar en servidor") { _, _ ->
+                subirImagenClienteAlServidor(idCliente, slotElegido, archivoSvg)
+            }
+            .setNegativeButton("Solo en este kiosco", null)
+            .show()
+    }
+
+    /** Códigos de error documentados por el backend para POST usuariosWeb/logosCliente. */
+    private fun mensajeParaCodigoError(codigo: String?): String = when (codigo) {
+        "1" -> "Falta el id del cliente"
+        "2" -> "Slot inválido"
+        "3" -> "Falta el archivo"
+        "4" -> "Error al subir el archivo"
+        "5" -> "La imagen supera el tamaño máximo (2 MB)"
+        "6" -> "No se pudo leer el archivo temporal"
+        "7" -> "Tipo de archivo no permitido"
+        "8" -> "El SVG contiene scripts no permitidos"
+        "9" -> "Error interno del servidor (raíz web)"
+        "10" -> "Error interno del servidor (carpeta de destino)"
+        "11" -> "Error interno del servidor (no se pudo mover el archivo)"
+        else -> "Error desconocido del servidor (código $codigo)"
+    }
+
+    /** "izq"/"der"/"firma" (códigos internos de ClienteLogoCache) → valor que espera el backend. */
+    private fun slotParaServidor(slotInterno: String): String = when (slotInterno) {
+        "izq" -> "izquierdo"
+        "der" -> "derecho"
+        else -> "firma"
+    }
+
+    /** Envía el SVG al servidor para que quede como la imagen oficial del cliente en ese slot. */
+    private fun subirImagenClienteAlServidor(idCliente: String, slotInterno: String, archivo: File) {
+        Toast.makeText(this, "Subiendo imagen al servidor...", Toast.LENGTH_SHORT).show()
+        val etiquetaSlot = ClienteLogoCache.SLOTS.firstOrNull { it.first == slotInterno }?.second ?: slotInterno
+
+        lifecycleScope.launch {
+            val resultado = withContext(Dispatchers.IO) {
+                runCatching {
+                    RetrofitClient.apiService.actualizarLogoCliente(
+                        idCliente = idCliente.toRequestBody("text/plain".toMediaType()),
+                        slot = slotParaServidor(slotInterno).toRequestBody("text/plain".toMediaType()),
+                        archivo = MultipartBody.Part.createFormData(
+                            "archivo",
+                            archivo.name,
+                            archivo.asRequestBody("image/svg+xml".toMediaType())
+                        )
+                    )
+                }
+            }
+            resultado.onSuccess { response ->
+                if (response.isSuccessful && response.body()?.success == true) {
+                    Toast.makeText(this@LogoSettingsActivity, "✅ Imagen guardada en el servidor ($etiquetaSlot)", Toast.LENGTH_LONG).show()
+                } else {
+                    val codigo = response.body()?.codigo
+                        ?: runCatching {
+                            Gson().fromJson(response.errorBody()?.string(), com.sybi.mosi.network.ActualizarLogoResponse::class.java)?.codigo
+                        }.getOrNull()
+                    Toast.makeText(this@LogoSettingsActivity, "❌ ${mensajeParaCodigoError(codigo)}", Toast.LENGTH_LONG).show()
+                }
+            }.onFailure { e ->
+                Toast.makeText(this@LogoSettingsActivity, "❌ No se pudo subir la imagen: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun copyImageToInternalStorage(uri: Uri): String? {
         return try {
-            val inputStream: InputStream = contentResolver.openInputStream(uri) ?: return null
+            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+
+            // El content:// URI de "Descargas" (com.android.providers.downloads.documents) es
+            // un ID numérico que NO conserva el nombre/extensión real del archivo (p. ej.
+            // ".../document/135"), así que ni el MIME type ni el propio URI son confiables para
+            // detectar SVG. Se revisan los primeros bytes del contenido en vez de confiar en
+            // metadata que el proveedor puede no exponer.
             val mimeType = contentResolver.getType(uri)
-            val isSvg = mimeType == "image/svg+xml" || uri.toString().endsWith(".svg", ignoreCase = true)
+            val isSvg = mimeType == "image/svg+xml" ||
+                uri.toString().endsWith(".svg", ignoreCase = true) ||
+                parecesSerSvg(bytes)
             val extension = if (isSvg) ".svg" else ".png"
 
             val logoFile = File(filesDir, "logo$extension")
-            val outputStream = FileOutputStream(logoFile)
-
-            inputStream.use { input ->
-                outputStream.use { output ->
-                    input.copyTo(output)
-                }
-            }
+            FileOutputStream(logoFile).use { it.write(bytes) }
 
             logoFile.absolutePath
         } catch (e: Exception) {
             null
         }
+    }
+
+    /** Revisa si los primeros bytes del archivo contienen una etiqueta <svg (sin depender de MIME/URI). */
+    private fun parecesSerSvg(bytes: ByteArray): Boolean {
+        val encabezado = String(bytes, 0, minOf(bytes.size, 2048), Charsets.UTF_8)
+        return encabezado.contains("<svg", ignoreCase = true)
     }
 
     private fun openGallery() {
