@@ -1,6 +1,9 @@
 package com.sybi.mosi
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.util.Log
 import com.google.gson.Gson
 import com.sybi.mosi.network.LogoClienteDto
@@ -224,6 +227,55 @@ object ClienteLogoCache {
             temp.delete()
             // Si ya había una copia previa COMPLETA (de otra URL), mejor usarla que no mostrar nada.
             if (file.exists()) file.absolutePath else null
+        }
+    }
+
+    // Detecta el patrón "<svg>...<image ... xlink:href="data:image/png;base64,XXXX" ...>...</svg>":
+    // no es un SVG vectorial, es una imagen rasterizada (a veces de varios MB / miles de px)
+    // simplemente envuelta en una etiqueta <svg> para que el servidor pueda servirla como ".svg".
+    private val patronImagenEmbebida = Regex(
+        "xlink:href=\"data:image/(?:png|jpe?g);base64,([A-Za-z0-9+/=\\s]+)\"",
+        RegexOption.IGNORE_CASE
+    )
+
+    /**
+     * Decodifica en miniatura un logo que llegó como ".svg" pero cuyo contenido es en realidad
+     * una imagen rasterizada embebida en base64 (ver [patronImagenEmbebida]).
+     *
+     * Por qué hace falta: el renderer de SVG (androidsvg, vía Coil SvgDecoder) decodifica esa
+     * imagen embebida a su RESOLUCIÓN COMPLETA antes de componerla en el lienzo, sin importar
+     * qué tan chico sea el ImageView de destino — hay logos reales en producción de 4000x2000px
+     * (~33 MB de bitmap crudo) que el servidor entrega "envueltos" así. Decodificar eso para una
+     * miniatura de 70dp de alto, tres veces seguidas (izq/der/firma), es lo que agota la memoria
+     * en una tablet de 2GB de RAM y deja los logos sin mostrarse (fallback a ic_info) aunque la
+     * descarga haya sido exitosa.
+     *
+     * Aquí se extrae el base64 embebido y se decodifica directo con BitmapFactory +
+     * inSampleSize, el mismo truco de downsampling real que ya usa el resto de la app.
+     *
+     * Devuelve null si el archivo no es SVG, o si SÍ es un SVG vectorial genuino (sin imagen
+     * embebida) — en ese caso el caller debe seguir usando el pipeline normal de Coil/SvgDecoder.
+     */
+    fun decodificarSvgEnvueltoComoImagen(file: File, anchoObjetivoPx: Int): Bitmap? {
+        if (!file.extension.equals("svg", ignoreCase = true)) return null
+        return try {
+            val texto = file.bufferedReader().use { it.readText() }
+            val match = patronImagenEmbebida.find(texto) ?: return null
+            val base64 = match.groupValues[1].replace("\\s".toRegex(), "")
+            val bytes = Base64.decode(base64, Base64.DEFAULT)
+
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            if (bounds.outWidth <= 0) return null
+
+            var sample = 1
+            val objetivo = anchoObjetivoPx.coerceAtLeast(1)
+            while (bounds.outWidth / (sample * 2) >= objetivo) sample *= 2
+            val options = BitmapFactory.Options().apply { inSampleSize = sample }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+        } catch (e: Exception) {
+            Log.w(TAG, "No se pudo decodificar la imagen embebida del SVG ${file.name}: ${e.message}")
+            null
         }
     }
 }

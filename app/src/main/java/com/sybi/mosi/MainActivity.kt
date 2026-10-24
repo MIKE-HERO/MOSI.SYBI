@@ -34,10 +34,14 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import coil.ImageLoader
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class MainActivity : BaseActivity() {
@@ -408,6 +412,31 @@ class MainActivity : BaseActivity() {
     // CARGAR LOGO (PNG, JPG, WEBP, SVG)
     // ==========================================
     private fun loadLogo(imageView: ImageView, path: String) {
+        val file = File(path)
+        // Varios logos de clientes llegan como ".svg" pero en realidad envuelven una imagen
+        // rasterizada en base64 (a veces de miles de px) — decodificarla con el pipeline normal
+        // de SVG la decodifica a resolución COMPLETA sin importar el tamaño final del logo en
+        // pantalla, lo que puede agotar memoria en tablets de gama baja y dejar el logo sin
+        // mostrarse. Mismo fix que en ClienteSettingsActivity/InformeBuilder.
+        if (file.extension.equals("svg", ignoreCase = true)) {
+            lifecycleScope.launch {
+                val anchoObjetivoPx = imageView.width.takeIf { it > 0 }
+                    ?: (600 * resources.displayMetrics.density).toInt()
+                val bitmapLiviano = withContext(Dispatchers.IO) {
+                    ClienteLogoCache.decodificarSvgEnvueltoComoImagen(file, anchoObjetivoPx)
+                }
+                if (bitmapLiviano != null) {
+                    imageView.setImageBitmap(bitmapLiviano)
+                } else {
+                    cargarLogoConCoil(imageView, path)
+                }
+            }
+        } else {
+            cargarLogoConCoil(imageView, path)
+        }
+    }
+
+    private fun cargarLogoConCoil(imageView: ImageView, path: String) {
         try {
             val imageLoader = ImageLoader.Builder(imageView.context)
                 .components {

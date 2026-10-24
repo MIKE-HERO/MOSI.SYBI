@@ -494,7 +494,13 @@ class InformeBuilder(
                 if (!path.isNullOrBlank()) {
                     val esSvg = path.substringAfterLast('.', "").equals("svg", ignoreCase = true)
                     if (esSvg) {
-                        decodificarSvgSincrono(context, path)
+                        // Varios logos de clientes llegan como ".svg" pero en realidad envuelven una
+                        // imagen rasterizada en base64 (a veces de miles de px) — decodificarla con el
+                        // pipeline normal de SVG la decodifica a resolución COMPLETA sin importar el
+                        // tamaño final en el PDF, lo que puede agotar memoria en tablets de gama baja y
+                        // dejar el logo sin aparecer en el informe. Mismo fix que en ClienteSettingsActivity.
+                        ClienteLogoCache.decodificarSvgEnvueltoComoImagen(File(path), anchoObjetivoPx = 600)
+                            ?: decodificarSvgSincrono(context, path)
                     } else {
                         val file = File(path)
                         if (file.exists()) {
