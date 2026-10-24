@@ -134,6 +134,11 @@ class SettingsActivity : BaseActivity() {
         findViewById<LinearLayout>(R.id.btnReportSettings)?.setOnClickListener {
             startActivity(Intent(this, ReportSettingsActivity::class.java))
         }
+
+        // 13. Botón: Respaldo (exportar/importar pacientes y mediciones)
+        findViewById<LinearLayout>(R.id.btnBackupSettings)?.setOnClickListener {
+            startActivity(Intent(this, BackupActivity::class.java))
+        }
     }
 
     override fun onResume() {

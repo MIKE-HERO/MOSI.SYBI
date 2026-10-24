@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="#F5F5F5">
+
+    <!-- BARRA LATERAL -->
+    <FrameLayout
+        android:layout_width="154dp"
+        android:layout_height="match_parent"
+        android:elevation="12dp">
+
+        <LinearLayout
+            android:id="@+id/sideBarLayout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_technical_sidebar"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingTop="28dp">
+
+            <LinearLayout
+                android:id="@+id/btnBackBackup"
+                android:layout_width="116dp"
+                android:layout_height="112dp"
+                android:background="@drawable/bg_technical_back"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:rotation="180"
+                    android:src="@drawable/ic_regresar"
+                    app:tint="#FFFFFF" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="REGRESAR"
+                    android:textColor="#E6F5FF"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <View android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
+
+        </LinearLayout>
+
+        <View
+            android:id="@+id/themeAccentBar"
+            android:layout_width="5dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:background="#0F3E82" />
+    </FrameLayout>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Respaldo de pacientes y mediciones"
+            android:textSize="22sp"
+            android:textColor="#333333"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_content_card"
+                    android:elevation="3dp"
+                    android:padding="16dp"
+                    android:layout_marginBottom="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Exportar"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#333333"
+                        android:layout_marginBottom="4dp"/>
+
+                    <TextView
+                        android:id="@+id/tvClienteActivo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Cliente activo: —"
+                        android:textSize="13sp"
+                        android:textColor="#555555"
+                        android:layout_marginBottom="12dp"/>
+
+                    <Button
+                        android:id="@+id/btnExportar"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:text="📤 Exportar pacientes y mediciones"
+                        android:textAllCaps="false"
+                        android:backgroundTint="#0F3E82"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_content_card"
+                    android:elevation="3dp"
+                    android:padding="16dp"
+                    android:layout_marginBottom="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Importar"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#333333"
+                        android:layout_marginBottom="4dp"/>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Solo se puede importar un respaldo del MISMO cliente configurado en este kiosco, para evitar mezclar pacientes de otros clientes."
+                        android:textSize="13sp"
+                        android:textColor="#555555"
+                        android:layout_marginBottom="12dp"/>
+
+                    <Button
+                        android:id="@+id/btnImportar"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:text="📥 Importar respaldo"
+                        android:textAllCaps="false"
+                        android:backgroundTint="#0F3E82"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_content_card"
+                    android:elevation="3dp"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Estado"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#333333"
+                        android:layout_marginBottom="8dp"/>
+
+                    <TextView
+                        android:id="@+id/tvEstadoBackup"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Listo."
+                        android:textSize="14sp"
+                        android:textColor="#333333"/>
+                </LinearLayout>
+
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+</LinearLayout>
