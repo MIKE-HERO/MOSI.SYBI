@@ -87,13 +87,10 @@
 
         <ImageView
             android:id="@+id/imgLogo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:adjustViewBounds="true"
-            android:maxWidth="600dp"
-            android:maxHeight="300dp"
+            android:layout_width="600dp"
+            android:layout_height="300dp"
             android:contentDescription="SYBI"
-            android:scaleType="fitCenter"
+            android:scaleType="fitXY"
             android:src="@drawable/sybi_logo_blanco" />
 
         <com.sybi.mosi.ShineSweepView
