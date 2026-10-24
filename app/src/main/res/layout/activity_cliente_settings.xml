@@ -209,7 +209,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:weightSum="3">
+                        android:weightSum="2">
 
                         <LinearLayout
                             android:id="@+id/cardSlotIzq"
@@ -247,7 +247,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:layout_marginHorizontal="6dp"
+                            android:layout_marginStart="6dp"
                             android:orientation="vertical"
                             android:gravity="center"
                             android:padding="8dp"
@@ -268,37 +268,6 @@
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="4dp"
                                 android:text="Logo derecho"
-                                android:textSize="11sp"
-                                android:textColor="#555555"
-                                android:gravity="center"/>
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/cardSlotFirma"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginStart="6dp"
-                            android:orientation="vertical"
-                            android:gravity="center"
-                            android:padding="8dp"
-                            android:background="@android:drawable/edit_text"
-                            android:clickable="true"
-                            android:focusable="true">
-
-                            <ImageView
-                                android:id="@+id/imgSlotFirma"
-                                android:layout_width="match_parent"
-                                android:layout_height="70dp"
-                                android:scaleType="centerInside"
-                                android:src="@drawable/ic_info"
-                                app:tint="#CCCCCC"/>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="Firma"
                                 android:textSize="11sp"
                                 android:textColor="#555555"
                                 android:gravity="center"/>
