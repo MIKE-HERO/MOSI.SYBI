@@ -1,10 +1,14 @@
 package com.sybi.mosi.network
 
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Call
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -52,4 +56,16 @@ interface ApiService {
     fun obtenerDatosSucursal(
         @Query("id_sucursal") idSucursal: String
     ): Call<DatosSucursalResponse>
+
+    // ── Subir/actualizar la imagen de un cliente en un slot ──
+    // Contrato confirmado por backend (2026-10-24): multipart/form-data con los 3 campos como
+    // partes del form (no query params). slot: "izquierdo" | "derecho" | "firma". archivo:
+    // SVG/PNG/JPG, máx. 2 MB, validado por magic bytes (no por el Content-Type que mande el cliente).
+    @Multipart
+    @POST("usuariosWeb/logosCliente")
+    suspend fun actualizarLogoCliente(
+        @Part("id_cliente") idCliente: RequestBody,
+        @Part("slot") slot: RequestBody,
+        @Part archivo: MultipartBody.Part
+    ): Response<ActualizarLogoResponse>
 }
