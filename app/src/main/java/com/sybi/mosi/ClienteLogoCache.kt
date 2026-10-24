@@ -106,7 +106,14 @@ object ClienteLogoCache {
         val ctx = context.applicationContext
         archivoOverride(ctx, idCliente, slot)?.let { return it }
         val dirDescargas = File(ctx.cacheDir, "clienteLogos")
-        return dirDescargas.listFiles { f -> f.nameWithoutExtension == "${idCliente}_$slot" }?.firstOrNull()
+        // ".url" (el marcador de caché que guarda de qué URL vino la imagen, usado por
+        // intentarDescargar para no redescargar si no cambió) comparte el mismo
+        // nameWithoutExtension que la imagen real (p. ej. "155_izq.svg" y "155_izq.url" son
+        // ambos "155_izq") — sin excluirlo, listFiles() podía devolver el marcador en vez de
+        // la imagen según el orden del filesystem, y la miniatura se quedaba sin mostrar nada.
+        return dirDescargas.listFiles { f ->
+            f.nameWithoutExtension == "${idCliente}_$slot" && !f.extension.equals("url", ignoreCase = true)
+        }?.firstOrNull()
     }
 
     /** Quita el override local de un slot (vuelve a depender de lo que traiga el servidor). */

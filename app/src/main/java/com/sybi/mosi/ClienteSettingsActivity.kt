@@ -48,11 +48,16 @@ class ClienteSettingsActivity : BaseActivity() {
     private lateinit var tvImagenesHint: TextView
     private lateinit var cardSlotIzq: View
     private lateinit var cardSlotDer: View
-    private lateinit var cardSlotFirma: View
     private lateinit var imgSlotIzq: ImageView
     private lateinit var imgSlotDer: ImageView
-    private lateinit var imgSlotFirma: ImageView
     private lateinit var tvSlotSeleccionado: TextView
+
+    /**
+     * Esta pantalla solo deja previsualizar/aplicar izq y der (la firma no es un logotipo de
+     * marca — ver aplicarComoLogoPorDefecto). Se usa en vez de ClienteLogoCache.SLOTS (que sí
+     * incluye "firma", necesario en LogoSettingsActivity para subir firmas al servidor).
+     */
+    private val SLOTS_PREVIEW = ClienteLogoCache.SLOTS.filter { it.first != "firma" }
     private lateinit var imgPreviewGrande: ImageView
     private lateinit var btnSeleccionarImagen: Button
     private lateinit var btnBuscarImagenesCliente: Button
@@ -81,10 +86,8 @@ class ClienteSettingsActivity : BaseActivity() {
         tvImagenesHint = findViewById(R.id.tvImagenesHint)
         cardSlotIzq = findViewById(R.id.cardSlotIzq)
         cardSlotDer = findViewById(R.id.cardSlotDer)
-        cardSlotFirma = findViewById(R.id.cardSlotFirma)
         imgSlotIzq = findViewById(R.id.imgSlotIzq)
         imgSlotDer = findViewById(R.id.imgSlotDer)
-        imgSlotFirma = findViewById(R.id.imgSlotFirma)
         tvSlotSeleccionado = findViewById(R.id.tvSlotSeleccionado)
         imgPreviewGrande = findViewById(R.id.imgPreviewGrande)
         btnSeleccionarImagen = findViewById(R.id.btnSeleccionarImagen)
@@ -98,7 +101,6 @@ class ClienteSettingsActivity : BaseActivity() {
 
         cardSlotIzq.setOnClickListener { mostrarPreviewGrande("izq") }
         cardSlotDer.setOnClickListener { mostrarPreviewGrande("der") }
-        cardSlotFirma.setOnClickListener { mostrarPreviewGrande("firma") }
         btnSeleccionarImagen.setOnClickListener { aplicarComoLogoPorDefecto() }
         btnBuscarImagenesCliente.setOnClickListener { buscarImagenesDeCliente() }
 
@@ -310,14 +312,12 @@ class ClienteSettingsActivity : BaseActivity() {
 
     private fun vistaDelSlot(slot: String): ImageView = when (slot) {
         "izq" -> imgSlotIzq
-        "der" -> imgSlotDer
-        else -> imgSlotFirma
+        else -> imgSlotDer
     }
 
     private fun tarjetaDelSlot(slot: String): View = when (slot) {
         "izq" -> cardSlotIzq
-        "der" -> cardSlotDer
-        else -> cardSlotFirma
+        else -> cardSlotDer
     }
 
     /** Vuelve a cargar las miniaturas de los 3 slots para el cliente actualmente seleccionado. */
@@ -326,7 +326,7 @@ class ClienteSettingsActivity : BaseActivity() {
         if (idCliente.isBlank()) {
             tvImagenesHint.text = "Selecciona un cliente para ver sus imágenes"
             btnBuscarImagenesCliente.isEnabled = false
-            ClienteLogoCache.SLOTS.forEach { (slot, _) -> vistaDelSlot(slot).setImageDrawable(null) }
+            SLOTS_PREVIEW.forEach { (slot, _) -> vistaDelSlot(slot).setImageDrawable(null) }
             return
         }
         tvImagenesHint.text = "Toca una imagen para previsualizarla"
@@ -334,7 +334,7 @@ class ClienteSettingsActivity : BaseActivity() {
 
         lifecycleScope.launch {
             val archivos = withContext(Dispatchers.IO) {
-                ClienteLogoCache.SLOTS.associate { (slot, _) ->
+                SLOTS_PREVIEW.associate { (slot, _) ->
                     slot to ClienteLogoCache.rutaImagenSlotActual(this@ClienteSettingsActivity, idCliente, slot)
                 }
             }
@@ -348,7 +348,7 @@ class ClienteSettingsActivity : BaseActivity() {
 
     private fun mostrarPreviewGrande(slot: String, recargarSlots: Boolean = true) {
         slotSeleccionado = slot
-        val etiqueta = ClienteLogoCache.SLOTS.firstOrNull { it.first == slot }?.second ?: slot
+        val etiqueta = SLOTS_PREVIEW.firstOrNull { it.first == slot }?.second ?: slot
 
         if (idClienteSeleccionado.isBlank()) {
             tvSlotSeleccionado.text = "Selecciona primero un cliente"
@@ -361,7 +361,7 @@ class ClienteSettingsActivity : BaseActivity() {
         btnSeleccionarImagen.isEnabled = true
 
         // Resaltar la tarjeta del slot activo para que quede claro cuál se está previsualizando.
-        ClienteLogoCache.SLOTS.forEach { (s, _) -> tarjetaDelSlot(s).alpha = if (s == slot) 1f else 0.55f }
+        SLOTS_PREVIEW.forEach { (s, _) -> tarjetaDelSlot(s).alpha = if (s == slot) 1f else 0.55f }
 
         val archivo = ClienteLogoCache.archivoOverride(this, idClienteSeleccionado, slot)
             ?: ClienteLogoCache.rutaImagenSlotActual(this, idClienteSeleccionado, slot)
