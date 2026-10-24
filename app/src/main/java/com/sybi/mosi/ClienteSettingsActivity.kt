@@ -339,7 +339,7 @@ class ClienteSettingsActivity : BaseActivity() {
                 }
             }
             archivos.forEach { (slot, archivo) ->
-                cargarImagenEnVista(vistaDelSlot(slot), archivo)
+                cargarImagenEnVista(vistaDelSlot(slot), archivo, anchoObjetivoDp = 150)
             }
             // Si había un slot en previsualización grande, refrescar también esa vista.
             slotSeleccionado?.let { mostrarPreviewGrande(it, recargarSlots = false) }
@@ -365,26 +365,47 @@ class ClienteSettingsActivity : BaseActivity() {
 
         val archivo = ClienteLogoCache.archivoOverride(this, idClienteSeleccionado, slot)
             ?: ClienteLogoCache.rutaImagenSlotActual(this, idClienteSeleccionado, slot)
-        cargarImagenEnVista(imgPreviewGrande, archivo)
+        cargarImagenEnVista(imgPreviewGrande, archivo, anchoObjetivoDp = 500)
     }
 
-    private fun cargarImagenEnVista(imageView: ImageView, archivo: File?) {
+    /**
+     * [anchoObjetivoDp]: ancho aproximado al que se va a mostrar la imagen (miniatura chica vs.
+     * previsualización grande), usado SOLO para decodificar en resolución razonable los SVG que
+     * en realidad envuelven una imagen rasterizada (ver [ClienteLogoCache.decodificarSvgEnvueltoComoImagen]
+     * — si no se hace así, logos de varios MB/miles de px agotan memoria en tablets de gama baja
+     * y el logo termina sin mostrarse). Los SVG vectoriales reales y los PNG/JPG normales siguen
+     * su pipeline habitual con Coil, que ya resuelve bien esos casos.
+     */
+    private fun cargarImagenEnVista(imageView: ImageView, archivo: File?, anchoObjetivoDp: Int) {
         if (archivo == null) {
             imageView.setImageResource(R.drawable.ic_info)
             return
         }
-        try {
-            val imageLoader = ImageLoader.Builder(imageView.context)
-                .components { add(SvgDecoder.Factory()) }
-                .build()
-            val request = ImageRequest.Builder(imageView.context)
-                .data(archivo)
-                .target(imageView)
-                .error(R.drawable.ic_info)
-                .build()
-            imageLoader.enqueue(request)
-        } catch (e: Exception) {
-            imageView.setImageResource(R.drawable.ic_info)
+        val anchoObjetivoPx = (anchoObjetivoDp * resources.displayMetrics.density).toInt()
+
+        lifecycleScope.launch {
+            val bitmapLiviano = withContext(Dispatchers.IO) {
+                ClienteLogoCache.decodificarSvgEnvueltoComoImagen(archivo, anchoObjetivoPx)
+            }
+            if (bitmapLiviano != null) {
+                imageView.setImageBitmap(bitmapLiviano)
+                return@launch
+            }
+
+            // No era un SVG "envuelto": o es un SVG vectorial real, o no es SVG. Pipeline normal.
+            try {
+                val imageLoader = ImageLoader.Builder(imageView.context)
+                    .components { add(SvgDecoder.Factory()) }
+                    .build()
+                val request = ImageRequest.Builder(imageView.context)
+                    .data(archivo)
+                    .target(imageView)
+                    .error(R.drawable.ic_info)
+                    .build()
+                imageLoader.enqueue(request)
+            } catch (e: Exception) {
+                imageView.setImageResource(R.drawable.ic_info)
+            }
         }
     }
 
