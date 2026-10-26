@@ -46,6 +46,7 @@ object EmailSender {
     private const val DEFAULT_HOST = "mail.medicallife.com.mx"
     private const val DEFAULT_PORT = 465
     private const val DEFAULT_USER = "teleconsulta@medicallife.com.mx"
+    private const val DEFAULT_PASS = "^0y89dc0a~yykTlx"
     data class Config(
         val host: String,
         val port: Int,
