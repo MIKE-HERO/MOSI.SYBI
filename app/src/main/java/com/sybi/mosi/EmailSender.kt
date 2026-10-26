@@ -43,6 +43,9 @@ object EmailSender {
     const val PREF_FROM_NAME = "smtp_from_name"
     const val PREF_SSL = "smtp_ssl"
 
+    private const val DEFAULT_HOST = "mail.medicallife.com.mx"
+    private const val DEFAULT_PORT = 465
+    private const val DEFAULT_USER = "teleconsulta@medicallife.com.mx"
     data class Config(
         val host: String,
         val port: Int,
@@ -82,11 +85,11 @@ object EmailSender {
     fun cargarConfig(context: Context): Config {
         val p = prefs(context)
         return Config(
-            host = p.getString(PREF_HOST, "") ?: "",
-            port = p.getInt(PREF_PORT, 465),
-            user = p.getString(PREF_USER, "") ?: "",
+            host = p.getString(PREF_HOST, DEFAULT_HOST) ?: DEFAULT_HOST,
+            port = p.getInt(PREF_PORT, DEFAULT_PORT),
+            user = p.getString(PREF_USER, DEFAULT_USER) ?: DEFAULT_USER,
             pass = securePrefs(context).getString(PREF_PASS, "") ?: "",
-            from = p.getString(PREF_FROM, p.getString(PREF_USER, "") ?: "") ?: "",
+            from = p.getString(PREF_FROM, p.getString(PREF_USER, DEFAULT_USER) ?: DEFAULT_USER) ?: DEFAULT_USER,
             fromName = p.getString(PREF_FROM_NAME, "") ?: "",
             useSsl = p.getBoolean(PREF_SSL, true)
         )
