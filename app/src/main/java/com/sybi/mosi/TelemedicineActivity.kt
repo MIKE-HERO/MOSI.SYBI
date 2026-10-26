@@ -13,6 +13,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import java.security.SecureRandom
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,6 +37,7 @@ class TelemedicineActivity : BaseActivity() {
     }
 
     private var idUsuarioWeb: Int = 0
+    private var kioskPrintToken: String? = null
     private lateinit var tvEstado: TextView
     private var onPermissionsGrantedAction: (() -> Unit)? = null
 
@@ -51,6 +53,10 @@ class TelemedicineActivity : BaseActivity() {
             finish()
             return
         }
+        val printerIp = getSharedPreferences("DevicePrefs", MODE_PRIVATE)
+            .getString(ReportSettingsActivity.PREF_PRINTER_IP, "")
+            ?.trim()
+        kioskPrintToken = if (printerIp.isNullOrBlank()) null else crearTokenImpresion()
         if (!TelemedicineSettingsActivity.isTelemedicineEnabled(this)) {
             Toast.makeText(this, "Telemedicina no está habilitada en la configuración", Toast.LENGTH_LONG).show()
             finish()
@@ -97,7 +103,13 @@ class TelemedicineActivity : BaseActivity() {
     private fun urlConsulta(): Uri {
         val base = TelemedicineSettingsActivity.getBaseUrl(this).trimEnd('/')
         val idCabina = TelemedicineSettingsActivity.getCabina(this).trim().ifEmpty { "1" }
-        return "$base/?id_usuario=$idUsuarioWeb&idMachine=$idCabina".toUri()
+        val tokenFragment = kioskPrintToken?.let { "#kioskPrintToken=$it" }.orEmpty()
+        return "$base/?id_usuario=$idUsuarioWeb&idMachine=$idCabina$tokenFragment".toUri()
+    }
+
+    private fun crearTokenImpresion(): String {
+        val bytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
+        return bytes.joinToString("") { "%02x".format(it.toInt() and 0xff) }
     }
 
     private fun verificarPermisosYComenzar(onGranted: () -> Unit) {
