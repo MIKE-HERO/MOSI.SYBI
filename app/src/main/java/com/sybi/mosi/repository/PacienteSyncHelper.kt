@@ -25,13 +25,22 @@ object PacienteSyncHelper {
         idUsuarioWeb: Int,
         usuario: UsuarioWeb
     ): Paciente {
+        val curpFinal = usuario.curp?.ifBlank { null }?.uppercase() ?: local.curp
+        val generoInferido = obtenerGeneroDesdeCurp(curpFinal)
+        val generoFinal = if (!generoInferido.isNullOrBlank() && (local.genero.isBlank() || local.genero == "O")) {
+            generoInferido
+        } else {
+            local.genero
+        }
+
         return local.copy(
             id_usuario_web = idUsuarioWeb,
             nombre = usuario.nombre?.ifBlank { null }?.uppercase() ?: local.nombre,
             apellido_paterno = usuario.apellidoPaterno?.ifBlank { null }?.uppercase() ?: local.apellido_paterno,
             apellido_materno = usuario.apellidoMaterno?.ifBlank { null }?.uppercase() ?: local.apellido_materno,
             fecha_nacimiento = parsearFechaNacimiento(usuario.fechaNacimiento) ?: local.fecha_nacimiento,
-            curp = usuario.curp?.ifBlank { null }?.uppercase() ?: local.curp,
+            genero = generoFinal,
+            curp = curpFinal,
             telefono = usuario.celular ?: usuario.telefonoCasa ?: local.telefono,
             correo = usuario.correo?.trim()?.ifBlank { null }?.lowercase() ?: local.correo,
             folio = usuario.folio?.ifBlank { null } ?: local.folio,
@@ -113,6 +122,19 @@ object PacienteSyncHelper {
     }
 
     // ── Helpers privados ─────────────────────────────────
+
+    private fun obtenerGeneroDesdeCurp(curp: String?): String? {
+        if (curp.isNullOrBlank()) return null
+        val curpLimpia = curp.trim().uppercase()
+        if (curpLimpia.length >= 11) {
+            return when (curpLimpia[10]) {
+                'H' -> "M" // Hombre -> Masculino
+                'M' -> "F" // Mujer -> Femenino
+                else -> null
+            }
+        }
+        return null
+    }
 
     private fun parsearFechaNacimiento(fechaAPI: String?): String? {
         if (fechaAPI.isNullOrBlank()) return null

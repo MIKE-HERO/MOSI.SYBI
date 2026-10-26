@@ -223,6 +223,15 @@ class RegisterActivity : BaseActivity() {
         btnGuardar.setOnClickListener { guardarPaciente() }
         btnSearch.setOnClickListener { buscarPaciente() }
 
+        // Listener para autocompletar género cuando se escribe o modifica la CURP
+        etRegCurp.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                autocompletarGeneroDesdeCurp(s?.toString())
+            }
+        })
+
         // ── Configurar spinners y radio buttons ──
         setupFechaSpinners()
     }
@@ -422,7 +431,8 @@ class RegisterActivity : BaseActivity() {
         etRegApellidoMaterno.setText(u.apellidoMaterno?.uppercase() ?: "")
 
         etRegFolio.setText(u.folio ?: "")
-        etRegCurp.setText(u.curp?.uppercase() ?: "")
+        val curp = u.curp?.uppercase() ?: ""
+        etRegCurp.setText(curp)
         etRegTelefono.setText(u.celular ?: u.telefonoCasa ?: "")
         etRegCorreo.setText(u.correo?.lowercase() ?: "")
         etRegDireccion.setText(u.direccion?.uppercase() ?: "")
@@ -434,8 +444,24 @@ class RegisterActivity : BaseActivity() {
             setFechaEnSpinners(fechaParseada)
         }
 
-        // El género NO se autocompleta
-        rgGenero.clearCheck()
+        // Autocompletar género desde la CURP ('H' -> Masculino/Hombre, 'M' -> Femenino/Mujer)
+        autocompletarGeneroDesdeCurp(curp)
+    }
+
+    /**
+     * Autocompleta la selección de género a partir del carácter de género en la CURP (posición 10, base 0):
+     * 'H' -> Hombre (Masculino)
+     * 'M' -> Mujer (Femenino)
+     */
+    private fun autocompletarGeneroDesdeCurp(curp: String?) {
+        if (curp.isNullOrBlank()) return
+        val curpLimpia = curp.trim().uppercase()
+        if (curpLimpia.length >= 11) {
+            when (curpLimpia[10]) {
+                'H' -> setGenero("MASCULINO")
+                'M' -> setGenero("FEMENINO")
+            }
+        }
     }
 
     // ==========================================
@@ -525,11 +551,11 @@ class RegisterActivity : BaseActivity() {
 
     private fun setGenero(valor: String) {
         when (valor.uppercase()) {
-            "M", "MASCULINO" -> {
+            "M", "MASCULINO", "H", "HOMBRE" -> {
                 rbMasculino.isChecked = true
                 rbFemenino.isChecked = false
             }
-            "F", "FEMENINO" -> {
+            "F", "FEMENINO", "MUJER" -> {
                 rbMasculino.isChecked = false
                 rbFemenino.isChecked = true
             }
