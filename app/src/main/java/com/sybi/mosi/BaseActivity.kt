@@ -52,6 +52,10 @@ open class BaseActivity : AppCompatActivity() {
         private const val INACTIVITY_TIMEOUT_MS = 4 * 60 * 1000L
     }
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(com.sybi.mosi.helpers.LocaleHelper.applyLanguage(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Evitar que el teclado se abra automáticamente al entrar a la pantalla

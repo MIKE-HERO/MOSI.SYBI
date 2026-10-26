@@ -1,0 +1,208 @@
+<resources>
+    <string name="app_name">Quiosco</string>
+    <string name="seleccione_dia">Seleccione el día</string>
+    <string name="seleccione_mes">Seleccione el mes</string>
+    <string name="seleccione_anio">Seleccione el año</string>
+    <string name="seleccione_genero">Seleccione el género</string>
+
+    <!-- Idioma -->
+    <string name="lang_code">ES</string>
+    <string name="lang_name">Español</string>
+
+    <!-- Botones y Acciones Comunes -->
+    <string name="btn_back">Regresar</string>
+    <string name="btn_exit">Salir</string>
+    <string name="btn_reboot">Reiniciar</string>
+    <string name="btn_close_app">Cerrar App</string>
+    <string name="btn_cancel">Cancelar</string>
+    <string name="btn_confirm">Confirmar</string>
+    <string name="btn_accept">Aceptar</string>
+    <string name="btn_yes">Sí</string>
+    <string name="btn_no">No</string>
+    <string name="btn_save">Guardar</string>
+    <string name="btn_edit">Editar</string>
+    <string name="btn_delete">Eliminar</string>
+    <string name="btn_search">Buscar</string>
+    <string name="btn_print">Imprimir</string>
+
+    <!-- Pantalla Principal / Home -->
+    <string name="main_title_default">MÓDULO DE SALUD INTEGRAL</string>
+    <string name="nav_altura_peso">Altura y peso</string>
+    <string name="nav_composicion">Composición\ncorporal</string>
+    <string name="nav_presion">Presión arterial</string>
+    <string name="nav_temperatura">Temperatura\ncorporal</string>
+    <string name="nav_oxigeno">Oxígeno en\nsangre</string>
+    <string name="nav_ecg">ECG</string>
+    <string name="nav_azucar">Azúcar en\nsangre</string>
+    <string name="nav_acido_urico">Ácido úrico</string>
+    <string name="nav_colesterol">Colesterol\ntotal</string>
+
+    <!-- Iniciar sesión / Login -->
+    <string name="login_title">Elige cómo quieres ingresar</string>
+    <string name="login_subtitle">Selecciona el método de acceso más cómodo para ti</string>
+    <string name="login_tab_medicion">MEDICIÓN</string>
+    <string name="login_tab_consulta">CONSULTA</string>
+    <string name="login_biometria">Reconocimiento facial</string>
+    <string name="login_biometria_desc">Acceso rápido con tu rostro</string>
+    <string name="login_tarjeta">Tarjeta IC</string>
+    <string name="login_tarjeta_desc">Acerca tu tarjeta al lector</string>
+    <string name="login_telefono">Teléfono</string>
+    <string name="login_telefono_desc">Ingresa con tu número registrado</string>
+    <string name="login_invitado">CONTINUAR COMO INVITADO</string>
+    <string name="login_registrarse">REGISTRAR NUEVO USUARIO</string>
+
+    <!-- Modal Invitado -->
+    <string name="guest_title">DATOS DEL INVITADO PARA MEDICIÓN</string>
+    <string name="guest_desc">Por favor, ingresa tu edad y género para calcular adecuadamente los parámetros de composición corporal y salud.</string>
+    <string name="guest_gender">Género</string>
+    <string name="guest_male">Masculino</string>
+    <string name="guest_female">Femenino</string>
+    <string name="guest_age">Edad (años)</string>
+
+    <!-- Consentimiento Telemedicina -->
+    <string name="consent_title">CONSENTIMIENTO INFORMADO PARA LA PRESTACIÓN DE ATENCIÓN MÉDICA A TRAVÉS DE TELEMEDICINA.</string>
+
+    <!-- Login por Teléfono -->
+    <string name="phone_login_eyebrow">ACCESO SEGURO</string>
+    <string name="phone_login_title">Ingresa con tu teléfono</string>
+    <string name="phone_login_card_title">Tu información está protegida</string>
+    <string name="phone_login_card_desc">Usaremos el número registrado para localizar tu perfil de paciente.</string>
+    <string name="phone_login_input_title">Número de teléfono</string>
+    <string name="phone_login_input_desc">Escribe los 10 dígitos, sin espacios ni guiones.</string>
+    <string name="phone_login_btn">Continuar de forma segura</string>
+    <string name="phone_login_info">Si tu número cambió, solicita apoyo al personal del módulo.</string>
+
+    <!-- Login por Reconocimiento Facial -->
+    <string name="face_login_eyebrow">IDENTIFICACIÓN BIOMÉTRICA</string>
+    <string name="face_login_title">Reconocimiento facial</string>
+    <string name="face_login_guide">Centra tu rostro dentro de la guía</string>
+    <string name="face_login_instructions_title">Sigue estas indicaciones</string>
+    <string name="face_login_inst1">Mira de frente a la cámara</string>
+    <string name="face_login_inst2">Mantén el rostro dentro de la guía</string>
+    <string name="face_login_inst3">Permanece quieto unos segundos</string>
+    <string name="face_login_status_default">Coloca tu rostro frente a la cámara</string>
+    <string name="face_login_footer">El proceso es automático; no necesitas tocar la pantalla.</string>
+
+    <!-- Login por Tarjeta IC -->
+    <string name="ic_login_eyebrow">IDENTIFICACIÓN POR TARJETA</string>
+    <string name="ic_login_title">Ingresa con tu tarjeta IC</string>
+    <string name="ic_login_card_title">Tu información está protegida</string>
+    <string name="ic_login_card_desc">Usaremos los datos de tu tarjeta para localizar tu perfil de paciente.</string>
+    <string name="ic_login_input_title">Tarjeta IC</string>
+    <string name="ic_login_input_desc">Acerca tu tarjeta al lector y espera unos segundos.</string>
+    <string name="ic_login_status_default">Pase su tarjeta IC por el lector…</string>
+    <string name="ic_login_info">Si tu tarjeta no es reconocida, solicita apoyo al personal del módulo.</string>
+
+    <!-- Registro de Paciente -->
+    <string name="register_step1">PASO 1 DE 2  •  DATOS DEL PACIENTE</string>
+    <string name="register_title">Completa tu registro</string>
+    <string name="register_search_prompt">¿Ya tienes un registro?</string>
+    <string name="register_search_desc">Busca tus datos para completar el formulario automáticamente.</string>
+    <string name="register_search_field">Teléfono, CURP o folio</string>
+    <string name="register_btn_search">Buscar paciente</string>
+    <string name="register_age_restriction">Registro disponible para pacientes de 10 años en adelante.</string>
+    <string name="register_personal_info">Información personal</string>
+    <string name="register_required_fields">* Campos obligatorios</string>
+    <string name="register_name">Nombre(s) *</string>
+    <string name="register_paternal">Apellido paterno *</string>
+    <string name="register_maternal">Apellido materno *</string>
+    <string name="register_birthdate">Fecha de nacimiento *</string>
+    <string name="register_phone">Teléfono *</string>
+    <string name="register_email">Correo electrónico</string>
+    <string name="register_ic_card">Tarjeta IC *</string>
+    <string name="register_gender">Género *</string>
+    <string name="register_complete_btn">Completar registro</string>
+    <string name="register_photo_step_title">Antes de tomar la foto</string>
+    <string name="register_photo_inst1">1   Mira de frente y centra tu rostro</string>
+    <string name="register_photo_inst2">2   Mantente quieto y evita contraluz</string>
+    <string name="register_take_photo">Tomar fotografía</string>
+    <string name="register_retake_photo">Repetir foto</string>
+    <string name="register_save_photo">Guardar y finalizar</string>
+    <string name="register_skip_photo">Continuar sin fotografía</string>
+
+    <!-- Perfil del Paciente -->
+    <string name="profile_eyebrow">CONFIRMACIÓN DE IDENTIDAD</string>
+    <string name="profile_title">Información del paciente</string>
+    <string name="profile_context">Paciente identificado</string>
+    <string name="profile_check_title">Revisa que tus datos sean correctos</string>
+    <string name="profile_check_desc">Esta información se utilizará para tu atención y resultados.</string>
+    <string name="profile_phone">TELÉFONO</string>
+    <string name="profile_birthdate">FECHA DE NACIMIENTO</string>
+    <string name="profile_gender">GÉNERO</string>
+    <string name="profile_age">EDAD</string>
+    <string name="profile_last_measurement">ÚLTIMA MEDICIÓN</string>
+    <string name="profile_not_me">No soy yo</string>
+    <string name="profile_continue">Continuar</string>
+
+    <!-- Pantalla de Medición -->
+    <string name="measurement_title">Pantalla de Medición</string>
+    <string name="measurement_start">Iniciar Medición</string>
+    <string name="measurement_stop">Detener Medición</string>
+    <string name="measurement_processing">Procesando…</string>
+    <string name="measurement_success">Medición completada correctamente</string>
+    <string name="measurement_error">Error en la medición, favor de repetir</string>
+    <string name="measurement_next">Siguiente</string>
+    <string name="measurement_finish">Finalizar</string>
+    <string name="measurement_retry">Reintentar</string>
+
+    <!-- Instrucciones de Medición -->
+    <string name="inst_altura_peso">Pise la báscula para iniciar la medición</string>
+    <string name="inst_composicion">Sostenga los electrodos de la báscula firmemente con ambas manos</string>
+    <string name="inst_presion">Coloque su brazo izquierdo en el brazalete del tensiómetro</string>
+    <string name="inst_temperatura">Aproxime su frente al sensor de temperatura sin tocarlo</string>
+    <string name="inst_oxigeno">Inserte su dedo índice completamente en el oxímetro</string>
+    <string name="inst_ecg">Sostenga los sensores de ECG con ambas manos y permanezca quieto</string>
+    <string name="inst_azucar">Inserte la tira reactiva de glucosa en el dispositivo</string>
+    <string name="inst_acido_urico">Inserte la tira reactiva de ácido úrico en el dispositivo</string>
+    <string name="inst_colesterol">Inserte la tira reactiva de colesterol en el dispositivo</string>
+
+    <!-- Menú Principal -->
+    <string name="menu_title">Menú Principal</string>
+    <string name="menu_patients">Pacientes</string>
+    <string name="menu_history">Historial de\nmediciones</string>
+    <string name="menu_basic_settings">Ajustes básicos</string>
+    <string name="menu_advanced_settings">Ajustes avanzados</string>
+
+    <!-- Pantalla de Resultados -->
+    <string name="results_title">Informe de resultados</string>
+    <string name="results_start_consultation">Iniciar Consulta</string>
+    <string name="results_print_pdf">Imprimir PDF</string>
+    <string name="results_print_ticket">Imprimir Ticket</string>
+    <string name="results_send_email">Enviar Correo</string>
+    <string name="results_sending_msg">Enviando mediciones…</string>
+    <string name="results_collecting_msg">Recopilando resultados…</string>
+    <string name="results_wait_sending">Espera a que se envíen los resultados antes de iniciar la consulta</string>
+    <string name="results_wait_print">Espera a que termine la impresión</string>
+    <string name="results_patient_not_found_telemedicine">Este paciente no está dado de alta en el sistema del doctor</string>
+    <string name="results_email_dialog_title">Enviar resultados por correo</string>
+    <string name="results_email_prompt">Ingrese la dirección de correo electrónico:</string>
+    <string name="results_email_sent">Correo enviado correctamente</string>
+    <string name="results_email_failed">Error al enviar el correo</string>
+
+    <!-- Configuración -->
+    <string name="settings_title">Configuración</string>
+
+    <!-- Información del Dispositivo -->
+    <string name="device_info_title">Información del dispositivo</string>
+    <string name="device_info_subtitle">Estos datos identifican al hardware de la consola</string>
+    <string name="device_info_model">Modelo del dispositivo *</string>
+    <string name="device_info_serial">Número de serie *</string>
+    <string name="device_info_updates">Actualizaciones de Software</string>
+    <string name="device_info_check_updates">Buscar actualizaciones</string>
+    <string name="device_info_install_selected">Instalar versión seleccionada</string>
+
+    <!-- Tablas (Pacientes / Historial) -->
+    <string name="table_patients_title">Gestión de Pacientes</string>
+    <string name="table_results_title">Resultados de Pacientes</string>
+    <string name="btn_add">Agregar</string>
+    <string name="btn_view_edit">Ver/Editar</string>
+    <string name="btn_sync">Sincronizar</string>
+    <string name="btn_resend">Reenviar</string>
+    <string name="btn_view_report">Ver informe</string>
+
+    <!-- Diálogos de Confirmación -->
+    <string name="dialog_reboot_title">Reiniciar Equipo</string>
+    <string name="dialog_reboot_msg">¿Está seguro de que desea reiniciar el dispositivo?</string>
+    <string name="dialog_close_app_title">Cerrar Aplicación</string>
+    <string name="dialog_close_app_msg">¿Está seguro de que desea cerrar la aplicación?</string>
+</resources>

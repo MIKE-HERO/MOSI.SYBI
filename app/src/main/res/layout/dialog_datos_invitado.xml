@@ -6,7 +6,7 @@
     android:background="@drawable/bg_consent_dialog"
     android:paddingBottom="8dp">
 
-    <!-- ✅ TÍTULO FIJO ARRIBA -->
+    <!-- TÍTULO FIJO ARRIBA -->
     <LinearLayout
         android:id="@+id/headerConsentBar"
         android:layout_width="match_parent"
@@ -22,14 +22,14 @@
             android:id="@+id/tvHeaderTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="DATOS DEL INVITADO PARA MEDICIÓN"
+            android:text="@string/guest_title"
             android:textColor="#FFFFFF"
             android:textSize="17sp"
             android:textStyle="bold"
             android:gravity="center" />
     </LinearLayout>
 
-    <!-- ✅ CONTENIDO CON SCROLL VERTICAL -->
+    <!-- CONTENIDO CON SCROLL VERTICAL -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -48,7 +48,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Por favor, ingresa tu edad y género para calcular adecuadamente los parámetros de composición corporal y salud."
+                android:text="@string/guest_desc"
                 android:textSize="15sp"
                 android:textColor="#344B5B"
                 android:lineSpacingExtra="4dp"
@@ -58,7 +58,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Género"
+                android:text="@string/guest_gender"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="#193447"
@@ -76,7 +76,7 @@
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="52dp"
-                    android:text="Masculino"
+                    android:text="@string/guest_male"
                     android:textSize="16sp"
                     android:textColor="#344B5B"
                     android:checked="true"
@@ -87,7 +87,7 @@
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="52dp"
-                    android:text="Femenino"
+                    android:text="@string/guest_female"
                     android:textSize="16sp"
                     android:textColor="#344B5B"
                     android:buttonTint="#193447" />
@@ -97,7 +97,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Edad (años)"
+                android:text="@string/guest_age"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="#193447"
@@ -121,7 +121,7 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- ✅ BOTONES FIJOS ABAJO -->
+    <!-- BOTONES FIJOS ABAJO -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -138,7 +138,7 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="54dp"
-            android:text="Cancelar"
+            android:text="@string/btn_cancel"
             android:backgroundTint="#DEE7EB"
             android:textAllCaps="false"
             android:textColor="#304A5A"
@@ -150,7 +150,7 @@
             android:layout_weight="1"
             android:layout_height="54dp"
             android:layout_marginStart="16dp"
-            android:text="Aceptar"
+            android:text="@string/btn_accept"
             android:backgroundTint="#193447"
             android:textAllCaps="false"
             android:textColor="#FFFFFF"

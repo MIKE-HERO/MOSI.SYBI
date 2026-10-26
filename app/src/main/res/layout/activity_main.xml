@@ -71,6 +71,45 @@
             app:tint="#F4FBFF" />
     </FrameLayout>
 
+    <!-- Botón Semitransparente de Idioma (Esquina superior derecha) -->
+    <LinearLayout
+        android:id="@+id/languageSurface"
+        android:layout_width="wrap_content"
+        android:layout_height="58dp"
+        android:layout_marginEnd="28dp"
+        android:layout_marginTop="28dp"
+        android:background="@drawable/bg_home_settings"
+        android:elevation="10dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingStart="18dp"
+        android:paddingEnd="18dp"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/imgLanguageIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="@null"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_language"
+            app:tint="#F4FBFF" />
+
+        <TextView
+            android:id="@+id/tvLanguageCode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="@string/lang_code"
+            android:textColor="#F4FBFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/heroContent"
         android:layout_width="0dp"
@@ -142,39 +181,39 @@
 
         <LinearLayout android:id="@+id/navAlturaPeso" style="@style/HomeMetricItem">
             <ImageView style="@style/HomeMetricIcon" android:src="@drawable/icono_altura_peso" />
-            <TextView style="@style/HomeMetricLabel" android:text="Altura y peso" />
+            <TextView style="@style/HomeMetricLabel" android:text="@string/nav_altura_peso" />
         </LinearLayout>
         <LinearLayout android:id="@+id/navComposicion" style="@style/HomeMetricItem">
             <ImageView style="@style/HomeMetricIcon" android:src="@drawable/icono_composicion" />
-            <TextView style="@style/HomeMetricLabel" android:text="Composicion\ncorporal" />
+            <TextView style="@style/HomeMetricLabel" android:text="@string/nav_composicion" />
         </LinearLayout>
         <LinearLayout android:id="@+id/navPresion" style="@style/HomeMetricItem">
             <ImageView style="@style/HomeMetricIcon" android:src="@drawable/icono_presion" />
-            <TextView style="@style/HomeMetricLabel" android:text="Presion arterial" />
+            <TextView style="@style/HomeMetricLabel" android:text="@string/nav_presion" />
         </LinearLayout>
         <LinearLayout android:id="@+id/navTemperatura" style="@style/HomeMetricItem">
             <ImageView style="@style/HomeMetricIcon" android:src="@drawable/icono_temperatura" />
-            <TextView style="@style/HomeMetricLabel" android:text="Temperatura\ncorporal" />
+            <TextView style="@style/HomeMetricLabel" android:text="@string/nav_temperatura" />
         </LinearLayout>
         <LinearLayout android:id="@+id/navOxigeno" style="@style/HomeMetricItem">
             <ImageView style="@style/HomeMetricIcon" android:src="@drawable/icono_oxigeno" />
-            <TextView style="@style/HomeMetricLabel" android:text="Oxigeno en\nsangre" />
+            <TextView style="@style/HomeMetricLabel" android:text="@string/nav_oxigeno" />
         </LinearLayout>
         <LinearLayout android:id="@+id/navEcg" style="@style/HomeMetricItem">
             <ImageView style="@style/HomeMetricIcon" android:src="@drawable/icono_ecg" />
-            <TextView style="@style/HomeMetricLabel" android:text="ECG" />
+            <TextView style="@style/HomeMetricLabel" android:text="@string/nav_ecg" />
         </LinearLayout>
         <LinearLayout android:id="@+id/navAzucar" style="@style/HomeMetricItem">
             <ImageView style="@style/HomeMetricIcon" android:src="@drawable/icono_azucar" />
-            <TextView style="@style/HomeMetricLabel" android:text="Azucar en\nsangre" />
+            <TextView style="@style/HomeMetricLabel" android:text="@string/nav_azucar" />
         </LinearLayout>
         <LinearLayout android:id="@+id/navAcidoUrico" style="@style/HomeMetricItem">
             <ImageView style="@style/HomeMetricIcon" android:src="@drawable/icono_acido_urico" />
-            <TextView style="@style/HomeMetricLabel" android:text="Acido urico" />
+            <TextView style="@style/HomeMetricLabel" android:text="@string/nav_acido_urico" />
         </LinearLayout>
         <LinearLayout android:id="@+id/navColesterol" style="@style/HomeMetricItem">
             <ImageView style="@style/HomeMetricIcon" android:src="@drawable/icono_colesterol" />
-            <TextView style="@style/HomeMetricLabel" android:text="Colesterol\ntotal" />
+            <TextView style="@style/HomeMetricLabel" android:text="@string/nav_colesterol" />
         </LinearLayout>
     </LinearLayout>
 

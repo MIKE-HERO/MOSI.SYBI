@@ -11,16 +11,16 @@
 
     <ImageButton android:id="@+id/btnBackRegister" android:layout_width="56dp" android:layout_height="56dp"
         android:layout_marginStart="28dp" android:layout_marginTop="22dp" android:background="@drawable/bg_login_back"
-        android:contentDescription="Regresar" android:padding="15dp" android:rotation="180" android:src="@drawable/ic_regresar"
+        android:contentDescription="@string/btn_back" android:padding="15dp" android:rotation="180" android:src="@drawable/ic_regresar"
         app:tint="#31536A" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
 
     <LinearLayout android:id="@+id/registerHeader" android:layout_width="wrap_content" android:layout_height="wrap_content"
         android:layout_marginTop="21dp" android:gravity="center" android:orientation="vertical"
         app:layout_constraintTop_toTopOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
         <TextView android:id="@+id/tvRegisterStep" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium"
-            android:letterSpacing="0.1" android:text="PASO 1 DE 2  •  DATOS DEL PACIENTE" android:textColor="#668296" android:textSize="12sp" />
+            android:letterSpacing="0.1" android:text="@string/register_step1" android:textColor="#668296" android:textSize="12sp" />
         <TextView android:id="@+id/tvRegisterTitle" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_marginTop="5dp" android:text="Completa tu registro" android:textColor="#102A43" android:textSize="29sp" android:textStyle="bold" />
+            android:layout_marginTop="5dp" android:text="@string/register_title" android:textColor="#102A43" android:textSize="29sp" android:textStyle="bold" />
     </LinearLayout>
 
     <LinearLayout android:id="@+id/registerContent" android:layout_width="0dp" android:layout_height="0dp"
@@ -31,20 +31,20 @@
         <LinearLayout android:layout_width="350dp" android:layout_height="match_parent" android:background="@drawable/bg_auth_panel"
             android:clipToOutline="true" android:outlineProvider="background"
             android:elevation="5dp" android:orientation="vertical" android:padding="24dp">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="¿Ya tienes un registro?"
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/register_search_prompt"
                 android:textColor="#17324A" android:textSize="20sp" android:textStyle="bold" />
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp"
-                android:text="Busca tus datos para completar el formulario automáticamente."
+                android:text="@string/register_search_desc"
                 android:textColor="#71879A" android:textSize="13sp" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="24dp"
-                android:text="Teléfono, CURP o folio" android:textColor="#36566C" android:textSize="12sp" android:textStyle="bold" />
+                android:text="@string/register_search_field" android:textColor="#36566C" android:textSize="12sp" android:textStyle="bold" />
             <EditText android:id="@+id/etSearchQuery" style="@style/Widget.Quiosco.EditText"
                 android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="7dp"
-                android:hint="Escribe el dato de búsqueda" android:importantForAutofill="no"
+                android:hint="@string/btn_search" android:importantForAutofill="no"
                 android:inputType="textCapCharacters|textNoSuggestions|textVisiblePassword" android:textSize="14sp" />
             <Button android:id="@+id/btnSearchPaciente" android:layout_width="match_parent" android:layout_height="56dp"
                 android:layout_marginTop="12dp" android:backgroundTint="#294F67" android:drawableStart="@drawable/ic_pacientes"
-                android:drawablePadding="10dp" android:drawableTint="#FFFFFF" android:text="Buscar paciente"
+                android:drawablePadding="10dp" android:drawableTint="#FFFFFF" android:text="@string/register_btn_search"
                 android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="15sp" />
 
             <LinearLayout android:id="@+id/resultadosContainer" android:layout_width="match_parent" android:layout_height="0dp"
@@ -59,11 +59,10 @@
 
             <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="#DCE8EF" />
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="17dp"
-                android:drawableStart="@drawable/ic_info" android:drawablePadding="10dp" android:gravity="center_vertical"
-                android:text="Registro disponible para pacientes de 10 años en adelante."
+                 android:drawablePadding="10dp" android:gravity="center_vertical"
+                android:text="@string/register_age_restriction"
                 android:textColor="#617C90" android:textSize="12sp" />
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="15dp"
-                android:text="Desliza hacia la izquierda para volver al inicio" android:textColor="#8A9BA8" android:textSize="11sp" />
+
         </LinearLayout>
 
         <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="22dp"
@@ -72,8 +71,8 @@
             android:elevation="5dp" android:orientation="vertical" android:padding="24dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
                 <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                    android:text="Información personal" android:textColor="#17324A" android:textSize="20sp" android:textStyle="bold" />
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="* Campos obligatorios"
+                    android:text="@string/register_personal_info" android:textColor="#17324A" android:textSize="20sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/register_required_fields"
                     android:textColor="#7D909E" android:textSize="11sp" />
             </LinearLayout>
 
@@ -81,20 +80,20 @@
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                            <TextView style="@style/RegisterFieldLabel" android:text="Nombre(s) *" />
+                            <TextView style="@style/RegisterFieldLabel" android:text="@string/register_name" />
                             <EditText android:id="@+id/etRegNombre" style="@style/RegisterField" android:hint="Juan Carlos" android:inputType="textPersonName|textCapCharacters|textNoSuggestions" />
                         </LinearLayout>
                         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:layout_weight="1" android:orientation="vertical">
-                            <TextView style="@style/RegisterFieldLabel" android:text="Apellido paterno *" />
+                            <TextView style="@style/RegisterFieldLabel" android:text="@string/register_paternal" />
                             <EditText android:id="@+id/etRegApellidoPaterno" style="@style/RegisterField" android:hint="Pérez" android:inputType="textPersonName|textCapCharacters|textNoSuggestions" />
                         </LinearLayout>
                         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:layout_weight="1" android:orientation="vertical">
-                            <TextView style="@style/RegisterFieldLabel" android:text="Apellido materno *" />
+                            <TextView style="@style/RegisterFieldLabel" android:text="@string/register_maternal" />
                             <EditText android:id="@+id/etRegApellidoMaterno" style="@style/RegisterField" android:hint="López" android:inputType="textPersonName|textCapCharacters|textNoSuggestions" />
                         </LinearLayout>
                     </LinearLayout>
 
-                    <TextView style="@style/RegisterFieldLabel" android:layout_marginTop="14dp" android:text="Fecha de nacimiento *" />
+                    <TextView style="@style/RegisterFieldLabel" android:layout_marginTop="14dp" android:text="@string/register_birthdate" />
                     <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:orientation="horizontal">
                         <Spinner android:id="@+id/spDia" style="@style/RegisterSpinner" />
                         <Spinner android:id="@+id/spMes" style="@style/RegisterSpinner" android:layout_marginStart="12dp" />
@@ -103,26 +102,26 @@
 
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:orientation="horizontal">
                         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                            <TextView style="@style/RegisterFieldLabel" android:text="Teléfono *" />
+                            <TextView style="@style/RegisterFieldLabel" android:text="@string/register_phone" />
                             <EditText android:id="@+id/etRegTelefono" style="@style/RegisterField" android:hint="5512345678" android:inputType="phone" android:maxLength="10" />
                         </LinearLayout>
                         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:layout_weight="1" android:orientation="vertical">
-                            <TextView style="@style/RegisterFieldLabel" android:text="Correo electrónico" />
+                            <TextView style="@style/RegisterFieldLabel" android:text="@string/register_email" />
                             <EditText android:id="@+id/etRegCorreo" style="@style/RegisterField" android:hint="nombre@correo.com" android:inputType="textEmailAddress|textNoSuggestions" />
                         </LinearLayout>
                     </LinearLayout>
 
                     <LinearLayout android:id="@+id/layoutTarjetaIcContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:orientation="vertical">
-                        <TextView style="@style/RegisterFieldLabel" android:text="Tarjeta IC *" />
+                        <TextView style="@style/RegisterFieldLabel" android:text="@string/register_ic_card" />
                         <EditText android:id="@+id/etRegTarjetaIc" style="@style/RegisterField" android:drawableStart="@drawable/ic_card"
                             android:drawablePadding="12dp" android:hint="Acerca la tarjeta al lector o ingresa sus 10 dígitos" android:inputType="number" android:maxLength="10" />
                     </LinearLayout>
 
-                    <TextView style="@style/RegisterFieldLabel" android:layout_marginTop="14dp" android:text="Género *" />
+                    <TextView style="@style/RegisterFieldLabel" android:layout_marginTop="14dp" android:text="@string/register_gender" />
                     <RadioGroup android:id="@+id/rgGenero" android:layout_width="match_parent" android:layout_height="54dp"
                         android:background="@drawable/bg_auth_instruction" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="16dp">
-                        <RadioButton android:id="@+id/rbMasculino" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:text="Masculino" android:textColor="#36566C" android:textSize="14sp" />
-                        <RadioButton android:id="@+id/rbFemenino" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:text="Femenino" android:textColor="#36566C" android:textSize="14sp" />
+                        <RadioButton android:id="@+id/rbMasculino" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:text="@string/guest_male" android:textColor="#36566C" android:textSize="14sp" />
+                        <RadioButton android:id="@+id/rbFemenino" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:text="@string/guest_female" android:textColor="#36566C" android:textSize="14sp" />
                     </RadioGroup>
 
                     <EditText android:id="@+id/etRegFolio" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
@@ -133,11 +132,11 @@
 
             <LinearLayout android:layout_width="match_parent" android:layout_height="60dp" android:layout_marginTop="16dp" android:orientation="horizontal">
                 <Button android:id="@+id/btnCancelar" android:layout_width="190dp" android:layout_height="match_parent"
-                    android:backgroundTint="#E7EEF2" android:text="Cancelar" android:textAllCaps="false" android:textColor="#36566C" android:textSize="15sp" />
+                    android:backgroundTint="#E7EEF2" android:text="@string/btn_cancel" android:textAllCaps="false" android:textColor="#36566C" android:textSize="15sp" />
                 <Button android:id="@+id/btnGuardarPaciente" android:layout_width="0dp" android:layout_height="match_parent"
                     android:layout_marginStart="12dp" android:layout_weight="1" android:backgroundTint="#163F5B"
                     android:drawableEnd="@drawable/ic_check_circle" android:drawablePadding="10dp" android:drawableTint="#FFFFFF"
-                    android:text="Completar registro" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="16sp" />
+                    android:text="@string/register_complete_btn" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="16sp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
@@ -154,40 +153,40 @@
             android:background="@drawable/bg_auth_panel" android:clipToOutline="true" android:outlineProvider="background" android:elevation="5dp">
             <TextureView android:id="@+id/textureView" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleX="-1" />
             <ImageView android:id="@+id/imgPhotoPreview" android:layout_width="match_parent" android:layout_height="match_parent"
-                android:background="#101820" android:scaleType="centerCrop" android:visibility="gone" />
+                android:background="#101820" android:contentDescription="@null" android:scaleType="centerCrop" android:visibility="gone" />
             <com.sybi.mosi.FaceGuideBorderView android:id="@+id/faceRegistrationGuide" android:layout_width="270dp" android:layout_height="330dp" android:layout_gravity="center" />
         </FrameLayout>
 
         <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
             android:background="@drawable/bg_auth_panel" android:clipToOutline="true" android:outlineProvider="background"
             android:elevation="5dp" android:gravity="center_vertical" android:orientation="vertical" android:padding="24dp">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Antes de tomar la foto"
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/register_photo_step_title"
                 android:textColor="#17324A" android:textSize="21sp" android:textStyle="bold" />
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="15dp"
-                android:background="@drawable/bg_auth_instruction" android:padding="14dp" android:text="1   Mira de frente y centra tu rostro"
+                android:background="@drawable/bg_auth_instruction" android:padding="14dp" android:text="@string/register_photo_inst1"
                 android:textColor="#36566C" android:textSize="14sp" />
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp"
-                android:background="@drawable/bg_auth_instruction" android:padding="14dp" android:text="2   Mantente quieto y evita contraluz"
+                android:background="@drawable/bg_auth_instruction" android:padding="14dp" android:text="@string/register_photo_inst2"
                 android:textColor="#36566C" android:textSize="14sp" />
             <TextView android:id="@+id/tvFaceStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="14dp" android:gravity="center" android:minHeight="52dp"
-                android:text="Coloca tu rostro frente a la cámara" android:textColor="#C47A16" android:textSize="14sp" android:textStyle="bold" />
+                android:text="@string/face_login_status_default" android:textColor="#C47A16" android:textSize="14sp" android:textStyle="bold" />
 
             <Button android:id="@+id/btnTakePhoto" android:layout_width="match_parent" android:layout_height="58dp"
                 android:backgroundTint="#163F5B" android:drawableStart="@drawable/ic_face" android:drawablePadding="12dp"
-                android:drawableTint="#FFFFFF" android:text="Tomar fotografía" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="16sp" />
+                android:drawableTint="#FFFFFF" android:text="@string/register_take_photo" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="16sp" />
 
             <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="10dp" android:orientation="horizontal">
                 <Button android:id="@+id/btnRetakePhoto" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginEnd="6dp"
-                    android:layout_weight="1" android:backgroundTint="#E8EFF3" android:text="Repetir foto" android:textAllCaps="false"
+                    android:layout_weight="1" android:backgroundTint="#E8EFF3" android:text="@string/register_retake_photo" android:textAllCaps="false"
                     android:textColor="#294C62" android:textSize="14sp" android:visibility="gone" />
                 <Button android:id="@+id/btnSavePhoto" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="6dp"
-                    android:layout_weight="1" android:backgroundTint="#163F5B" android:text="Guardar y finalizar" android:textAllCaps="false"
+                    android:layout_weight="1" android:backgroundTint="#163F5B" android:text="@string/register_save_photo" android:textAllCaps="false"
                     android:textColor="#FFFFFF" android:textSize="14sp" android:visibility="gone" />
             </LinearLayout>
 
             <Button android:id="@+id/btnSkipPhoto" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="4dp"
-                android:backgroundTint="#00FFFFFF" android:text="Continuar sin fotografía" android:textAllCaps="false"
+                android:backgroundTint="#00FFFFFF" android:text="@string/register_skip_photo" android:textAllCaps="false"
                 android:textColor="#688092" android:textSize="13sp" />
         </LinearLayout>
     </LinearLayout>

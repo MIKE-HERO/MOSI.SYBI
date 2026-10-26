@@ -158,14 +158,14 @@
                     style="?android:attr/borderlessButtonStyle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Cancelar"
+                    android:text="@string/btn_cancel"
                     android:textColor="#757575" />
 
                 <Button
                     android:id="@+id/btnSaveEdit"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Guardar"
+                    android:text="@string/btn_save"
                     android:backgroundTint="#0F3E82"
                     android:textColor="#FFFFFF"
                     android:layout_marginStart="8dp" />

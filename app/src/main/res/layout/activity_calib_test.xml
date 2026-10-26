@@ -43,7 +43,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="7dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="REGRESAR"
+                    android:text="@string/btn_back"
                     android:textColor="#E6F5FF"
                     android:textSize="11sp" />
             </LinearLayout>

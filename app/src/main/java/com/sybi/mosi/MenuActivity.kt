@@ -116,10 +116,10 @@ class MenuActivity : BaseActivity() {
 
     private fun reiniciarDispositivo() {
         AlertDialog.Builder(this)
-            .setTitle("Reiniciar Equipo")
-            .setMessage("¿Está seguro de que desea reiniciar el dispositivo?")
-            .setPositiveButton("Sí") { _, _ -> ejecutarReiniciodeEquipo() }
-            .setNegativeButton("No", null)
+            .setTitle(R.string.dialog_reboot_title)
+            .setMessage(R.string.dialog_reboot_msg)
+            .setPositiveButton(R.string.btn_yes) { _, _ -> ejecutarReiniciodeEquipo() }
+            .setNegativeButton(R.string.btn_no, null)
             .show()
     }
 
@@ -170,10 +170,10 @@ class MenuActivity : BaseActivity() {
 
     private fun cerrarAplicacion() {
         AlertDialog.Builder(this)
-            .setTitle("Cerrar Aplicación")
-            .setMessage("¿Está seguro de que desea cerrar la aplicación?")
-            .setPositiveButton("Sí") { _, _ -> finishAffinity() }
-            .setNegativeButton("No", null)
+            .setTitle(R.string.dialog_close_app_title)
+            .setMessage(R.string.dialog_close_app_msg)
+            .setPositiveButton(R.string.btn_yes) { _, _ -> finishAffinity() }
+            .setNegativeButton(R.string.btn_no, null)
             .show()
     }
 }
