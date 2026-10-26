@@ -58,6 +58,7 @@ class MainActivity : BaseActivity() {
     private lateinit var imgLogo: ImageView
     private lateinit var rootLayout: View
     private lateinit var settingsSurface: View
+    private lateinit var languageSurface: View
     private lateinit var bottomBarContainer: View
     private lateinit var medicalBackground: ImageView
     private lateinit var backgroundColorMask: View   // ✅ NUEVO
@@ -94,6 +95,7 @@ class MainActivity : BaseActivity() {
 
         rootLayout = findViewById(R.id.mainRootLayout)
         settingsSurface = findViewById(R.id.settingsSurface)
+        languageSurface = findViewById(R.id.languageSurface)
         bottomBarContainer = findViewById(R.id.bottomBarContainer)
         imgLogo = findViewById(R.id.imgLogo)
         val tvTitle = findViewById<TextView>(R.id.tvTitle)
@@ -103,7 +105,10 @@ class MainActivity : BaseActivity() {
         medicalBackground = findViewById(R.id.medicalBackground)
         backgroundColorMask = findViewById(R.id.backgroundColorMask)   // ✅ NUEVO
 
-        // --- INICIAR EL SERVICIO SERIAL AL ABRIR LA APP ---
+        // --- ASEGURAR PUERTOS POR DEFECTO E INICIAR EL SERVICIO SERIAL ---
+        val devicePrefs = getSharedPreferences("DevicePrefs", MODE_PRIVATE)
+        DeviceDefaults.ensureDefaultPorts(devicePrefs)
+
         startService(Intent(this, SerialService::class.java))
 
         // --- RECEPTOR PARA ACTUALIZAR DISPOSITIVOS ---
@@ -233,8 +238,8 @@ class MainActivity : BaseActivity() {
         applyThemeAccents(Color.parseColor(currentColor))
 
         // Cargar título guardado
-        val defaultTitle = "MÓDULO DE SALUD INTEGRAL"
-        val savedTitle = appPrefs.getString("AppTitle", defaultTitle) ?: defaultTitle
+        val defaultTitle = getString(R.string.main_title_default)
+        val savedTitle = appPrefs.getString("AppTitle", null) ?: defaultTitle
         tvTitle.text = savedTitle
 
         // Cargar logo guardado
@@ -257,6 +262,27 @@ class MainActivity : BaseActivity() {
             }
         }
 
+        // --- BOTÓN DE IDIOMA (ES / EN) ---
+        val tvLanguageCode = findViewById<TextView>(R.id.tvLanguageCode)
+        val currentLang = com.sybi.mosi.helpers.LocaleHelper.getLanguage(this)
+        tvLanguageCode?.text = currentLang.uppercase()
+
+        languageSurface.setOnClickListener {
+            val newLang = if (currentLang == com.sybi.mosi.helpers.LocaleHelper.LANG_ES) {
+                com.sybi.mosi.helpers.LocaleHelper.LANG_EN
+            } else {
+                com.sybi.mosi.helpers.LocaleHelper.LANG_ES
+            }
+            com.sybi.mosi.helpers.LocaleHelper.setLanguage(this, newLang)
+
+            val restartIntent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            finish()
+            startActivity(restartIntent)
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        }
+
         updateDeviceButtonsVisibility()
 
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
@@ -272,9 +298,6 @@ class MainActivity : BaseActivity() {
             gestureDetector.onTouchEvent(event)
             true
         }
-
-        val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
-        DeviceDefaults.ensureDefaultPorts(devicePrefs)
     }
 
     /**
@@ -730,6 +753,15 @@ class MainActivity : BaseActivity() {
         settingsSurface.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(Color.argb(45, 255, 255, 255))
+        }
+
+        // --- Botón de idioma: píldora semitransparente ---
+        if (::languageSurface.isInitialized) {
+            languageSurface.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 29.dp.toFloat()
+                setColor(Color.argb(45, 255, 255, 255))
+            }
         }
 
         // Icono interno del botón de settings a blanco

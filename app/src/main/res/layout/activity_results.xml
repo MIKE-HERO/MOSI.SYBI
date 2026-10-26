@@ -25,7 +25,7 @@
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
             android:background="@drawable/bg_login_back"
-            android:contentDescription="Salir"
+            android:contentDescription="@string/btn_exit"
             android:elevation="3dp"
             android:padding="16dp"
             android:rotation="180"
@@ -39,7 +39,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
-            android:text="Informe de resultados"
+            android:text="@string/results_title"
             android:textColor="#FFFFFF"
             android:textSize="22sp"
             android:textStyle="bold"
@@ -66,7 +66,7 @@
 
     </ScrollView>
 
-    <!-- BARRA INFERIOR CORREGIDA PARA ANDROID 7.1.2 -->
+    <!-- BARRA INFERIOR -->
     <LinearLayout
         android:id="@+id/bottomResultsBar"
         android:layout_width="match_parent"
@@ -97,6 +97,7 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
+                android:contentDescription="@null"
                 android:src="@drawable/ic_telemedicina"
                 app:tint="#31536A" />
 
@@ -105,7 +106,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:text="Iniciar Consulta"
+                android:text="@string/results_start_consultation"
                 android:textColor="#31536A"
                 android:textSize="16sp"
                 android:textStyle="bold" />
@@ -129,6 +130,7 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
+                android:contentDescription="@null"
                 android:src="@drawable/ic_print"
                 app:tint="#31536A" />
 
@@ -136,7 +138,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:text="Imprimir PDF"
+                android:text="@string/results_print_pdf"
                 android:textColor="#31536A"
                 android:textSize="16sp"
                 android:textStyle="bold" />
@@ -160,6 +162,7 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
+                android:contentDescription="@null"
                 android:src="@drawable/ic_print"
                 app:tint="#31536A" />
 
@@ -167,7 +170,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:text="Imprimir Ticket"
+                android:text="@string/results_print_ticket"
                 android:textColor="#31536A"
                 android:textSize="16sp"
                 android:textStyle="bold" />
@@ -190,6 +193,7 @@
             <ImageView
                 android:layout_width="24dp"
                 android:layout_height="24dp"
+                android:contentDescription="@null"
                 android:src="@drawable/ic_email"
                 app:tint="#31536A" />
 
@@ -198,7 +202,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:text="Enviar Correo"
+                android:text="@string/results_send_email"
                 android:textColor="#31536A"
                 android:textSize="16sp"
                 android:textStyle="bold" />

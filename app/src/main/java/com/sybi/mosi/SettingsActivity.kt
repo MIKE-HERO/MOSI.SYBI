@@ -76,9 +76,12 @@ class SettingsActivity : BaseActivity() {
             finish()
         }
 
-        // 1. Botón: Ajustes básicos
-        findViewById<LinearLayout>(R.id.btnBasicSettings)?.setOnClickListener {
-            startActivity(Intent(this, BasicSettingsActivity::class.java))
+        // 1. Botón: Ajustes básicos (si existe en el layout)
+        val basicResId = resources.getIdentifier("btnBasicSettings", "id", packageName)
+        if (basicResId != 0) {
+            findViewById<LinearLayout>(basicResId)?.setOnClickListener {
+                startActivity(Intent(this, BasicSettingsActivity::class.java))
+            }
         }
 
         // 2. Botón: Configuración del LOGOTIPO
@@ -164,10 +167,10 @@ class SettingsActivity : BaseActivity() {
 
     private fun reiniciarDispositivo() {
         AlertDialog.Builder(this)
-            .setTitle("Reiniciar Equipo")
-            .setMessage("¿Está seguro de que desea reiniciar el dispositivo?")
-            .setPositiveButton("Sí") { _, _ -> ejecutarReiniciodeEquipo() }
-            .setNegativeButton("No", null)
+            .setTitle(R.string.dialog_reboot_title)
+            .setMessage(R.string.dialog_reboot_msg)
+            .setPositiveButton(R.string.btn_yes) { _, _ -> ejecutarReiniciodeEquipo() }
+            .setNegativeButton(R.string.btn_no, null)
             .show()
     }
 
@@ -222,10 +225,10 @@ class SettingsActivity : BaseActivity() {
 
     private fun cerrarAplicacion() {
         AlertDialog.Builder(this)
-            .setTitle("Cerrar Aplicación")
-            .setMessage("¿Está seguro de que desea cerrar la aplicación?")
-            .setPositiveButton("Sí") { _, _ -> finishAffinity() }
-            .setNegativeButton("No", null)
+            .setTitle(R.string.dialog_close_app_title)
+            .setMessage(R.string.dialog_close_app_msg)
+            .setPositiveButton(R.string.btn_yes) { _, _ -> finishAffinity() }
+            .setNegativeButton(R.string.btn_no, null)
             .show()
     }
 }

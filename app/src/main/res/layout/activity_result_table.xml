@@ -141,7 +141,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Reenviar"
+            android:text="@string/btn_resend"
             android:layout_marginEnd="4dp"
             android:textSize="12sp" />
 
@@ -150,7 +150,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Ver informe"
+            android:text="@string/btn_view_report"
             android:layout_marginEnd="4dp"
             android:textSize="12sp" />
 
@@ -159,7 +159,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Eliminar"
+            android:text="@string/btn_delete"
             android:backgroundTint="#E53935"
             android:textColor="#FFFFFF"
             android:textSize="12sp" />

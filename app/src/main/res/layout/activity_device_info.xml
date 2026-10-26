@@ -73,7 +73,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="6dp"
-            android:text="Información del dispositivo"
+            android:text="@string/device_info_title"
             android:textColor="#333333"
             android:textSize="22sp"
             android:textStyle="bold" />
@@ -83,7 +83,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             android:gravity="center"
-            android:text="Estos datos identifican al hardware de la consola"
+            android:text="@string/device_info_subtitle"
             android:textColor="#757575"
             android:textSize="12sp" />
 

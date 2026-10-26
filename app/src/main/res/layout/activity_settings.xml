@@ -124,7 +124,7 @@
         android:layout_weight="1"
         android:orientation="vertical">
 
-        <!-- FILA 1 -->
+        <!-- FILA 1: Personalizar - Dispositivos de medición - Configuración de informes - Inicio de sesión -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -133,166 +133,7 @@
             android:weightSum="4"
             android:layout_marginBottom="8dp">
 
-            <LinearLayout
-                android:id="@+id/btnBasicSettings"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:src="@drawable/settings_basic_3d"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Ajustes básicos"
-                    android:textColor="#333333"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="8dp"/>
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/btnElementsTest"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:src="@drawable/settings_devices_3d"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Dispositivos\nde medición"
-                    android:textColor="#333333"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="8dp"/>
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/btnReportSettings"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:src="@drawable/settings_reports_3d"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Configuración\nde informes"
-                    android:textColor="#333333"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="8dp"/>
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/btnMicTest"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:src="@drawable/settings_calibration_3d"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Testeo y\ncalibración"
-                    android:textColor="#333333"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="8dp"/>
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- FILA 2 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:weightSum="4"
-            android:layout_marginBottom="8dp">
-
-            <LinearLayout
-                android:id="@+id/btnMeasurementParameters"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:src="@drawable/settings_devices_3d"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Configuración\nde periféricos"
-                    android:textColor="#333333"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="8dp"/>
-            </LinearLayout>
-
+            <!-- PERSONALIZAR -->
             <LinearLayout
                 android:id="@+id/btnLogoSettings"
                 android:layout_width="0dp"
@@ -323,6 +164,69 @@
                     android:layout_marginBottom="8dp"/>
             </LinearLayout>
 
+            <!-- DISPOSITIVOS DE MEDICIÓN -->
+            <LinearLayout
+                android:id="@+id/btnElementsTest"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_margin="4dp"
+                android:background="@drawable/bg_settings_card"
+                android:elevation="4dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="5dp">
+                <ImageView
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:layout_weight="1"
+                    android:src="@drawable/settings_devices_3d"/>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Dispositivos\nde medición"
+                    android:textColor="#333333"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_gravity="bottom"
+                    android:layout_marginBottom="8dp"/>
+            </LinearLayout>
+
+            <!-- CONFIGURACIÓN DE INFORMES -->
+            <LinearLayout
+                android:id="@+id/btnReportSettings"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_margin="4dp"
+                android:background="@drawable/bg_settings_card"
+                android:elevation="4dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="5dp">
+                <ImageView
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:layout_weight="1"
+                    android:src="@drawable/settings_reports_3d"/>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Configuración\nde informes"
+                    android:textColor="#333333"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_gravity="bottom"
+                    android:layout_marginBottom="8dp"/>
+            </LinearLayout>
+
+            <!-- INICIO DE SESIÓN -->
             <LinearLayout
                 android:id="@+id/btnUserSettings"
                 android:layout_width="0dp"
@@ -352,175 +256,18 @@
                     android:layout_gravity="bottom"
                     android:layout_marginBottom="8dp"/>
             </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/btnAdvertisingScreen"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:src="@drawable/settings_advertising_3d"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Pantalla publicitaria"
-                    android:textColor="#333333"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="8dp"/>
-            </LinearLayout>
         </LinearLayout>
 
-        <!-- FILA 3 -->
+        <!-- FILA 2: Respaldo - Configuración de periféricos - Testeo y calibración - Configuración de contraseña -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:orientation="horizontal"
-            android:weightSum="4">
+            android:weightSum="4"
+            android:layout_marginBottom="8dp">
 
-            <LinearLayout
-                android:id="@+id/btnClienteSettings"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-            <ImageView
-                android:layout_width="120dp"
-                android:layout_height="120dp"
-                android:layout_weight="1"
-                android:src="@drawable/settings_telemedicine_3d"/>
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Cliente"
-                android:textColor="#333333"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:layout_gravity="bottom"
-                android:layout_marginBottom="8dp"/>
-        </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/btnPasswordSettings"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:src="@drawable/settings_password_3d"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Configuración\nde contraseña"
-                    android:textColor="#333333"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="8dp"/>
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/btnTelemedicineSettings"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:src="@drawable/settings_telemedicine_3d"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Telemedicina"
-                    android:textColor="#333333"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="8dp"/>
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/btnDeviceInfo"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_settings_card"
-                android:elevation="4dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="5dp">
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:src="@drawable/settings_info_3d"/>
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Información del\ndispositivo"
-                    android:textColor="#333333"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:gravity="center"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="8dp"/>
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- FILA 4 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:weightSum="4">
-
+            <!-- RESPALDO -->
             <LinearLayout
                 android:id="@+id/btnBackupSettings"
                 android:layout_width="0dp"
@@ -551,9 +298,231 @@
                     android:layout_marginBottom="8dp"/>
             </LinearLayout>
 
-            <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_margin="4dp"/>
-            <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_margin="4dp"/>
-            <View android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_margin="4dp"/>
+            <!-- CONFIGURACIÓN DE PERIFÉRICOS -->
+            <LinearLayout
+                android:id="@+id/btnMeasurementParameters"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_margin="4dp"
+                android:background="@drawable/bg_settings_card"
+                android:elevation="4dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="5dp">
+                <ImageView
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:layout_weight="1"
+                    android:src="@drawable/settings_devices_3d"/>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Configuración\nde periféricos"
+                    android:textColor="#333333"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_gravity="bottom"
+                    android:layout_marginBottom="8dp"/>
+            </LinearLayout>
+
+            <!-- TESTEO Y CALIBRACIÓN -->
+            <LinearLayout
+                android:id="@+id/btnMicTest"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_margin="4dp"
+                android:background="@drawable/bg_settings_card"
+                android:elevation="4dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="5dp">
+                <ImageView
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:layout_weight="1"
+                    android:src="@drawable/settings_calibration_3d"/>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Testeo y\ncalibración"
+                    android:textColor="#333333"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_gravity="bottom"
+                    android:layout_marginBottom="8dp"/>
+            </LinearLayout>
+
+            <!-- CONFIGURACIÓN DE CONTRASEÑA -->
+            <LinearLayout
+                android:id="@+id/btnPasswordSettings"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_margin="4dp"
+                android:background="@drawable/bg_settings_card"
+                android:elevation="4dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="5dp">
+                <ImageView
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:layout_weight="1"
+                    android:src="@drawable/settings_password_3d"/>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Configuración\nde contraseña"
+                    android:textColor="#333333"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_gravity="bottom"
+                    android:layout_marginBottom="8dp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- FILA 3: Cliente - Telemedicina - Pantalla publicitaria - Información del dispositivo -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:weightSum="4">
+
+            <!-- CLIENTE -->
+            <LinearLayout
+                android:id="@+id/btnClienteSettings"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_margin="4dp"
+                android:background="@drawable/bg_settings_card"
+                android:elevation="4dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="5dp">
+                <ImageView
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:layout_weight="1"
+                    android:src="@drawable/settings_telemedicine_3d"/>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Cliente"
+                    android:textColor="#333333"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_gravity="bottom"
+                    android:layout_marginBottom="8dp"/>
+            </LinearLayout>
+
+            <!-- TELEMEDICINA -->
+            <LinearLayout
+                android:id="@+id/btnTelemedicineSettings"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_margin="4dp"
+                android:background="@drawable/bg_settings_card"
+                android:elevation="4dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="5dp">
+                <ImageView
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:layout_weight="1"
+                    android:src="@drawable/settings_telemedicine_3d"/>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Telemedicina"
+                    android:textColor="#333333"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_gravity="bottom"
+                    android:layout_marginBottom="8dp"/>
+            </LinearLayout>
+
+            <!-- PANTALLA PUBLICITARIA -->
+            <LinearLayout
+                android:id="@+id/btnAdvertisingScreen"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_margin="4dp"
+                android:background="@drawable/bg_settings_card"
+                android:elevation="4dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="5dp">
+                <ImageView
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:layout_weight="1"
+                    android:src="@drawable/settings_advertising_3d"/>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Pantalla publicitaria"
+                    android:textColor="#333333"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_gravity="bottom"
+                    android:layout_marginBottom="8dp"/>
+            </LinearLayout>
+
+            <!-- INFORMACIÓN DEL DISPOSITIVO -->
+            <LinearLayout
+                android:id="@+id/btnDeviceInfo"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_margin="4dp"
+                android:background="@drawable/bg_settings_card"
+                android:elevation="4dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="5dp">
+                <ImageView
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:layout_weight="1"
+                    android:src="@drawable/settings_info_3d"/>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Información del\ndispositivo"
+                    android:textColor="#333333"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_gravity="bottom"
+                    android:layout_marginBottom="8dp"/>
+            </LinearLayout>
         </LinearLayout>
 
     </LinearLayout>

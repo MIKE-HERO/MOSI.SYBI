@@ -1,0 +1,199 @@
+<resources>
+    <string name="app_name">Quiosco</string>
+    <string name="seleccione_dia">Select day</string>
+    <string name="seleccione_mes">Select month</string>
+    <string name="seleccione_anio">Select year</string>
+    <string name="seleccione_genero">Select gender</string>
+
+    <!-- Idioma -->
+    <string name="lang_code">EN</string>
+    <string name="lang_name">English</string>
+
+    <!-- Botones y Acciones Comunes -->
+    <string name="btn_back">Back</string>
+    <string name="btn_exit">Exit</string>
+    <string name="btn_reboot">Reboot</string>
+    <string name="btn_close_app">Close App</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_confirm">Confirm</string>
+    <string name="btn_accept">Accept</string>
+    <string name="btn_yes">Yes</string>
+    <string name="btn_no">No</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_edit">Edit</string>
+    <string name="btn_delete">Delete</string>
+    <string name="btn_search">Search</string>
+    <string name="btn_print">Print</string>
+
+    <!-- Pantalla Principal / Home -->
+    <string name="main_title_default">INTEGRAL HEALTH MODULE</string>
+    <string name="nav_altura_peso">Height &amp; weight</string>
+    <string name="nav_composicion">Body\ncomposition</string>
+    <string name="nav_presion">Blood pressure</string>
+    <string name="nav_temperatura">Body\ntemperature</string>
+    <string name="nav_oxigeno">Blood\noxygen</string>
+    <string name="nav_ecg">ECG</string>
+    <string name="nav_azucar">Blood\nsugar</string>
+    <string name="nav_acido_urico">Uric acid</string>
+    <string name="nav_colesterol">Total\ncholesterol</string>
+
+    <!-- Iniciar sesión / Login -->
+    <string name="login_title">Choose how you want to sign in</string>
+    <string name="login_subtitle">Select the most convenient access method for you</string>
+    <string name="login_tab_medicion">MEASUREMENT</string>
+    <string name="login_tab_consulta">CONSULTATION</string>
+    <string name="login_biometria">Facial recognition</string>
+    <string name="login_biometria_desc">Quick access with your face</string>
+    <string name="login_tarjeta">IC Card</string>
+    <string name="login_tarjeta_desc">Tap your card on the reader</string>
+    <string name="login_telefono">Phone</string>
+    <string name="login_telefono_desc">Enter with your registered number</string>
+    <string name="login_invitado">CONTINUE AS GUEST</string>
+    <string name="login_registrarse">REGISTER NEW USER</string>
+
+    <!-- Modal Invitado -->
+    <string name="guest_title">GUEST DATA FOR MEASUREMENT</string>
+    <string name="guest_desc">Please enter your age and gender to accurately calculate body composition and health parameters.</string>
+    <string name="guest_gender">Gender</string>
+    <string name="guest_male">Male</string>
+    <string name="guest_female">Female</string>
+    <string name="guest_age">Age (years)</string>
+
+    <!-- Consentimiento Telemedicina -->
+    <string name="consent_title">INFORMED CONSENT FOR THE PROVISION OF MEDICAL CARE THROUGH TELEMEDICINE.</string>
+
+    <!-- Login por Teléfono -->
+    <string name="phone_login_eyebrow">SECURE ACCESS</string>
+    <string name="phone_login_title">Sign in with your phone</string>
+    <string name="phone_login_card_title">Your information is protected</string>
+    <string name="phone_login_card_desc">We will use your registered number to locate your patient profile.</string>
+    <string name="phone_login_input_title">Phone number</string>
+    <string name="phone_login_input_desc">Enter the 10 digits, without spaces or hyphens.</string>
+    <string name="phone_login_btn">Continue securely</string>
+    <string name="phone_login_info">If your number changed, please request assistance from staff.</string>
+
+    <!-- Login por Reconocimiento Facial -->
+    <string name="face_login_eyebrow">BIOMETRIC IDENTIFICATION</string>
+    <string name="face_login_title">Facial recognition</string>
+    <string name="face_login_guide">Center your face inside the guide</string>
+    <string name="face_login_instructions_title">Follow these instructions</string>
+    <string name="face_login_inst1">Look directly at the camera</string>
+    <string name="face_login_inst2">Keep your face within the guide</string>
+    <string name="face_login_inst3">Stay still for a few seconds</string>
+    <string name="face_login_status_default">Place your face in front of the camera</string>
+    <string name="face_login_footer">The process is automatic; you do not need to touch the screen.</string>
+
+    <!-- Login por Tarjeta IC -->
+    <string name="ic_login_eyebrow">CARD IDENTIFICATION</string>
+    <string name="ic_login_title">Sign in with your IC card</string>
+    <string name="ic_login_card_title">Your information is protected</string>
+    <string name="ic_login_card_desc">We will use your card details to locate your patient profile.</string>
+    <string name="ic_login_input_title">IC Card</string>
+    <string name="ic_login_input_desc">Tap your card on the reader and wait a few seconds.</string>
+    <string name="ic_login_status_default">Tap your IC card on the reader…</string>
+    <string name="ic_login_info">If your card is not recognized, please request assistance from staff.</string>
+
+    <!-- Registro de Paciente -->
+    <string name="register_step1">STEP 1 OF 2  •  PATIENT DATA</string>
+    <string name="register_title">Complete your registration</string>
+    <string name="register_search_prompt">Already registered?</string>
+    <string name="register_search_desc">Search for your details to complete the form automatically.</string>
+    <string name="register_search_field">Phone, CURP or ID</string>
+    <string name="register_btn_search">Search patient</string>
+    <string name="register_age_restriction">Registration available for patients 10 years and older.</string>
+    <string name="register_personal_info">Personal information</string>
+    <string name="register_required_fields">* Required fields</string>
+    <string name="register_name">First Name(s) *</string>
+    <string name="register_paternal">Paternal Last Name *</string>
+    <string name="register_maternal">Maternal Last Name *</string>
+    <string name="register_birthdate">Date of Birth *</string>
+    <string name="register_phone">Phone *</string>
+    <string name="register_email">Email</string>
+    <string name="register_ic_card">IC Card *</string>
+    <string name="register_gender">Gender *</string>
+    <string name="register_complete_btn">Complete registration</string>
+    <string name="register_photo_step_title">Before taking the photo</string>
+    <string name="register_photo_inst1">1   Look straight ahead and center your face</string>
+    <string name="register_photo_inst2">2   Stay still and avoid backlighting</string>
+    <string name="register_take_photo">Take photo</string>
+    <string name="register_retake_photo">Retake photo</string>
+    <string name="register_save_photo">Save and finish</string>
+    <string name="register_skip_photo">Continue without photo</string>
+
+    <!-- Perfil del Paciente -->
+    <string name="profile_eyebrow">IDENTITY CONFIRMATION</string>
+    <string name="profile_title">Patient Information</string>
+    <string name="profile_context">Patient identified</string>
+    <string name="profile_check_title">Verify that your details are correct</string>
+    <string name="profile_check_desc">This information will be used for your care and results.</string>
+    <string name="profile_phone">PHONE</string>
+    <string name="profile_birthdate">DATE OF BIRTH</string>
+    <string name="profile_gender">GENDER</string>
+    <string name="profile_age">AGE</string>
+    <string name="profile_last_measurement">LAST MEASUREMENT</string>
+    <string name="profile_not_me">It\'s not me</string>
+    <string name="profile_continue">Continue</string>
+
+    <!-- Pantalla de Medición -->
+    <string name="measurement_title">Measurement Screen</string>
+    <string name="measurement_start">Start Measurement</string>
+    <string name="measurement_stop">Stop Measurement</string>
+    <string name="measurement_processing">Processing…</string>
+    <string name="measurement_success">Measurement completed successfully</string>
+    <string name="measurement_error">Measurement error, please retry</string>
+    <string name="measurement_next">Next</string>
+    <string name="measurement_finish">Finish</string>
+    <string name="measurement_retry">Retry</string>
+
+    <!-- Instrucciones de Medición -->
+    <string name="inst_altura_peso">Step on the scale to start measurement</string>
+    <string name="inst_composicion">Firmly hold the scale electrodes with both hands</string>
+    <string name="inst_presion">Place your left arm into the blood pressure monitor cuff</string>
+    <string name="inst_temperatura">Bring your forehead close to the temperature sensor without touching</string>
+    <string name="inst_oxigeno">Insert your index finger completely into the oximeter</string>
+    <string name="inst_ecg">Hold the ECG sensors with both hands and remain still</string>
+    <string name="inst_azucar">Insert the glucose test strip into the device</string>
+    <string name="inst_acido_urico">Insert the uric acid test strip into the device</string>
+    <string name="inst_colesterol">Insert the cholesterol test strip into the device</string>
+
+    <!-- Menú Principal -->
+    <string name="menu_title">Main Menu</string>
+    <string name="menu_patients">Patients</string>
+    <string name="menu_history">Measurement\nhistory</string>
+    <string name="menu_basic_settings">Basic settings</string>
+    <string name="menu_advanced_settings">Advanced settings</string>
+
+    <!-- Pantalla de Resultados -->
+    <string name="results_title">Results Report</string>
+    <string name="results_start_consultation">Start Consultation</string>
+    <string name="results_print_pdf">Print PDF</string>
+    <string name="results_print_ticket">Print Ticket</string>
+    <string name="results_send_email">Send Email</string>
+
+    <!-- Configuración -->
+    <string name="settings_title">Settings</string>
+
+    <!-- Información del Dispositivo -->
+    <string name="device_info_title">Device Information</string>
+    <string name="device_info_subtitle">This data identifies the console hardware</string>
+    <string name="device_info_model">Device Model *</string>
+    <string name="device_info_serial">Serial Number *</string>
+    <string name="device_info_updates">Software Updates</string>
+    <string name="device_info_check_updates">Check for updates</string>
+    <string name="device_info_install_selected">Install selected version</string>
+
+    <!-- Tablas (Pacientes / Historial) -->
+    <string name="table_patients_title">Patient Management</string>
+    <string name="table_results_title">Patient Results</string>
+    <string name="btn_add">Add</string>
+    <string name="btn_view_edit">View/Edit</string>
+    <string name="btn_sync">Sync</string>
+    <string name="btn_resend">Resend</string>
+    <string name="btn_view_report">View report</string>
+
+    <!-- Diálogos de Confirmación -->
+    <string name="dialog_reboot_title">Reboot Device</string>
+    <string name="dialog_reboot_msg">Are you sure you want to reboot the device?</string>
+    <string name="dialog_close_app_title">Close Application</string>
+    <string name="dialog_close_app_msg">Are you sure you want to close the application?</string>
+</resources>

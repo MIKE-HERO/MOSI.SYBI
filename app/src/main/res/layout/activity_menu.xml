@@ -10,7 +10,7 @@
     android:paddingEnd="34dp"
     android:paddingBottom="24dp">
 
-    <!-- HEADER SUPERIOR (Sin cambios) -->
+    <!-- HEADER SUPERIOR -->
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -23,7 +23,7 @@
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
             android:background="@drawable/bg_login_back"
-            android:contentDescription="Regresar"
+            android:contentDescription="@string/btn_back"
             android:elevation="3dp"
             android:padding="16dp"
             android:rotation="180"
@@ -34,7 +34,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
-            android:text="Menú Principal"
+            android:text="@string/menu_title"
             android:textColor="#102A43"
             android:textSize="32sp"
             android:textStyle="bold" />
@@ -65,6 +65,7 @@
                     android:id="@+id/iconRebootDevice"
                     android:layout_width="26dp"
                     android:layout_height="26dp"
+                    android:contentDescription="@null"
                     android:src="@drawable/ic_restart"
                     app:tint="#31536A" />
 
@@ -72,7 +73,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:text="Reiniciar"
+                    android:text="@string/btn_reboot"
                     android:textColor="#31536A"
                     android:textSize="15sp"
                     android:textStyle="bold" />
@@ -95,6 +96,7 @@
                     android:id="@+id/iconCloseApp"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
+                    android:contentDescription="@null"
                     android:src="@drawable/ic_close_app"
                     app:tint="#D32F2F" />
 
@@ -102,7 +104,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:text="Cerrar App"
+                    android:text="@string/btn_close_app"
                     android:textColor="#D32F2F"
                     android:textSize="15sp"
                     android:textStyle="bold" />
@@ -118,7 +120,7 @@
         android:gravity="center"
         android:orientation="vertical">
 
-        <!-- Cuadrícula con ancho máximo de 500dp para que no se estiren -->
+        <!-- Cuadrícula -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -151,12 +153,13 @@
                         android:layout_height="100dp"
                         android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
+                        android:contentDescription="@null"
                         android:src="@drawable/settings_patients_3d"/>
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Pacientes"
+                        android:text="@string/menu_patients"
                         android:textColor="#333333"
                         android:textSize="18sp"
                         android:textStyle="bold"
@@ -183,12 +186,13 @@
                         android:layout_height="100dp"
                         android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
+                        android:contentDescription="@null"
                         android:src="@drawable/settings_history_3d"/>
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Historial de\nmediciones"
+                        android:text="@string/menu_history"
                         android:textColor="#333333"
                         android:textSize="18sp"
                         android:textStyle="bold"
@@ -222,12 +226,13 @@
                         android:layout_height="100dp"
                         android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
+                        android:contentDescription="@null"
                         android:src="@drawable/settings_basic_3d"/>
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Ajustes básicos"
+                        android:text="@string/menu_basic_settings"
                         android:textColor="#333333"
                         android:textSize="18sp"
                         android:textStyle="bold"
@@ -254,12 +259,13 @@
                         android:layout_height="100dp"
                         android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
+                        android:contentDescription="@null"
                         android:src="@drawable/settings_customize_3d"/>
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Ajustes avanzados"
+                        android:text="@string/menu_advanced_settings"
                         android:textColor="#333333"
                         android:textSize="18sp"
                         android:textStyle="bold"

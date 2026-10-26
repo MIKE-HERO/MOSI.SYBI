@@ -1623,7 +1623,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         runOnUiThread {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
             controller.cancelStatusDelayed()
-            showStatusMessage("Medición completada correctamente", "#4CAF50")
+            showStatusMessage(getString(R.string.measurement_success), "#4CAF50")
             if (currentMeasurementType == "ALTURA_PESO") {
                 guideSequenceToken++
                 showHeightWeightStage(3)
@@ -1648,7 +1648,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
      * medición falló (sin resultado no había forma de volver a intentarla desde la barra superior).
      */
     private fun setRepeatMode(error: Boolean) {
-        findViewById<TextView>(R.id.tvRepeatReadingText)?.text = if (error) "Reintentar" else "Repetir"
+        val textRetry = if (error) getString(R.string.measurement_retry) else "Repetir"
+        findViewById<TextView>(R.id.tvRepeatReadingText)?.text = textRetry
         if (error) btnRepeat.visibility = View.VISIBLE
     }
 
@@ -1672,7 +1673,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 if (currentMeasurementType == "COMPOSICION") groupComposicion.visibility = View.GONE
             }
             layoutResultadosEcg.visibility = View.GONE
-            showStatusMessage("Error de medición, favor de repetir", "#F44336")
+            showStatusMessage(getString(R.string.measurement_error), "#F44336")
             updateButtonVisibility()
             setRepeatMode(true)
             getAudioName(currentMeasurementType, "error")?.let { playAudio(it, forceRestart = true) }
@@ -1693,13 +1694,13 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun getAudioName(type: String, event: String): String? {
         val prefix = getAudioPrefix(type) ?: return null
-        if (type == "ECG" && event == "exito") {
-            val resIdExito = resources.getIdentifier("ecg_exito", "raw", packageName)
-            if (resIdExito != 0) return "ecg_exito"
-            val resIdS = resources.getIdentifier("ecg_s", "raw", packageName)
-            if (resIdS != 0) return "ecg_s"
-        }
         return "${prefix}_$event"
+    }
+
+    private fun resolveAudioResId(soundName: String): Int {
+        // Android resuelve automáticamente desde app/src/main/res/raw-en/ cuando el idioma es inglés,
+        // o desde app/src/main/res/raw/ por defecto (español).
+        return resources.getIdentifier(soundName, "raw", packageName)
     }
 
     private fun playAudio(soundName: String, forceRestart: Boolean = false) {
@@ -1712,7 +1713,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }
         stopAudio()
         try {
-            val resId = resources.getIdentifier(soundName, "raw", packageName)
+            val resId = resolveAudioResId(soundName)
             if (resId != 0) {
                 currentPlayingAudioName = soundName
                 mediaPlayer = MediaPlayer.create(this, resId)?.apply {
