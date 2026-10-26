@@ -1694,25 +1694,13 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun getAudioName(type: String, event: String): String? {
         val prefix = getAudioPrefix(type) ?: return null
-        if (type == "ECG" && event == "exito") {
-            val resIdExito = resolveAudioResId("ecg_exito")
-            if (resIdExito != 0) return "ecg_exito"
-            val resIdS = resolveAudioResId("ecg_s")
-            if (resIdS != 0) return "ecg_s"
-        }
         return "${prefix}_$event"
     }
 
     private fun resolveAudioResId(soundName: String): Int {
-        val currentLang = com.sybi.mosi.helpers.LocaleHelper.getLanguage(this)
-        // 1. Probar sufijo explícito por idioma (ej. alturapeso_start_en, alturapeso_start_es)
-        val langSoundName = "${soundName}_${currentLang}"
-        var resId = resources.getIdentifier(langSoundName, "raw", packageName)
-        // 2. Si no se encuentra sufijo, probar con el nombre base (res/raw-en/ o res/raw/)
-        if (resId == 0) {
-            resId = resources.getIdentifier(soundName, "raw", packageName)
-        }
-        return resId
+        // Android resuelve automáticamente desde app/src/main/res/raw-en/ cuando el idioma es inglés,
+        // o desde app/src/main/res/raw/ por defecto (español).
+        return resources.getIdentifier(soundName, "raw", packageName)
     }
 
     private fun playAudio(soundName: String, forceRestart: Boolean = false) {
