@@ -105,7 +105,10 @@ class MainActivity : BaseActivity() {
         medicalBackground = findViewById(R.id.medicalBackground)
         backgroundColorMask = findViewById(R.id.backgroundColorMask)   // ✅ NUEVO
 
-        // --- INICIAR EL SERVICIO SERIAL AL ABRIR LA APP ---
+        // --- ASEGURAR PUERTOS POR DEFECTO E INICIAR EL SERVICIO SERIAL ---
+        val devicePrefs = getSharedPreferences("DevicePrefs", MODE_PRIVATE)
+        DeviceDefaults.ensureDefaultPorts(devicePrefs)
+
         startService(Intent(this, SerialService::class.java))
 
         // --- RECEPTOR PARA ACTUALIZAR DISPOSITIVOS ---
@@ -295,9 +298,6 @@ class MainActivity : BaseActivity() {
             gestureDetector.onTouchEvent(event)
             true
         }
-
-        val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
-        DeviceDefaults.ensureDefaultPorts(devicePrefs)
     }
 
     /**
