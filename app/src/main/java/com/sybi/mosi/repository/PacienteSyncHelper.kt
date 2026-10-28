@@ -60,7 +60,8 @@ object PacienteSyncHelper {
         paciente: Paciente,
         pacienteDao: PacienteDao,
         resultadoDao: ResultadoDao,
-        repo: PacienteRemoteRepository
+        repo: PacienteRemoteRepository,
+        forzarSobrescribirAPI: Boolean = false
     ): Boolean {
         return try {
             val resultado = repo.buscarPacienteEnAPI(paciente)
@@ -69,12 +70,19 @@ object PacienteSyncHelper {
                 return false
             }
 
-            // 1. Actualizar el paciente
-            val actualizado = aplicarDatosAPI(
-                local = paciente,
-                idUsuarioWeb = resultado.idPaciente,
-                usuario = resultado.usuarioWeb
-            )
+            // 1. Actualizar el paciente (respetando cambios locales si no se fuerza la sobrescritura)
+            val actualizado = if (!forzarSobrescribirAPI && paciente.id_usuario_web != null && paciente.id_usuario_web > 0) {
+                paciente.copy(
+                    id_usuario_web = resultado.idPaciente,
+                    sincronizado = true
+                )
+            } else {
+                aplicarDatosAPI(
+                    local = paciente,
+                    idUsuarioWeb = resultado.idPaciente,
+                    usuario = resultado.usuarioWeb
+                )
+            }
 
             // Log de diagnóstico: qué campos realmente cambian con esta sincronización.
             if (actualizado == paciente) {

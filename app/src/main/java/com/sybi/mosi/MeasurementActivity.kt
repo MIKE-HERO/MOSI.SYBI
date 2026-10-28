@@ -111,9 +111,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var measuringAnimationHost: View
     private lateinit var measuringAnimationView: com.sybi.mosi.measurement.EqualizerLoaderView
     private lateinit var resultsPanel: View
-    private lateinit var heightWeightActions: LinearLayout
-    private lateinit var btnHeightBack: Button
-    private lateinit var btnHeightNext: Button
     private val guideHandler = Handler(Looper.getMainLooper())
     private var guideSequenceToken = 0
     private var guideBreathingAnimator: android.animation.ObjectAnimator? = null
@@ -179,6 +176,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_measurement)
+
+        runCatching { startService(Intent(this, SerialService::class.java)) }
 
         readPatientIntent()
         bindViews()
@@ -306,11 +305,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         measuringAnimationHost = findViewById(R.id.measuringAnimationHost)
         measuringAnimationView = findViewById(R.id.measuringAnimationView)
         resultsPanel = findViewById(R.id.resultsPanel)
-        heightWeightActions = findViewById(R.id.heightWeightActions)
-        btnHeightBack = findViewById(R.id.btnHeightBack)
-        btnHeightNext = findViewById(R.id.btnHeightNext)
-        btnHeightBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
-        btnHeightNext.setOnClickListener { getNextVisibleButton()?.performClick() }
         waveformView = findViewById(R.id.waveformView)
         layoutStatusContent = findViewById(R.id.layoutStatusContent)
         tvStatusMessage = findViewById(R.id.tvStatusMessage)
@@ -403,7 +397,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun applyTheme(color: Int) {
         findViewById<View>(R.id.bottomMeasurementBarContainer).setBackgroundColor(color)
         btnStarECG.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
-        btnHeightNext.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         applyPillTheme(color)
 
         // Tono claro del propio color de marca para resaltar el ícono de la pestaña activa.
@@ -604,7 +597,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         if (completedMeasurements.contains("ALTURA_PESO") || state.hasHeightWeight()) {
             showHeightWeightStage(3)
             setHeightWeightPresentation(showResults = true)
-            heightWeightActions.visibility = View.VISIBLE
             btnRepeat.visibility = View.VISIBLE
             showStatusMessage("Medición completada correctamente", "#4CAF50")
             showSuccessCheck(true)
@@ -796,7 +788,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }
         when (currentMeasurementType) {
             "ALTURA_PESO" -> {
-                heightWeightActions.visibility = View.GONE
                 setHeightWeightPresentation(showResults = false)
                 state.resetHeightWeight()
                 measurementResults.updateHeightWeight(0.0, 0.0, 0.0)
@@ -1026,6 +1017,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         guideSequenceToken++
         cancelCountdownTimer()
         controller.cancelTimers()
+        controller.prepareTab(key.uppercase())
         setRepeatMode(false)
         tvStatusProgress.visibility = View.GONE
         // Por si se cambia de pestaña a medio "esperando resultado": no dejar la
@@ -1060,7 +1052,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         if (!skipGenericGuide) {
             setGuideImage("instruccion_$key")
         }
-        heightWeightActions.visibility = View.GONE
         tvGuideStep.visibility = if (key == "altura_peso") View.VISIBLE else View.GONE
         updateButtonVisibility()
 
@@ -1079,7 +1070,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
      * paneles. `showResults` ya no oculta ningún panel.
      */
     private fun setHeightWeightPresentation(showResults: Boolean) {
-        heightWeightActions.visibility = View.GONE
     }
 
     private fun loadLastResults(key: String) {
@@ -1664,7 +1654,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 ecgMeasurementStartTime = 0L
                 ecgLoadingView.visibility = View.GONE
             }
-            if (currentMeasurementType == "ALTURA_PESO") heightWeightActions.visibility = View.GONE
             if (currentMeasurementType in setOf("ALTURA_PESO", "COMPOSICION", "PRESION", "TEMPERATURA", "OXIGENO")) {
                 guideSequenceToken++
                 setHeightWeightPresentation(showResults = true)

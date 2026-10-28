@@ -38,7 +38,6 @@ class PatientTableActivity : BaseActivity() {
     companion object {
         private const val TAG = "PatientTableActivity"
         private const val CAMERA_PERMISSION_CODE_DIALOG = 300
-        private const val EDAD_MINIMA = 10
     }
 
     private lateinit var patientsContainer: LinearLayout
@@ -312,7 +311,8 @@ class PatientTableActivity : BaseActivity() {
                                 paciente = p,
                                 pacienteDao = db.pacienteDao(),
                                 resultadoDao = db.resultadoDao(),
-                                repo = repo
+                                repo = repo,
+                                forzarSobrescribirAPI = true
                             )
                             if (ok) exitos++
                         }
@@ -585,52 +585,52 @@ class PatientTableActivity : BaseActivity() {
                         return@setOnClickListener
                     }
 
-                    // ✅ Validar edad mínima (10 años)
                     val edad = calcularEdad(fechaParseada)
-                    if (edad < EDAD_MINIMA) {
-                        etEditFechaNacimiento?.error =
-                            "La edad mínima permitida es $EDAD_MINIMA años"
+                    if (edad < 0 || edad > 120) {
+                        etEditFechaNacimiento?.error = "Fecha de nacimiento inválida"
                         Toast.makeText(
                             this@PatientTableActivity,
-                            "⚠️ El paciente debe tener al menos $EDAD_MINIMA años para usar la composición corporal",
+                            "⚠️ Fecha de nacimiento inválida",
                             Toast.LENGTH_LONG
                         ).show()
                         return@setOnClickListener
                     }
 
-                    if (edad > 120) {
-                        etEditFechaNacimiento?.error = "Fecha de nacimiento inválida"
-                        return@setOnClickListener
-                    }
+                    androidx.appcompat.app.AlertDialog.Builder(this@PatientTableActivity)
+                        .setTitle("Aviso importante")
+                        .setMessage("Los cambios se guardarán localmente en el dispositivo. Recuerde que debe ponerse en contacto con el equipo de soporte para corregir esos datos en el sistema.")
+                        .setPositiveButton("Aceptar") { _, _ ->
+                            val updated = p.copy(
+                                nombre = etNombre.text.toString().trim().uppercase(),
+                                apellido_paterno = etApPaterno.text.toString().trim().uppercase(),
+                                apellido_materno = etApMaterno.text.toString().trim().uppercase(),
+                                telefono = etTel.text.toString().trim(),
+                                correo = etCor.text.toString().trim().lowercase(),
+                                curp = etCurp.text.toString().trim().uppercase(),
+                                tarjetaIc = etEditTarjetaIc?.text.toString().trim()
+                                    .ifBlank { p.tarjetaIc },
+                                direccion = etDir.text.toString().trim().uppercase(),
+                                fecha_nacimiento = fechaTexto,
+                                foto = nuevaFotoBase64
+                            )
 
-                    val updated = p.copy(
-                        nombre = etNombre.text.toString().trim().uppercase(),
-                        apellido_paterno = etApPaterno.text.toString().trim().uppercase(),
-                        apellido_materno = etApMaterno.text.toString().trim().uppercase(),
-                        telefono = etTel.text.toString().trim(),
-                        correo = etCor.text.toString().trim().lowercase(),
-                        curp = etCurp.text.toString().trim().uppercase(),
-                        tarjetaIc = etEditTarjetaIc?.text.toString().trim()
-                            .ifBlank { p.tarjetaIc },
-                        direccion = etDir.text.toString().trim().uppercase(),
-                        fecha_nacimiento = fechaTexto,
-                        foto = nuevaFotoBase64
-                    )
+                            Log.d(TAG, "💾 Guardando paciente: fecha_nacimiento=$fechaTexto, edad=$edad")
 
-                    Log.d(TAG, "💾 Guardando paciente: fecha_nacimiento=$fechaTexto, edad=$edad")
-
-                    Thread {
-                        runBlocking { db.pacienteDao().actualizarPaciente(updated) }
-                        runOnUiThread {
-                            Toast.makeText(
-                                this@PatientTableActivity,
-                                "✅ Paciente actualizado (edad: $edad años)",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            dialog.dismiss()
-                            loadPatients()
+                            Thread {
+                                runBlocking { db.pacienteDao().actualizarPaciente(updated) }
+                                runOnUiThread {
+                                    Toast.makeText(
+                                        this@PatientTableActivity,
+                                        "✅ Paciente actualizado (edad: $edad años)",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    dialog.dismiss()
+                                    loadPatients()
+                                }
+                            }.start()
                         }
-                    }.start()
+                        .setNegativeButton("Cancelar", null)
+                        .show()
                 }
 
                 dialog.setOnDismissListener {

@@ -264,37 +264,6 @@
                                 android:visibility="gone" />
                         </FrameLayout>
 
-                        <LinearLayout
-                            android:id="@+id/heightWeightActions"
-                            android:layout_width="match_parent"
-                            android:layout_height="52dp"
-                            android:layout_marginBottom="8dp"
-                            android:gravity="center"
-                            android:orientation="horizontal"
-                            android:visibility="gone">
-
-                            <Button
-                                android:id="@+id/btnHeightBack"
-                                android:layout_width="0dp"
-                                android:layout_height="match_parent"
-                                android:layout_weight="1"
-                                android:layout_marginEnd="6dp"
-                                android:text="Regresar"
-                                android:textAllCaps="false"
-                                android:textSize="17sp" />
-
-                            <Button
-                                android:id="@+id/btnHeightNext"
-                                android:layout_width="0dp"
-                                android:layout_height="match_parent"
-                                android:layout_weight="1"
-                                android:layout_marginStart="6dp"
-                                android:text="Siguiente"
-                                android:textAllCaps="false"
-                                android:textColor="#FFFFFF"
-                                android:textSize="17sp" />
-                        </LinearLayout>
-
                         <!-- 2. SECCIÓN CENTRAL: RESULTADOS ACTUALES -->
                         <LinearLayout
                             android:id="@+id/groupsContainer"

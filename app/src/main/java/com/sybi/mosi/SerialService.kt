@@ -220,7 +220,12 @@ class SerialService : Service() {
         val queryDevicesReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == "QUERY_CONNECTED_DEVICES") {
-                    sendConnectedDevicesResponse()
+                    if (openStreams.isEmpty() && !destroyed) {
+                        Log.w(TAG, "⚠️ QUERY_CONNECTED_DEVICES recibido pero openStreams está vacío. Reabriendo puertos...")
+                        openAllConfiguredPorts()
+                    } else {
+                        sendConnectedDevicesResponse()
+                    }
                 }
             }
         }
@@ -495,7 +500,7 @@ class SerialService : Service() {
 
                         assembler.append(receivedData)
                     } else {
-                        // Sin datos: esperar un poco en vez de girar sin pausa (100% de CPU)
+                        // Sin datos o fin de stream temporal: esperar un poco y seguir escuchando (los puertos se mantienen abiertos siempre)
                         Thread.sleep(IDLE_SLEEP_MS)
                     }
                 } catch (e: InterruptedException) {

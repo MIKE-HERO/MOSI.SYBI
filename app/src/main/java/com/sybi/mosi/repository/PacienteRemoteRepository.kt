@@ -33,15 +33,48 @@ class PacienteRemoteRepository(private val context: Context) {
         return if (id.isBlank()) null else id
     }
 
+    /**
+     * Cuando hay varios beneficiarios (mismo folio o mismo teléfono),
+     * elige el que coincida con nombre y apellidos. Si no hay coincidencia,
+     * devuelve null para no vincular al paciente equivocado.
+     */
+    private fun filtrarPorNombre(
+        usuarios: List<UsuarioWeb>?,
+        nombre: String,
+        apellidoPaterno: String,
+        apellidoMaterno: String
+    ): UsuarioWeb? {
+        if (usuarios.isNullOrEmpty()) return null
+        if (usuarios.size == 1) return usuarios.first()
+
+        Log.d(TAG, "⚠️ Múltiples resultados (${usuarios.size}), filtrando por nombre...")
+        return usuarios.firstOrNull { u ->
+            val coincideNombre = nombre.isBlank() ||
+                    u.nombre?.equals(nombre, ignoreCase = true) == true
+            val coincideApPat = apellidoPaterno.isBlank() ||
+                    u.apellidoPaterno?.equals(apellidoPaterno, ignoreCase = true) == true
+            val coincideApMat = apellidoMaterno.isBlank() ||
+                    u.apellidoMaterno?.equals(apellidoMaterno, ignoreCase = true) == true
+            coincideNombre && coincideApPat && coincideApMat
+        }
+    }
+
     // ==========================================
-    // BÚSQUEDA PRINCIPAL (flujo original)
+    // BÚSQUEDA PRINCIPAL (flujo interno de sincronización)
     // ==========================================
     suspend fun buscarPacienteEnAPI(paciente: Paciente): ResultadoBusqueda? {
         return try {
             if (paciente.telefono.isNotEmpty()) {
                 Log.d(TAG, "🔍 Buscando por celular: ${paciente.telefono}")
                 val r = buscarPorCelular(paciente.telefono)
-                if (r != null) return r
+                val usuario = filtrarPorNombre(
+                    usuarios = r?.usuarios,
+                    nombre = paciente.nombre,
+                    apellidoPaterno = paciente.apellido_paterno,
+                    apellidoMaterno = paciente.apellido_materno
+                )
+                val id = usuario?.idUsuarioWeb?.toIntOrNull()
+                if (id != null && usuario != null) return ResultadoBusqueda(id, usuario)
             }
 
             if (paciente.curp.isNotEmpty()) {
@@ -70,9 +103,9 @@ class PacienteRemoteRepository(private val context: Context) {
     }
 
     // ==========================================
-    // BÚSQUEDA POR CELULAR
+    // BÚSQUEDA POR CELULAR (devuelve MÚLTIPLES beneficiarios)
     // ==========================================
-    suspend fun buscarPorCelular(telefono: String): ResultadoBusqueda? {
+    suspend fun buscarPorCelular(telefono: String): ResultadoMultiple? {
         Log.d(TAG, "🌐 Iniciando búsqueda por celular: $telefono")
         return try {
             val telLimpio = telefono.replace(Regex("[^0-9]"), "")
@@ -88,15 +121,14 @@ class PacienteRemoteRepository(private val context: Context) {
             if (response.isSuccessful) {
                 val body = response.body()
                 Log.d(TAG, "📦 Body búsqueda por celular: $body")
-                val usuario = body?.primerUsuario
-                val id = usuario?.idUsuarioWeb?.toIntOrNull()
+                val usuarios = body?.usuarios
 
-                if (id != null && usuario != null) {
-                    Log.d(TAG, "✅ Paciente encontrado: ${usuario.nombre}")
-                    ResultadoBusqueda(id, usuario)
-                } else {
-                    Log.w(TAG, "⚠️ No se encontró id o usuario en el body")
+                if (usuarios.isNullOrEmpty()) {
+                    Log.w(TAG, "⚠️ No se encontraron usuarios para el celular $telLimpio")
                     null
+                } else {
+                    Log.d(TAG, "✅ ${usuarios.size} beneficiario(s) encontrado(s) para celular $telLimpio")
+                    ResultadoMultiple(usuarios)
                 }
             } else {
                 Log.e(TAG, "❌ Error HTTP búsqueda por celular: ${response.errorBody()?.string()}")
@@ -111,7 +143,7 @@ class PacienteRemoteRepository(private val context: Context) {
     }
 
     // ==========================================
-    // BÚSQUEDA POR CURP
+    // BÚSQUEDA POR CURP (un solo resultado)
     // ==========================================
     suspend fun buscarPorCurp(curp: String): ResultadoBusqueda? {
         Log.d(TAG, "🌐 Iniciando búsqueda por CURP: $curp")
@@ -201,23 +233,12 @@ class PacienteRemoteRepository(private val context: Context) {
         apellidoMaterno: String
     ): ResultadoBusqueda? {
         val resultado = buscarPorFolio(folio) ?: return null
-        val total = resultado.usuarios.size
-
-        val usuario = if (total == 1) {
-            resultado.primerUsuario
-        } else {
-            Log.d(TAG, "⚠️ Múltiples resultados ($total), filtrando por nombre...")
-            resultado.usuarios.firstOrNull { u ->
-                val coincideNombre = nombre.isBlank() ||
-                        u.nombre?.equals(nombre, ignoreCase = true) == true
-                val coincideApPat = apellidoPaterno.isBlank() ||
-                        u.apellidoPaterno?.equals(apellidoPaterno, ignoreCase = true) == true
-                val coincideApMat = apellidoMaterno.isBlank() ||
-                        u.apellidoMaterno?.equals(apellidoMaterno, ignoreCase = true) == true
-                coincideNombre && coincideApPat && coincideApMat
-            }
-        }
-
+        val usuario = filtrarPorNombre(
+            usuarios = resultado.usuarios,
+            nombre = nombre,
+            apellidoPaterno = apellidoPaterno,
+            apellidoMaterno = apellidoMaterno
+        )
         val id = usuario?.idUsuarioWeb?.toIntOrNull()
         return if (id != null && usuario != null) ResultadoBusqueda(id, usuario) else null
     }

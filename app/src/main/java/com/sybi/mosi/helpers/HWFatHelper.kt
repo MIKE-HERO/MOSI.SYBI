@@ -315,8 +315,9 @@ class HWFatHelper(private val context: Context) {
             cancelErrorThread()
             cancelRetryThread()
 
-            // ✅ Usar edad calculada automáticamente
-            val edad = calcularEdadDesdeFecha(userBirthDate)
+            // ✅ Usar edad calculada (mínimo 10 para composición corporal si el paciente es menor)
+            val edadReal = calcularEdadDesdeFecha(userBirthDate)
+            val edad = if (edadReal < 10) 10 else edadReal
             val cmdBytes = buildFatCommand(lastWeight!!, lastHeight!!, edad, userIsMan)
             val cmdString = bytesToHex(cmdBytes)
 
@@ -325,7 +326,7 @@ class HWFatHelper(private val context: Context) {
             composicionCommandSent = true
 
             Log.d(TAG, "📤 Comando Composición enviado: $cmdString")
-            Log.d(TAG, "📤 Peso: $lastWeight kg, Altura: $lastHeight cm, Edad: $edad, Hombre: $userIsMan")
+            Log.d(TAG, "📤 Peso: $lastWeight kg, Altura: $lastHeight cm, Edad real: $edadReal, Edad comando: $edad, Hombre: $userIsMan")
             Log.d(TAG, "📊 Estado inicial: isMeasurementActive=$isMeasurementActive, hasReceivedAnyData=$hasReceivedAnyData, retryCount=$retryCount")
 
             val txIntent = Intent("SERIAL_RAW_DATA")
@@ -364,7 +365,8 @@ class HWFatHelper(private val context: Context) {
 
                     // Reenviar comando
                     if (outputStream != null && lastWeight != null && lastHeight != null) {
-                        val edad = calcularEdadDesdeFecha(userBirthDate)
+                        val edadReal = calcularEdadDesdeFecha(userBirthDate)
+                        val edad = if (edadReal < 10) 10 else edadReal
                         val cmdBytes = buildFatCommand(lastWeight!!, lastHeight!!, edad, userIsMan)
                         val cmdString = bytesToHex(cmdBytes)
 

@@ -43,7 +43,11 @@ class MeasurementController(
         commandSentMap.clear()
     }
 
-    fun sendCommand(commandType: String, delayMs: Long = 3000) {
+    fun prepareTab(commandType: String) {
+        commandSentMap.remove(commandType)
+    }
+
+    fun sendCommand(commandType: String, delayMs: Long = 500) {
         if (commandSentMap[commandType] == true) return
 
         initializationRunnable?.let { handler.removeCallbacks(it) }
@@ -66,7 +70,7 @@ class MeasurementController(
         sendCommand(commandType, delayMs)
     }
 
-    fun startOxygenMeasurement(delayMs: Long = 3000, timeoutMs: Long = 30000) {
+    fun startOxygenMeasurement(delayMs: Long = 1000, timeoutMs: Long = 30000) {
         if (!deviceManager.isAvailableFor("OXIGENO")) {
             callbacks.onStatusMessage("Error: no se encuentra el dispositivo", "#F44336")
             return

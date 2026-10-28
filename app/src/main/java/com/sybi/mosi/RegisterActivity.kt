@@ -45,6 +45,8 @@ class RegisterActivity : BaseActivity() {
 
     private var currentColor: String = "#0F3E82"
     private var fechaNacimiento: String = "" // dd/MM/yyyy
+    private var datosAutocompletados = false
+    private var idUsuarioWebAutocompletado: Int? = null
 
     private lateinit var btnGuardar: Button
     private lateinit var btnCancelar: Button
@@ -75,14 +77,13 @@ class RegisterActivity : BaseActivity() {
     private lateinit var rbMasculino: RadioButton
     private lateinit var rbFemenino: RadioButton
 
-    // ✅ Lista de resultados (búsqueda por folio)
+    // ✅ Lista de resultados (búsqueda por folio o teléfono)
     private lateinit var resultadosContainer: LinearLayout
     private lateinit var listaResultados: LinearLayout
     private var swipeStartX = 0f
     private var swipeStartY = 0f
 
-    // Paso 2: registro facial (antes FaceRegistrationActivity, ahora un segundo paso
-    // de esta misma pantalla para que todo el alta de paciente quede en una sola vista).
+    // Paso 2: registro facial
     private lateinit var tvRegisterStep: TextView
     private lateinit var registerContent: View
     private lateinit var stepFotoContent: View
@@ -110,8 +111,7 @@ class RegisterActivity : BaseActivity() {
 
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
-        // Precarga de modelos de biometría facial (MediaPipe + FaceNet) para que el
-        // Paso 2 no tenga que esperar a inicializarlos cuando el usuario llegue a él.
+        // Precarga de modelos de biometría facial (MediaPipe + FaceNet)
         FaceBiometricsHelper.init(this)
 
         // ── Referencias ──
@@ -325,17 +325,19 @@ class RegisterActivity : BaseActivity() {
                 when {
                     resultado == null -> toast("No se encontró el paciente")
 
-                    // Búsqueda por folio: puede devolver múltiples usuarios
+                    // Búsqueda por folio o teléfono: puede devolver múltiples beneficiarios
                     resultado is PacienteRemoteRepository.ResultadoMultiple -> {
-                        if (resultado.usuarios.size == 1) {
-                            toast("Paciente encontrado")
-                            autocompletarCampos(resultado.usuarios.first())
-                        } else {
-                            mostrarListaResultados(resultado.usuarios)
+                        when (resultado.usuarios.size) {
+                            0 -> toast("No se encontró el paciente")
+                            1 -> {
+                                toast("Paciente encontrado")
+                                autocompletarCampos(resultado.usuarios.first())
+                            }
+                            else -> mostrarListaResultados(resultado.usuarios)
                         }
                     }
 
-                    // Búsqueda por teléfono o CURP: un solo resultado
+                    // Búsqueda por CURP: un solo resultado
                     resultado is PacienteRemoteRepository.ResultadoBusqueda -> {
                         toast("Paciente encontrado")
                         autocompletarCampos(resultado.usuarioWeb)
@@ -358,7 +360,7 @@ class RegisterActivity : BaseActivity() {
     }
 
     /**
-     * Muestra la lista de usuarios encontrados por folio.
+     * Muestra la lista de usuarios encontrados por folio o teléfono.
      */
     private fun mostrarListaResultados(usuarios: List<UsuarioWeb>) {
         listaResultados.removeAllViews()
@@ -426,6 +428,9 @@ class RegisterActivity : BaseActivity() {
      * Autocompleta todos los campos a partir de un UsuarioWeb.
      */
     private fun autocompletarCampos(u: UsuarioWeb) {
+        datosAutocompletados = true
+        idUsuarioWebAutocompletado = u.idUsuarioWeb?.toIntOrNull()
+
         etRegNombre.setText(u.nombre?.uppercase() ?: "")
         etRegApellidoPaterno.setText(u.apellidoPaterno?.uppercase() ?: "")
         etRegApellidoMaterno.setText(u.apellidoMaterno?.uppercase() ?: "")
@@ -621,6 +626,20 @@ class RegisterActivity : BaseActivity() {
     private fun guardarPaciente() {
         if (!validarFormulario()) return
 
+        if (datosAutocompletados) {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Aviso importante")
+                .setMessage("Los cambios se guardarán localmente en el dispositivo. Recuerde que debe ponerse en contacto con el equipo de soporte para corregir esos datos en el sistema.")
+                .setPositiveButton("Aceptar") { _, _ -> ejecutarGuardadoPaciente() }
+                .setNegativeButton("Cancelar", null)
+                .show()
+        } else {
+            ejecutarGuardadoPaciente()
+        }
+    }
+
+    private fun ejecutarGuardadoPaciente() {
+
         val folio = etRegFolio.text.toString().trim()
         val nombre = etRegNombre.text.toString().trim().uppercase()
         val apPat = etRegApellidoPaterno.text.toString().trim().uppercase()
@@ -646,7 +665,9 @@ class RegisterActivity : BaseActivity() {
             correo = correo,
             direccion = direccion,
             tarjetaIc = tarjetaIc,
-            fecha_registro = fechaRegistro
+            fecha_registro = fechaRegistro,
+            id_usuario_web = idUsuarioWebAutocompletado,
+            sincronizado = datosAutocompletados
         )
 
         btnGuardar.isEnabled = false
@@ -661,7 +682,7 @@ class RegisterActivity : BaseActivity() {
                     // Si el paciente ya existe localmente (por teléfono, tarjeta IC o CURP),
                     // NO bloqueamos ni creamos un duplicado: sobrescribimos ese registro
                     // con los datos nuevos. La verdad viene del servidor, así que lo que
-                    // esté guardado localmente se reemplaza y luego se refresca contra la API.
+                    // esté guardado localmente se reemplaza.
                     val existente: Paciente? =
                         (if (tel.isNotEmpty()) dao.obtenerPacientePorTelefono(tel) else null)
                             ?: (if (tarjetaIc.isNotEmpty()) dao.obtenerPacientePorTarjetaIc(tarjetaIc) else null)
@@ -669,13 +690,12 @@ class RegisterActivity : BaseActivity() {
 
                     val idLocal: Long = if (existente != null) {
                         // Reusamos su id_local para no acumular filas viejas.
-                        // Conservamos id_usuario_web y foto para no perderlos; la búsqueda
-                        // posterior en la API los refresca con los datos reales del servidor.
+                        // Conservamos id_usuario_web y foto para no perderlos.
                         val sobrescrito = nuevoPaciente.copy(
                             id_local = existente.id_local,
-                            id_usuario_web = existente.id_usuario_web,
+                            id_usuario_web = if (datosAutocompletados) (idUsuarioWebAutocompletado ?: existente.id_usuario_web) else existente.id_usuario_web,
                             foto = existente.foto,
-                            sincronizado = false
+                            sincronizado = if (datosAutocompletados) true else false
                         )
                         dao.actualizarPaciente(sobrescrito)
                         Log.d(TAG, "♻️ Paciente existente sobrescrito: id_local=${existente.id_local}")
@@ -693,56 +713,26 @@ class RegisterActivity : BaseActivity() {
                         idLocalPendienteFoto = idLocal
                         runOnUiThread { irAPasoFoto() }
                     } else {
-                        runOnUiThread { btnGuardar.text = "Buscando en sistema..." }
-
-                        val pacienteLocal = dao.obtenerPacientePorIdLocal(idLocal)
-                        if (pacienteLocal == null) {
-                            runOnUiThread {
-                                toast("Error al recuperar el paciente")
-                                btnGuardar.isEnabled = true
-                                btnGuardar.text = "Registrar paciente"
-                            }
-                            return@runBlocking
-                        }
-
-                        val repo = PacienteRemoteRepository(this@RegisterActivity)
-                        val resultado = repo.buscarPacienteEnAPI(pacienteLocal)
-
-                        if (resultado != null) {
-                            val u = resultado.usuarioWeb
-                            val pacienteActualizado = pacienteLocal.copy(
-                                id_usuario_web = resultado.idPaciente,
-                                nombre = u.nombre?.ifBlank { null }?.uppercase() ?: pacienteLocal.nombre,
-                                apellido_paterno = u.apellidoPaterno?.ifBlank { null }?.uppercase() ?: pacienteLocal.apellido_paterno,
-                                apellido_materno = u.apellidoMaterno?.ifBlank { null }?.uppercase() ?: pacienteLocal.apellido_materno,
-                                fecha_nacimiento = parsearFechaNacimiento(u.fechaNacimiento) ?: pacienteLocal.fecha_nacimiento,
-                                curp = u.curp?.ifBlank { null }?.uppercase() ?: pacienteLocal.curp,
-                                telefono = u.celular ?: u.telefonoCasa ?: pacienteLocal.telefono,
-                                correo = u.correo?.trim()?.ifBlank { null }?.lowercase() ?: pacienteLocal.correo,
-                                folio = u.folio?.ifBlank { null } ?: pacienteLocal.folio,
-                                direccion = u.direccion?.uppercase() ?: pacienteLocal.direccion,
-                                fecha_registro_global = parsearFechaRegistroAPI(u.fechaRegistro),
-                                sincronizado = true
-                            )
-                            dao.actualizarPaciente(pacienteActualizado)
-
-                            runOnUiThread {
+                        // Ya NO se hace una segunda consulta a la API al guardar.
+                        // El paciente queda tal como se capturó/autocompletó localmente.
+                        // La sincronización con el servidor se delega a PacienteSyncHelper
+                        // en segundo plano, que usa id_usuario_web (no teléfono) y por lo
+                        // tanto no sobrescribe con otro paciente que comparte número.
+                        runOnUiThread {
+                            if (datosAutocompletados) {
                                 Toast.makeText(
                                     this@RegisterActivity,
-                                    "Paciente guardado con datos reales (ID: ${resultado.idPaciente})",
+                                    "Paciente guardado con datos autocompletados",
                                     Toast.LENGTH_LONG
                                 ).show()
-                                irALogin()
-                            }
-                        } else {
-                            runOnUiThread {
+                            } else {
                                 Toast.makeText(
                                     this@RegisterActivity,
                                     "Paciente guardado localmente.",
                                     Toast.LENGTH_LONG
                                 ).show()
-                                irALogin()
                             }
+                            irALogin()
                         }
                     }
                 } catch (e: Exception) {
@@ -966,37 +956,12 @@ class RegisterActivity : BaseActivity() {
                         return@runBlocking
                     }
 
-                    runOnUiThread { tvFaceStatus.text = "Buscando en sistema..." }
-
-                    val repo = PacienteRemoteRepository(this@RegisterActivity)
-                    val resultado = repo.buscarPacienteEnAPI(pacienteLocal)
-
-                    if (resultado != null) {
-                        val u = resultado.usuarioWeb
-                        val pacienteActualizado = pacienteLocal.copy(
-                            id_usuario_web = resultado.idPaciente,
-                            nombre = u.nombre?.ifBlank { null }?.uppercase() ?: pacienteLocal.nombre,
-                            apellido_paterno = u.apellidoPaterno?.ifBlank { null }?.uppercase() ?: pacienteLocal.apellido_paterno,
-                            apellido_materno = u.apellidoMaterno?.ifBlank { null }?.uppercase() ?: pacienteLocal.apellido_materno,
-                            fecha_nacimiento = parsearFechaNacimiento(u.fechaNacimiento) ?: pacienteLocal.fecha_nacimiento,
-                            curp = u.curp?.ifBlank { null }?.uppercase() ?: pacienteLocal.curp,
-                            telefono = u.celular ?: u.telefonoCasa ?: pacienteLocal.telefono,
-                            correo = u.correo?.trim()?.ifBlank { null }?.lowercase() ?: pacienteLocal.correo,
-                            folio = u.folio?.ifBlank { null } ?: pacienteLocal.folio,
-                            direccion = u.direccion?.uppercase() ?: pacienteLocal.direccion,
-                            fecha_registro_global = parsearFechaRegistroAPI(u.fechaRegistro),
-                            sincronizado = true
-                        )
-                        pacienteDao.actualizarPaciente(pacienteActualizado)
-                        runOnUiThread {
-                            toast("Registro completado sin foto. Paciente vinculado (ID: ${resultado.idPaciente})")
-                            irALogin()
-                        }
-                    } else {
-                        runOnUiThread {
-                            toast("Registro completado sin foto. Paciente guardado localmente.")
-                            irALogin()
-                        }
+                    // Ya no se consulta la API: el paciente queda como está localmente
+                    // (autocompletado o capturado). Evita sobrescribir con otro paciente
+                    // que comparte el mismo número de teléfono.
+                    runOnUiThread {
+                        toast("Registro completado sin foto.")
+                        irALogin()
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error omitiendo foto: ${e.message}", e)
@@ -1042,46 +1007,19 @@ class RegisterActivity : BaseActivity() {
                         return@runBlocking
                     }
 
+                    // Solo guardamos la foto sobre el registro local ya creado en el Paso 1.
+                    // NO se vuelve a consultar la API: los datos del paciente ya son los
+                    // correctos (autocompletados por búsqueda o capturados manualmente) y
+                    // buscar por teléfono sobrescribía con otro paciente que comparte número.
                     val pacienteConFoto = pacienteLocal.copy(foto = base64Image)
                     pacienteDao.actualizarPaciente(pacienteConFoto)
 
-                    runOnUiThread { btnSavePhoto.text = "Buscando en sistema..." }
+                    // Refrescamos la caché de biometría en memoria con el nuevo paciente
+                    com.sybi.mosi.helpers.FaceBiometricsCache.refresh(this@RegisterActivity)
 
-                    val repo = PacienteRemoteRepository(this@RegisterActivity)
-                    val resultado = repo.buscarPacienteEnAPI(pacienteConFoto)
-
-                    if (resultado != null) {
-                        val u = resultado.usuarioWeb
-                        val pacienteActualizado = pacienteConFoto.copy(
-                            id_usuario_web = resultado.idPaciente,
-                            nombre = u.nombre?.ifBlank { null }?.uppercase() ?: pacienteConFoto.nombre,
-                            apellido_paterno = u.apellidoPaterno?.ifBlank { null }?.uppercase() ?: pacienteConFoto.apellido_paterno,
-                            apellido_materno = u.apellidoMaterno?.ifBlank { null }?.uppercase() ?: pacienteConFoto.apellido_materno,
-                            fecha_nacimiento = parsearFechaNacimiento(u.fechaNacimiento) ?: pacienteConFoto.fecha_nacimiento,
-                            curp = u.curp?.ifBlank { null }?.uppercase() ?: pacienteConFoto.curp,
-                            telefono = u.celular ?: u.telefonoCasa ?: pacienteConFoto.telefono,
-                            correo = u.correo?.trim()?.ifBlank { null }?.lowercase() ?: pacienteConFoto.correo,
-                            folio = u.folio?.ifBlank { null } ?: pacienteConFoto.folio,
-                            direccion = u.direccion?.uppercase() ?: pacienteConFoto.direccion,
-                            fecha_registro_global = parsearFechaRegistroAPI(u.fechaRegistro),
-                            sincronizado = true
-                        )
-                        pacienteDao.actualizarPaciente(pacienteActualizado)
-
-                        // Actualizar la caché de biometría en memoria con el nuevo paciente
-                        com.sybi.mosi.helpers.FaceBiometricsCache.refresh(this@RegisterActivity)
-
-                        runOnUiThread {
-                            toast("Paciente vinculado con datos reales (ID: ${resultado.idPaciente})")
-                            irALogin()
-                        }
-                    } else {
-                        com.sybi.mosi.helpers.FaceBiometricsCache.refresh(this@RegisterActivity)
-
-                        runOnUiThread {
-                            toast("Paciente guardado localmente.")
-                            irALogin()
-                        }
+                    runOnUiThread {
+                        toast("Paciente guardado con fotografía.")
+                        irALogin()
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error: ${e.message}", e)

@@ -279,6 +279,13 @@ class UsbOxygenManager(private val context: Context) {
 
                 // ✅ waitForDevice() ahora está en background, no bloquea la UI
                 if (!waitForDevice(5000)) {
+                    if (usbConnection != null && bulkWriteEndpoint != null) {
+                        Log.w(TAG, "⚠️ Conexión presente pero no inicializada, reintentando inicialización...")
+                        initializeDevice()
+                    }
+                }
+
+                if (!isDeviceReady()) {
                     Log.e(TAG, "❌ No se pudo conectar al dispositivo")
                     // ✅ Notificar a la app que falló (sin Toast)
                     val failIntent = Intent("USB_DEVICE_STATUS_CHANGED")
@@ -287,6 +294,9 @@ class UsbOxygenManager(private val context: Context) {
                     LocalBroadcastManager.getInstance(context).sendBroadcast(failIntent)
                     return@Thread
                 }
+            } else {
+                // Asegurar que al iniciar cada medición se envíe el comando de inicialización y onda
+                initializeDevice()
             }
 
             Log.d(TAG, "✅ Dispositivo listo, iniciando lectura...")
