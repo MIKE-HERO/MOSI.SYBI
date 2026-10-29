@@ -38,8 +38,6 @@ open class BaseActivity : AppCompatActivity() {
     private var multicolorIndex = 0
     private var multicolorColorVivo: Int = Color.parseColor("#0F3E82")
     private var multicolorSettingsReceiver: BroadcastReceiver? = null
-    private val inactivityHandler = Handler(Looper.getMainLooper())
-    private val inactivityRunnable = Runnable { regresarAInicioPorInactividad() }
 
     /** La pantalla de inicio la sobrescribe a true para ser la única que cicla (animado). */
     protected open fun debeAnimarMulticolor(): Boolean = false
@@ -49,7 +47,6 @@ open class BaseActivity : AppCompatActivity() {
         private const val MULTICOLOR_TRANSITION_MS = 5000L  // duración de la transición suave
         private const val PREF_MULTICOLOR_INDEX = "MulticolorCurrentIndex"
         private const val PREF_MULTICOLOR_VIVO = "MulticolorColorVivo"
-        private const val INACTIVITY_TIMEOUT_MS = 4 * 60 * 1000L
     }
 
     override fun attachBaseContext(newBase: Context) {
@@ -73,7 +70,6 @@ open class BaseActivity : AppCompatActivity() {
         keyboardHelper.attach()
         registrarReceptorAjustesMulticolor()
         iniciarCicloMulticolorSiAplica()
-        programarRegresoPorInactividad()
     }
 
     override fun onPause() {
@@ -84,7 +80,6 @@ open class BaseActivity : AppCompatActivity() {
         if (debeAnimarMulticolor()) guardarColorVivo(multicolorColorVivo)
         detenerCicloMulticolor()
         desregistrarReceptorAjustesMulticolor()
-        inactivityHandler.removeCallbacks(inactivityRunnable)
     }
 
     // ── Implementación del ciclo multicolor ─────────────────────────────────────────────
@@ -188,30 +183,8 @@ open class BaseActivity : AppCompatActivity() {
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
         if (ev != null) {
             keyboardHelper.handleTouch(ev)
-            if (ev.actionMasked == MotionEvent.ACTION_DOWN) programarRegresoPorInactividad()
         }
         return super.dispatchTouchEvent(ev)
-    }
-
-    override fun onUserInteraction() {
-        super.onUserInteraction()
-        programarRegresoPorInactividad()
-    }
-
-    private fun programarRegresoPorInactividad() {
-        inactivityHandler.removeCallbacks(inactivityRunnable)
-        if (this !is MainActivity && !isFinishing) {
-            inactivityHandler.postDelayed(inactivityRunnable, INACTIVITY_TIMEOUT_MS)
-        }
-    }
-
-    private fun regresarAInicioPorInactividad() {
-        if (isFinishing || isDestroyed || this is MainActivity) return
-        hideKeyboardAndClearFocus()
-        startActivity(Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        })
-        finish()
     }
 
     /**

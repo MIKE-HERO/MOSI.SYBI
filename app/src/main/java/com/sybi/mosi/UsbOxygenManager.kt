@@ -271,6 +271,13 @@ class UsbOxygenManager(private val context: Context) {
     fun startMeasure() {
         Log.d(TAG, "🚀 Iniciando medición de oxímetro...")
 
+        isReading = false
+        try {
+            readThread?.join(300)
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+
         // ✅ Ejecutar todo en un hilo de fondo para NO bloquear el main thread
         Thread {
             if (!isDeviceReady()) {

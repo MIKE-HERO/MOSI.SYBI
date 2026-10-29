@@ -841,7 +841,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 oxygenReadingStarted = false
                 measurementResults.updateOxygen(0, 0, 0.0)
                 waveformView.clear()
-                controller.startOxygenMeasurement(delayMs = 5000, timeoutMs = 15000)
+                controller.startOxygenMeasurement()
             }
             "ECG" -> {
                 state.resetEcg()
@@ -1018,6 +1018,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         cancelCountdownTimer()
         controller.cancelTimers()
         controller.prepareTab(key.uppercase())
+        if (currentMeasurementType == "OXIGENO" && key.uppercase() != "OXIGENO") {
+            LocalBroadcastManager.getInstance(this).sendBroadcast(Intent("STOP_OXYGEN_MEASURE"))
+        }
         setRepeatMode(false)
         tvStatusProgress.visibility = View.GONE
         // Por si se cambia de pestaña a medio "esperando resultado": no dejar la
