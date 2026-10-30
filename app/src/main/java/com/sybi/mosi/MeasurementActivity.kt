@@ -1630,6 +1630,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         // El controlador reporta los fallos ("no se encuentra el dispositivo", "Error de medición...")
         // solo como mensaje en rojo: en ese caso también se ofrece "Reintentar" arriba.
         if (color.equals(ERROR_COLOR, ignoreCase = true)) {
+            DailyReportManager.recordSessionError(this, pacienteIdLocal, message)
             runOnUiThread {
                 if (!isFinishing && !isDestroyed) setRepeatMode(true)
             }

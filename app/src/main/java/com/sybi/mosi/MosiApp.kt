@@ -16,5 +16,9 @@ class MosiApp : Application() {
 
         // Programar el envío automático del log de arranque a los 5 minutos del inicio
         AutoLogHelper.programarLogArranque(this)
+
+        // Registrar incidente de reencendido/arranque y monitoreo de conectividad para el reporte diario
+        DailyReportManager.recordBootIncident(this)
+        com.sybi.mosi.network.NetworkMonitor.start(this)
     }
 }

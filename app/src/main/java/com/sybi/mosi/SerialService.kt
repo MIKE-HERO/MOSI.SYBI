@@ -431,6 +431,7 @@ class SerialService : Service() {
         val file = File(portPath)
         if (!file.exists()) {
             Log.e(TAG, "El puerto $portPath no existe")
+            DailyReportManager.recordPortIncident(this, portPath, "El puerto no existe o fue desconectado")
             return false
         }
 
@@ -454,6 +455,7 @@ class SerialService : Service() {
             true
         } catch (e: Exception) {
             Log.e(TAG, "Error al abrir puerto $portPath: ${e.message}")
+            DailyReportManager.recordPortIncident(this, portPath, "Error al abrir puerto: ${e.message}")
             false
         }
     }

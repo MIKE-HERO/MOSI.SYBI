@@ -111,6 +111,26 @@ class MainActivity : BaseActivity() {
 
         startService(Intent(this, SerialService::class.java))
 
+        // --- BÚSQUEDA AUTOMÁTICA DE ACTUALIZACIONES AL ARRANCAR ---
+        lifecycleScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(3000)
+            val updateManager = com.sybi.mosi.updater.UpdateManager(this@MainActivity)
+            val pInfo = try { packageManager.getPackageInfo(packageName, 0) } catch (_: Exception) { null }
+            val currentVersion = pInfo?.versionName ?: "1.0.0"
+            val releases = updateManager.fetchReleases()
+            if (releases.isNotEmpty()) {
+                val latestRelease = releases[0]
+                if (updateManager.isNewerVersion(latestRelease.tagName, currentVersion)) {
+                    Log.i("MainActivity", "🚀 Nueva versión detectada (${latestRelease.tagName}). Abriendo UpdateActivity...")
+                    com.sybi.mosi.updater.UpdateActivity.start(
+                        this@MainActivity,
+                        latestRelease.downloadUrl,
+                        latestRelease.tagName
+                    )
+                }
+            }
+        }
+
         // --- RECEPTOR PARA ACTUALIZAR DISPOSITIVOS ---
         deviceUpdateReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {

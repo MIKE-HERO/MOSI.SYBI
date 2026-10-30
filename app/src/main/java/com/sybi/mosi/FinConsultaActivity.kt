@@ -29,6 +29,9 @@ class FinConsultaActivity : Activity() {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "📴 Deep link de fin de consulta recibido: ${intent?.data}")
 
+        val idWebParam = intent?.data?.getQueryParameter("id_usuario")?.toIntOrNull() ?: 0
+        DailyReportManager.onTelemedicineEnded(this, idWebParam)
+
         // Enviar log automático si está activado
         AutoLogHelper.enviarLogFinConsulta(this)
 

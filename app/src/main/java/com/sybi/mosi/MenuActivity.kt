@@ -11,7 +11,14 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MenuActivity : BaseActivity() {
 
@@ -90,6 +97,11 @@ class MenuActivity : BaseActivity() {
         // 4. Ajustes Avanzados (Configuración)
         findViewById<LinearLayout>(R.id.btnSettingsMenu)?.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        // 5. Reporte Diario
+        findViewById<View>(R.id.btnDailyReportMenu)?.setOnClickListener {
+            mostrarDialogoReporteDiario()
         }
     }
 
@@ -175,5 +187,79 @@ class MenuActivity : BaseActivity() {
             .setPositiveButton(R.string.btn_yes) { _, _ -> finishAffinity() }
             .setNegativeButton(R.string.btn_no, null)
             .show()
+    }
+
+    private fun mostrarDialogoReporteDiario() {
+        if (!EmailSender.estaConfigurado(this)) {
+            Toast.makeText(
+                this,
+                "Configura primero el correo en Configuración de informes > Configurar envío de correo (SMTP)",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        val input = android.widget.EditText(this).apply {
+            hint = "correo@ejemplo.com"
+            setText(AutoLogHelper.DESTINO_SOPORTE)
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS or android.text.InputType.TYPE_CLASS_TEXT
+            setSingleLine()
+        }
+        val paddingPx = (20 * resources.displayMetrics.density).toInt()
+        val contenedor = android.widget.FrameLayout(this).apply {
+            setPadding(paddingPx, paddingPx / 2, paddingPx, 0)
+            addView(input)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Reporte diario")
+            .setMessage("¿A qué correo deseas enviar el reporte diario de atenciones del día?")
+            .setView(contenedor)
+            .setPositiveButton("Enviar") { _, _ ->
+                val destino = input.text.toString().trim()
+                if (destino.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(destino).matches()) {
+                    Toast.makeText(this, "Ingresa un correo válido", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                enviarReporteDiarioPorCorreo(destino)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun enviarReporteDiarioPorCorreo(destino: String) {
+        Toast.makeText(this, "Generando y enviando reporte diario...", Toast.LENGTH_SHORT).show()
+
+        val config = EmailSender.cargarConfig(this)
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val pdfFile = DailyReportManager.generarPdfReporteDiario(this@MenuActivity)
+            val dateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
+
+            val resultado = if (pdfFile != null && pdfFile.exists()) {
+                EmailSender.enviar(
+                    config = config,
+                    destino = destino,
+                    asunto = "Reporte diario — Quiosco MOSI ($dateStr)",
+                    cuerpoHtml = "<p>Se adjunta el reporte diario de atenciones del quiosco médico correspondiente al día <b>$dateStr</b>.</p>",
+                    adjunto = pdfFile,
+                    nombreAdjunto = "mosi_reporte_diario.pdf"
+                )
+            } else {
+                Result.failure(IllegalStateException("No se pudo generar el reporte PDF del día"))
+            }
+
+            withContext(Dispatchers.Main) {
+                if (resultado.isSuccess) {
+                    Toast.makeText(this@MenuActivity, "✅ Reporte diario enviado a $destino", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(
+                        this@MenuActivity,
+                        "❌ Error al enviar el reporte diario: ${resultado.exceptionOrNull()?.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
     }
 }

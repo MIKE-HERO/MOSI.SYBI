@@ -157,6 +157,7 @@ class TelemedicineActivity : BaseActivity() {
     private fun lanzarCustomTabs() {
         val uri = urlConsulta().toString()
         Log.d(TAG, "🌐 Abriendo consulta en CustomTabs: $uri")
+        DailyReportManager.onTelemedicineStarted(this, idUsuarioWeb)
         // efimero=true: cada consulta pide permiso de cámara/mic de nuevo, sin reusar uno
         // guardado de una sesión anterior (ver CustomTabsHelper.openUrl).
         val exito = CustomTabsHelper.openUrl(this, uri, efimero = true)
@@ -167,6 +168,7 @@ class TelemedicineActivity : BaseActivity() {
     }
 
     private fun irAInicio() {
+        DailyReportManager.onTelemedicineEnded(this, idUsuarioWeb)
         AutoLogHelper.enviarLogFinConsulta(this)
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

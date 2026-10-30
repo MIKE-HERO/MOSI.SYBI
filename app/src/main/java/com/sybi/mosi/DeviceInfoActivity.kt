@@ -13,13 +13,13 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.updater.GitHubRelease
+import com.sybi.mosi.updater.UpdateActivity
 import com.sybi.mosi.updater.UpdateManager
 import kotlinx.coroutines.launch
 
@@ -73,8 +73,6 @@ class DeviceInfoActivity : BaseActivity() {
     private lateinit var btnCheckUpdates: Button
     private lateinit var spnVersions: Spinner
     private lateinit var btnInstallSelected: Button
-    private lateinit var pbDownloadProgress: ProgressBar
-    private lateinit var tvDownloadStatus: TextView
 
     private lateinit var updateManager: UpdateManager
     private var fetchedReleases: List<GitHubRelease> = emptyList()
@@ -100,8 +98,6 @@ class DeviceInfoActivity : BaseActivity() {
         btnCheckUpdates = findViewById(R.id.btnCheckUpdates)
         spnVersions = findViewById(R.id.spnVersions)
         btnInstallSelected = findViewById(R.id.btnInstallSelected)
-        pbDownloadProgress = findViewById(R.id.pbDownloadProgress)
-        tvDownloadStatus = findViewById(R.id.tvDownloadStatus)
 
         // ── Receptor de cambio de color ──
         val colorReceiver = object : BroadcastReceiver() {
@@ -138,37 +134,69 @@ class DeviceInfoActivity : BaseActivity() {
         loadRepositoryReleases()
 
         // ── Botón Buscar Actualizaciones (Manual/Última) ──
+        // Solo instala si la versión del repositorio es MÁS NUEVA que la instalada.
         btnCheckUpdates.setOnClickListener {
             lifecycleScope.launch {
+                btnCheckUpdates.isEnabled = false
+                Toast.makeText(this@DeviceInfoActivity, "Buscando actualizaciones...", Toast.LENGTH_SHORT).show()
+
                 var releases = fetchedReleases
                 if (releases.isEmpty()) {
                     releases = updateManager.fetchReleases()
                     fetchedReleases = releases
                 }
 
-                if (releases.isNotEmpty()) {
-                    val latestRelease = releases[0]
-                    val latestVersion = latestRelease.tagName.trim().removePrefix("v").removePrefix("V")
+                btnCheckUpdates.isEnabled = true
 
-                    if (installedVersionName.isNotEmpty() && installedVersionName == latestVersion) {
+                if (releases.isNotEmpty()) {
+                    val tagList = fetchedReleases.map { "${it.tagName} (${it.name})" }
+                    val adapter = ArrayAdapter(
+                        this@DeviceInfoActivity,
+                        android.R.layout.simple_spinner_item,
+                        tagList
+                    )
+                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                    spnVersions.adapter = adapter
+                    tvSoftwareVersion.text = "Versión en repositorio: ${fetchedReleases[0].tagName}"
+
+                    val latestRelease = releases[0]
+                    val latestTag = latestRelease.tagName
+
+                    if (!updateManager.isNewerVersion(latestTag, installedVersionName)) {
                         Toast.makeText(
                             this@DeviceInfoActivity,
-                            "Ya tienes instalada la versión más reciente (${latestRelease.tagName})",
+                            "Ya tienes instalada la versión más reciente ($latestTag)",
                             Toast.LENGTH_LONG
                         ).show()
-                        tvDownloadStatus.visibility = View.VISIBLE
-                        tvDownloadStatus.text = "✅ Ya tienes instalada la versión más reciente (${latestRelease.tagName})."
                         return@launch
                     }
 
-                    startApkDownload(latestRelease.downloadUrl, "Última versión (${latestRelease.tagName})")
+                    // Lanzar pantalla de actualización ininterrumpida.
+                    // forceReinstall = false → solo se instala si es más nueva.
+                    UpdateActivity.start(
+                        this@DeviceInfoActivity,
+                        latestRelease.downloadUrl,
+                        latestTag,
+                        forceReinstall = false
+                    )
                 } else {
-                    startApkDownload(UpdateManager.LATEST_APK_URL, "Última versión disponible")
+                    Toast.makeText(
+                        this@DeviceInfoActivity,
+                        "No se pudieron consultar las versiones en GitHub",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         }
 
         // ── Botón Instalar versión seleccionada ──
+        // Permite instalar CUALQUIER versión elegida en el spinner:
+        //   - la misma versión instalada (reinstalar)
+        //   - una versión anterior (downgrade)
+        //   - una versión más nueva (actualizar)
+        // forceReinstall = true → se salta la validación de isNewerVersion y
+        // se configuran los flags de PackageInstaller para permitir
+        // misma versión y downgrade.
         btnInstallSelected.setOnClickListener {
             if (fetchedReleases.isEmpty()) {
                 Toast.makeText(this, "No hay versiones disponibles para instalar", Toast.LENGTH_SHORT).show()
@@ -178,20 +206,20 @@ class DeviceInfoActivity : BaseActivity() {
             val position = spnVersions.selectedItemPosition
             if (position in fetchedReleases.indices) {
                 val selected = fetchedReleases[position]
-                val selectedVersion = selected.tagName.trim().removePrefix("v").removePrefix("V")
 
-                if (installedVersionName.isNotEmpty() && installedVersionName == selectedVersion) {
-                    Toast.makeText(
-                        this@DeviceInfoActivity,
-                        "Ya tienes instalada la versión ${selected.tagName}",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    tvDownloadStatus.visibility = View.VISIBLE
-                    tvDownloadStatus.text = "✅ Ya tienes instalada la versión ${selected.tagName}."
-                    return@setOnClickListener
-                }
+                Log.d(
+                    TAG,
+                    "🔧 Instalando versión seleccionada: ${selected.tagName} " +
+                            "(instalada actualmente: $installedVersionName). forceReinstall=true"
+                )
 
-                startApkDownload(selected.downloadUrl, "Versión ${selected.tagName}")
+                // forceReinstall = true → permite reinstalar misma versión y downgrade.
+                UpdateActivity.start(
+                    this@DeviceInfoActivity,
+                    selected.downloadUrl,
+                    selected.tagName,
+                    forceReinstall = true
+                )
             } else {
                 Toast.makeText(this, "Por favor seleccione una versión válida", Toast.LENGTH_SHORT).show()
             }
@@ -264,60 +292,6 @@ class DeviceInfoActivity : BaseActivity() {
                 spnVersions.adapter = adapter
                 tvSoftwareVersion.text = "Versión en repositorio: —"
             }
-        }
-    }
-
-    private fun startApkDownload(downloadUrl: String, versionLabel: String) {
-        lifecycleScope.launch {
-            setUiDownloading(true)
-            tvDownloadStatus.text = "Iniciando descarga de $versionLabel..."
-
-            val downloadedFile = updateManager.downloadApk(downloadUrl) { percent, bytesDownloaded, _ ->
-                runOnUiThread {
-                    if (percent >= 0) {
-                        pbDownloadProgress.isIndeterminate = false
-                        pbDownloadProgress.progress = percent
-                        tvDownloadStatus.text = "Descargando $versionLabel: $percent%"
-                    } else {
-                        pbDownloadProgress.isIndeterminate = true
-                        tvDownloadStatus.text = "Descargando... (${bytesDownloaded / 1024} KB)"
-                    }
-                }
-            }
-
-            setUiDownloading(false)
-
-            if (downloadedFile != null && downloadedFile.exists()) {
-                tvDownloadStatus.text = "✅ Descarga completada. Abriendo instalador..."
-                val installed = updateManager.installApk(downloadedFile)
-                if (!installed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
-                    Toast.makeText(
-                        this@DeviceInfoActivity,
-                        "Por favor autorice la instalación de aplicaciones desconocidas en los ajustes e intente de nuevo.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            } else {
-                tvDownloadStatus.visibility = View.VISIBLE
-                tvDownloadStatus.text = "❌ Error al descargar la versión especificada."
-                Toast.makeText(
-                    this@DeviceInfoActivity,
-                    "No se pudo descargar el archivo APK desde el repositorio.",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-    }
-
-    private fun setUiDownloading(isDownloading: Boolean) {
-        btnCheckUpdates.isEnabled = !isDownloading
-        btnInstallSelected.isEnabled = !isDownloading
-        spnVersions.isEnabled = !isDownloading
-
-        if (isDownloading) {
-            pbDownloadProgress.visibility = View.VISIBLE
-            pbDownloadProgress.progress = 0
-            tvDownloadStatus.visibility = View.VISIBLE
         }
     }
 

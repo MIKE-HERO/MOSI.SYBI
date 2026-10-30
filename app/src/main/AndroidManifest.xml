@@ -139,6 +139,14 @@
         <!-- Info del dispositivo -->
         <activity android:name=".DeviceInfoActivity" android:exported="false" />
 
+        <!-- Pantalla de actualización ininterrumpida -->
+        <activity
+            android:name=".updater.UpdateActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Quiosco" />
+
         <!-- Control remoto de VideoLoop (pantalla secundaria) -->
         <activity android:name=".VideoLoopControlActivity" android:exported="false" />
         <activity android:name=".PasswordSettingsActivity" android:exported="false" />
@@ -175,6 +183,15 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Receptor de instalación silenciosa de actualizaciones -->
+        <receiver
+            android:name=".updater.UpdateInstallReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.sybi.mosi.updater.ACTION_INSTALL_COMPLETE" />
+            </intent-filter>
+        </receiver>
 
         <!-- Administrador del dispositivo: concede permisos solo si la app es propietaria (device owner) -->
         <receiver

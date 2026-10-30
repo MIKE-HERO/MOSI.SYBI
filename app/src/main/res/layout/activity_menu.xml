@@ -112,7 +112,7 @@
         </LinearLayout>
     </RelativeLayout>
 
-    <!-- CONTENEDOR CENTRAL PARA LIMITAR EL ANCHO -->
+    <!-- CONTENEDOR CENTRAL -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -120,17 +120,17 @@
         android:gravity="center"
         android:orientation="vertical">
 
-        <!-- Cuadrícula -->
         <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="vertical"
             android:gravity="center">
 
             <!-- FILA 1 -->
             <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="0dp"
+                android:layout_weight="1"
                 android:orientation="horizontal"
                 android:layout_marginBottom="16dp">
 
@@ -138,19 +138,20 @@
                 <LinearLayout
                     android:id="@+id/btnPatientTableMenu"
                     android:layout_width="350dp"
-                    android:layout_height="250dp"
+                    android:layout_height="match_parent"
                     android:layout_marginEnd="8dp"
                     android:background="@drawable/bg_settings_card"
                     android:elevation="6dp"
                     android:orientation="vertical"
-                    android:gravity="center"
+                    android:gravity="center_horizontal"
                     android:clickable="true"
                     android:focusable="true"
                     android:padding="16dp">
 
                     <ImageView
-                        android:layout_width="100dp"
-                        android:layout_height="100dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
                         android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
                         android:contentDescription="@null"
@@ -171,19 +172,20 @@
                 <LinearLayout
                     android:id="@+id/btnResultTableMenu"
                     android:layout_width="350dp"
-                    android:layout_height="250dp"
+                    android:layout_height="match_parent"
                     android:layout_marginStart="8dp"
                     android:background="@drawable/bg_settings_card"
                     android:elevation="6dp"
                     android:orientation="vertical"
-                    android:gravity="center"
+                    android:gravity="center_horizontal"
                     android:clickable="true"
                     android:focusable="true"
                     android:padding="16dp">
 
                     <ImageView
-                        android:layout_width="100dp"
-                        android:layout_height="100dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
                         android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
                         android:contentDescription="@null"
@@ -204,26 +206,29 @@
             <!-- FILA 2 -->
             <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
 
                 <!-- BOTÓN AJUSTES BÁSICOS -->
                 <LinearLayout
                     android:id="@+id/btnBasicSettingsMenu"
                     android:layout_width="350dp"
-                    android:layout_height="250dp"
+                    android:layout_height="match_parent"
                     android:layout_marginEnd="8dp"
                     android:background="@drawable/bg_settings_card"
                     android:elevation="6dp"
                     android:orientation="vertical"
-                    android:gravity="center"
+                    android:gravity="center_horizontal"
                     android:clickable="true"
                     android:focusable="true"
                     android:padding="16dp">
 
                     <ImageView
-                        android:layout_width="100dp"
-                        android:layout_height="100dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
                         android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
                         android:contentDescription="@null"
@@ -244,19 +249,20 @@
                 <LinearLayout
                     android:id="@+id/btnSettingsMenu"
                     android:layout_width="350dp"
-                    android:layout_height="250dp"
+                    android:layout_height="match_parent"
                     android:layout_marginStart="8dp"
                     android:background="@drawable/bg_settings_card"
                     android:elevation="6dp"
                     android:orientation="vertical"
-                    android:gravity="center"
+                    android:gravity="center_horizontal"
                     android:clickable="true"
                     android:focusable="true"
                     android:padding="16dp">
 
                     <ImageView
-                        android:layout_width="100dp"
-                        android:layout_height="100dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
                         android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
                         android:contentDescription="@null"
@@ -271,6 +277,61 @@
                         android:textStyle="bold"
                         android:gravity="center"
                         android:layout_marginTop="12dp"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- FILA 3: REPORTE DIARIO -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="0dp"
+                android:layout_weight="0.55"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/btnDailyReportMenu"
+                    android:layout_width="716dp"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_settings_card"
+                    android:elevation="6dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="24dp"
+                    android:paddingVertical="16dp">
+
+                    <ImageView
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitCenter"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_informes"
+                        app:tint="#31536A" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginStart="20dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Reporte diario"
+                            android:textColor="#333333"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Genera y envía por correo el PDF con el resumen de atenciones, mediciones y teleconsultas del día"
+                            android:textColor="#666666"
+                            android:textSize="14sp"
+                            android:layout_marginTop="4dp" />
+                    </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
