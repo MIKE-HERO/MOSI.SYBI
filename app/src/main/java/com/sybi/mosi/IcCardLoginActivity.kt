@@ -6,14 +6,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.database.AppDatabase
-import com.sybi.mosi.repository.PacienteRemoteRepository
-import com.sybi.mosi.repository.PacienteSyncHelper
 import kotlinx.coroutines.runBlocking
 
 class IcCardLoginActivity : BaseActivity() {
@@ -83,27 +80,10 @@ class IcCardLoginActivity : BaseActivity() {
 
         Thread {
             runBlocking {
-                var paciente = pacienteDao.obtenerPacientePorTarjetaIc(cardNumber)
+                val paciente = pacienteDao.obtenerPacientePorTarjetaIc(cardNumber)
 
-                // La verdad siempre viene del servidor: antes de mostrar el perfil,
-                // se intenta refrescar el paciente con los datos de la API. Si falla
-                // (sin red, no encontrado, etc.) se sigue con lo que hay localmente.
-                if (paciente != null) {
-                    try {
-                        val sincronizado = PacienteSyncHelper.sincronizarPaciente(
-                            paciente = paciente,
-                            pacienteDao = pacienteDao,
-                            resultadoDao = database.resultadoDao(),
-                            repo = PacienteRemoteRepository(this@IcCardLoginActivity)
-                        )
-                        if (sincronizado) {
-                            paciente = pacienteDao.obtenerPacientePorIdLocal(paciente.id_local) ?: paciente
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "No se pudo sincronizar con el servidor, se usan datos locales: ${e.message}")
-                    }
-                }
-
+                // El login por tarjeta IC solo identifica al paciente con los datos
+                // locales; no sincroniza ni sobrescribe nada con la API.
                 runOnUiThread {
                     if (paciente != null) {
                         val intent = Intent(this@IcCardLoginActivity, ProfileActivity::class.java)

@@ -5,15 +5,20 @@ import android.graphics.BitmapFactory
 import android.util.Base64
 import android.util.Log
 import com.sybi.mosi.database.AppDatabase
-import com.sybi.mosi.database.Paciente
 import kotlinx.coroutines.runBlocking
 
 object FaceBiometricsCache {
 
     private const val TAG = "FaceBiometricsCache"
 
+    /**
+     * Solo se cachea lo caro de calcular: el embedding biométrico.
+     * El Paciente NO se guarda aquí; se relee de Room cuando se necesita
+     * (ver FaceLoginActivity), para que los datos mostrados siempre sean
+     * los actuales y no una copia congelada del momento del preload.
+     */
     data class PacienteBiometria(
-        val paciente: Paciente,
+        val idLocal: Long,
         val biometria: FaceBiometricsHelper.BiometricFaceData
     )
 
@@ -53,7 +58,7 @@ object FaceBiometricsCache {
                     if (!fotoGuardada.isNullOrEmpty()) {
                         val biometria = extraerBiometriaDeFoto(fotoGuardada)
                         if (biometria != null) {
-                            list.add(PacienteBiometria(paciente, biometria))
+                            list.add(PacienteBiometria(paciente.id_local, biometria))
                         }
                     }
                 }

@@ -132,7 +132,7 @@ class MedicionesSender(private val context: Context) {
             lipidsLdl = "0",
             rightVision = "0",
             leftVision = "0",
-            fechaRegistro = SimpleDateFormat("yyyy-MM-dd HH:mm.SSS a", Locale.US).format(Date())
+            fechaRegistro = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
         )
     }
 
@@ -140,11 +140,13 @@ class MedicionesSender(private val context: Context) {
      * Construye un MedicionesRequest desde un Resultado de Room (reenvío).
      * Lee el JPG original y lo pasa a Base64 SIN recomprimir.
      */
-    suspend fun buildFromResultado(r: Resultado): MedicionesRequest {
+    suspend fun buildFromResultado(r: Resultado, overrideIdUsuarioWeb: Int = 0): MedicionesRequest {
         val devicePrefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         val modelo = devicePrefs.getString("device_model_custom", "") ?: ""
         val serie = devicePrefs.getString("device_serial_custom", "") ?: ""
         val cabina = devicePrefs.getString("cabina_number", "1")?.toIntOrNull() ?: 1
+
+        val targetUserId = if (overrideIdUsuarioWeb > 0) overrideIdUsuarioWeb else r.id_usuario_web
 
         // ✅ Leer el JPG original tal cual y pasarlo a Base64 sin recomprimir
         val ecgBase64 = if (r.ruta_ecg.isNotEmpty() && File(r.ruta_ecg).exists()) {
@@ -158,7 +160,7 @@ class MedicionesSender(private val context: Context) {
         } else null
 
         return MedicionesRequest(
-            idUsuarioWeb = r.id_usuario_web,
+            idUsuarioWeb = targetUserId,
             idVendingMachine = cabina,
             recordID = "0",
             memberID = "0",
@@ -309,10 +311,10 @@ class MedicionesSender(private val context: Context) {
     private fun reformatearFecha(fechaLocal: String): String {
         return try {
             val input = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
-            val output = SimpleDateFormat("yyyy-MM-dd HH:mm.SSS a", Locale.US)
+            val output = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
             output.format(input.parse(fechaLocal) ?: Date())
         } catch (e: Exception) {
-            SimpleDateFormat("yyyy-MM-dd HH:mm.SSS a", Locale.US).format(Date())
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
         }
     }
 }

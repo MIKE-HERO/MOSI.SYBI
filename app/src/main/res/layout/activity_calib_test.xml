@@ -216,18 +216,56 @@
                     android:layout_height="1dp"
                     android:background="#E0E0E0" />
 
-                <!-- ITEM 5: ENVIAR LOG DE ERRORES -->
+                <!-- ITEM 5: ENVIAR LOG DE ERRORES / AUTO LOG -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:paddingVertical="12dp">
 
+                    <!-- Switch envío automático -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="4dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Envío automático de logs a soporte"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="#333333" />
+
+                        <Switch
+                            android:id="@+id/switchAutoLog"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Enviar log de errores"
-                        android:textSize="16sp"
+                        android:text="Envía automáticamente el log a soporte.vending@medicallife.com.mx al finalizar cada consulta y a los 5 minutos del arranque de la app."
+                        android:textSize="12sp"
+                        android:textColor="#757575"
+                        android:layout_marginBottom="12dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#E0E0E0"
+                        android:layout_marginBottom="12dp" />
+
+                    <!-- Envío manual -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Enviar log manualmente"
+                        android:textSize="14sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
                         android:layout_marginBottom="4dp" />
@@ -235,7 +273,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Genera un reporte solo con los errores registrados por la app y lo envía por correo al destino que indiques."
+                        android:text="Genera un reporte con los errores registrados por la app y lo envía por correo al destino que indiques."
                         android:textSize="12sp"
                         android:textColor="#757575"
                         android:layout_marginBottom="10dp" />

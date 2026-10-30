@@ -27,6 +27,7 @@ class CalibTestActivity : BaseActivity() {
     private lateinit var btnTestCamera: Button
     private lateinit var btnCalibrate: Button
     private lateinit var btnSendLog: Button
+    private lateinit var switchAutoLog: android.widget.Switch
     private lateinit var etCardResult: android.widget.EditText
 
     private var icCardReceiver: BroadcastReceiver? = null
@@ -50,7 +51,16 @@ class CalibTestActivity : BaseActivity() {
         btnTestCamera = findViewById(R.id.btnTestCamera)
         btnCalibrate = findViewById(R.id.btnCalibrate)
         btnSendLog = findViewById(R.id.btnSendLog)
+        switchAutoLog = findViewById(R.id.switchAutoLog)
         etCardResult = findViewById(R.id.etCardResult)
+
+        // Configurar Switch de envío automático
+        switchAutoLog.isChecked = AutoLogHelper.isAutoLogEnabled(this)
+        switchAutoLog.setOnCheckedChangeListener { _, isChecked ->
+            AutoLogHelper.setAutoLogEnabled(this, isChecked)
+            val msg = if (isChecked) "Envío automático de logs activado" else "Envío automático de logs desactivado"
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        }
 
         // --- RECEPTOR DE TARJETA IC ---
         icCardReceiver = object : BroadcastReceiver() {
@@ -110,6 +120,13 @@ class CalibTestActivity : BaseActivity() {
             btnTestCamera.backgroundTintList = colorStateList
             btnCalibrate.backgroundTintList = colorStateList
             btnSendLog.backgroundTintList = colorStateList
+
+            val switchColor = ColorStateList(
+                arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                intArrayOf(colorInt, Color.GRAY)
+            )
+            switchAutoLog.thumbTintList = switchColor
+            switchAutoLog.trackTintList = switchColor
         } catch (e: Exception) {
             Log.e(TAG, "Error aplicando color de tema: ${e.message}")
         }
@@ -162,6 +179,7 @@ class CalibTestActivity : BaseActivity() {
 
         val input = android.widget.EditText(this).apply {
             hint = "correo@ejemplo.com"
+            setText(AutoLogHelper.DESTINO_SOPORTE)
             inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS or android.text.InputType.TYPE_CLASS_TEXT
             setSingleLine()
         }

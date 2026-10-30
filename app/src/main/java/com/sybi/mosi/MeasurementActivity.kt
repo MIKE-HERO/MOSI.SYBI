@@ -149,6 +149,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private var tabIconActiveColor: Int = Color.parseColor("#B8D4E8")
     private var currentMeasurementType = ""
     private val completedMeasurements = mutableSetOf<String>()
+    private val erroredMeasurements = mutableSetOf<String>()
     private var currentPlayingAudioName: String? = null
     private var isActivityResumed = false
     private var oxygenReadingStarted = false
@@ -176,6 +177,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(R.layout.activity_measurement)
+
+        if (savedInstanceState == null) {
+            getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE).edit().clear().apply()
+        }
 
         runCatching { startService(Intent(this, SerialService::class.java)) }
 
@@ -560,7 +565,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     /** ¿El paciente alcanzó a tomar al menos una medición en esta sesión? */
     private fun hayMedicionesTomadas(): Boolean =
         state.hasHeightWeight() || state.hasComposition() || state.hasPressure() ||
-                state.hasTemperature() || state.hasOxygen() || state.hasEcg()
+                state.hasTemperature() || state.hasOxygen() || state.hasEcg() ||
+                completedMeasurements.isNotEmpty() || erroredMeasurements.isNotEmpty()
 
     /** Al salir con mediciones tomadas: ofrecer ver el informe antes de irse. Si acepta, se
      *  guardan en el historial (igual que al confirmar) y se abre el informe; si no, sale. */
@@ -780,6 +786,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         setRepeatMode(false)
         showSuccessCheck(false)
         completedMeasurements.remove(currentMeasurementType)
+        erroredMeasurements.remove(currentMeasurementType)
         getAudioName(currentMeasurementType, "start")?.let { playAudio(it, forceRestart = true) }
         if (!deviceManager.isAvailableFor(currentMeasurementType)) {
             showStatusMessage("Error: no se encuentra el dispositivo", "#F44336")
@@ -1449,16 +1456,31 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun checkLastMeasurement() {
         val prefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
-        val incomplete = listOf(
-            "device_altura_peso" to state.hasHeightWeight(),
-            "device_composicion" to (state.fatRate > 0),
-            "device_presion" to state.hasPressure(),
-            "device_temperatura" to state.hasTemperature(),
-            "device_oxigeno" to state.hasOxygen(),
-            "device_ecg" to state.hasEcg()
-        ).any { (k, ok) -> prefs.getBoolean(k, true) && !ok }
 
-        if (!incomplete) btnConfirmMeasurements.visibility = View.VISIBLE
+        // Dispositivos/mediciones activas según DevicePrefs
+        val activeKeys = listOf(
+            "device_altura_peso" to "ALTURA_PESO",
+            "device_composicion" to "COMPOSICION",
+            "device_presion" to "PRESION",
+            "device_temperatura" to "TEMPERATURA",
+            "device_oxigeno" to "OXIGENO",
+            "device_ecg" to "ECG"
+        ).filter { (prefKey, _) -> prefs.getBoolean(prefKey, true) }
+
+        // Verificar si todas las mediciones activas fueron intentadas (completadas o con error)
+        val allAttempted = activeKeys.isNotEmpty() && activeKeys.all { (_, type) ->
+            completedMeasurements.contains(type) || erroredMeasurements.contains(type)
+        }
+
+        // O si la última medición activa configurada ya finalizó (éxito o error)
+        val lastActiveType = activeKeys.lastOrNull()?.second
+        val lastFinished = lastActiveType != null && (
+            completedMeasurements.contains(lastActiveType) || erroredMeasurements.contains(lastActiveType)
+        )
+
+        if (allAttempted || lastFinished) {
+            btnConfirmMeasurements.visibility = View.VISIBLE
+        }
     }
 
     private fun sendPatientDataToService() {
@@ -1489,7 +1511,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     // ── Persistencia ──────────────────────────────────────
 
     private fun saveAllResults() {
-        val editor = getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE).edit()
+        val prefsObj = getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE)
+        prefsObj.edit().clear().apply()
+        val editor = prefsObj.edit()
         with(state) {
             if (height > 0) {
                 editor.putFloat("height", height.toFloat())
@@ -1628,6 +1652,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 guideSequenceToken++
                 setHeightWeightPresentation(showResults = true)
             }
+            erroredMeasurements.remove(currentMeasurementType)
             setRepeatMode(false)
             updateButtonVisibility()
             checkLastMeasurement()
@@ -1668,7 +1693,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             showStatusMessage(getString(R.string.measurement_error), "#F44336")
             updateButtonVisibility()
             setRepeatMode(true)
+            if (!completedMeasurements.contains(currentMeasurementType)) {
+                erroredMeasurements.add(currentMeasurementType)
+            }
+            checkLastMeasurement()
             getAudioName(currentMeasurementType, "error")?.let { playAudio(it, forceRestart = true) }
+            startCountdownToNextTab()
         }
     }
 

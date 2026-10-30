@@ -217,6 +217,7 @@ class ResultsActivity : BaseActivity() {
                 Toast.makeText(this, "Espera a que termine la impresión", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
+            AutoLogHelper.enviarLogFinConsulta(this)
             limpiarModoInvitado()   // ✅ CAMBIO
             clearResults()
             val intent = Intent(this, MainActivity::class.java)
@@ -355,10 +356,15 @@ class ResultsActivity : BaseActivity() {
                 }
 
                 val requestData = runBlocking {
-                    sender.buildFromPrefs(
-                        idUsuarioWeb = idUsuarioWeb,
-                        idLocal = idLocal
-                    )
+                    val actual = resultadoActual
+                    if (actual != null) {
+                        sender.buildFromResultado(actual, idUsuarioWeb)
+                    } else {
+                        sender.buildFromPrefs(
+                            idUsuarioWeb = idUsuarioWeb,
+                            idLocal = idLocal
+                        )
+                    }
                 }
 
                 Log.d(TAG, "📤 Enviando mediciones...")
@@ -416,6 +422,7 @@ class ResultsActivity : BaseActivity() {
             return
         }
 
+        AutoLogHelper.enviarLogFinConsulta(this)
         limpiarModoInvitado()   // ✅ CAMBIO
         clearResults()
         val intent = Intent(this, MainActivity::class.java)

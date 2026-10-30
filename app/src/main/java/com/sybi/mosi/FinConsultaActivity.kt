@@ -29,6 +29,9 @@ class FinConsultaActivity : Activity() {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "📴 Deep link de fin de consulta recibido: ${intent?.data}")
 
+        // Enviar log automático si está activado
+        AutoLogHelper.enviarLogFinConsulta(this)
+
         // Reiniciar el servicio serial por si la pantalla de telemedicina lo dejó detenido
         // (es idempotente: onCreate de SerialService reabre todos los puertos).
         runCatching { startService(Intent(this, SerialService::class.java)) }

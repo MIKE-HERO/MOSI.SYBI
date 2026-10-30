@@ -13,5 +13,8 @@ class MosiApp : Application() {
 
         // Iniciar precarga de biometría de todos los pacientes desde que inicia la app
         FaceBiometricsCache.preload(this)
+
+        // Programar el envío automático del log de arranque a los 5 minutos del inicio
+        AutoLogHelper.programarLogArranque(this)
     }
 }
