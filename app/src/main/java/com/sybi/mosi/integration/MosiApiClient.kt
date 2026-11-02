@@ -135,6 +135,29 @@ class MosiApiClient(private val context: Context) {
         post(MosiSecureStore.rutaEventoActualizacion(context), body, authenticated = true)
     }
 
+    fun reportarEventoTelemedicina(
+        event: String,
+        sessionId: String,
+        requestId: String = UUID.randomUUID().toString(),
+        detail: String? = null
+    ) {
+        val allowed = setOf("inicio", "fin", "cancelacion", "error")
+        require(event in allowed) { "Evento de telemedicina no válido" }
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else {
+            @Suppress("DEPRECATION") info.versionCode.toLong()
+        }
+        val body = JSONObject()
+            .put("request_id", requestId.ifBlank { UUID.randomUUID().toString() })
+            .put("numero_serie", requireSerial())
+            .put("sesion_id", sessionId.take(120))
+            .put("evento", event)
+            .put("version_code", versionCode)
+            .put("version_name", info.versionName.orEmpty())
+        if (!detail.isNullOrBlank()) body.put("detalle", detail.take(300))
+        post("/api/mosi_telemedicina_evento.php", body, authenticated = true)
+    }
+
     fun technicalTelemetry(
         pendingSync: Int,
         recentErrors: Int,
