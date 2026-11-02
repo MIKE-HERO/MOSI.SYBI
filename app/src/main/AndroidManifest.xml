@@ -138,6 +138,10 @@
 
         <!-- Info del dispositivo -->
         <activity android:name=".DeviceInfoActivity" android:exported="false" />
+        <activity
+            android:name=".integration.MosiActivationActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
 
         <!-- Pantalla de actualización ininterrumpida -->
         <activity
@@ -187,7 +191,7 @@
         <!-- Receptor de instalación silenciosa de actualizaciones -->
         <receiver
             android:name=".updater.UpdateInstallReceiver"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.sybi.mosi.updater.ACTION_INSTALL_COMPLETE" />
             </intent-filter>

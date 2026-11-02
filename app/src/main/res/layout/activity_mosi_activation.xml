@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F4F7FA"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="48dp">
+
+    <LinearLayout
+        android:layout_width="520dp"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_update_card"
+        android:elevation="10dp"
+        android:orientation="vertical"
+        android:padding="36dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="Activar cabina MOSI"
+            android:textColor="#17324D"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="Genere un código en MOSI > Inventario. El código es de un solo uso."
+            android:textColor="#52677A"
+            android:textSize="15sp" />
+
+        <EditText
+            android:id="@+id/etActivationSerial"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:hint="Número de serie"
+            android:inputType="textCapCharacters"
+            android:maxLines="1" />
+
+        <EditText
+            android:id="@+id/etActivationCode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:hint="Código de activación"
+            android:inputType="textPassword"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/tvActivationStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:textColor="#B3261E"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/btnActivateCabin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:backgroundTint="#0F3E82"
+            android:text="Activar cabina"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+</LinearLayout>

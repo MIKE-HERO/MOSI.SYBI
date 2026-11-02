@@ -25,6 +25,12 @@ class PacienteRemoteRepository(private val context: Context) {
         val idPaciente: Int? = primerUsuario?.idUsuarioWeb?.toIntOrNull()
     )
 
+    data class EnvioMedicionResult(
+        val success: Boolean,
+        val remoteId: Int? = null,
+        val error: String = ""
+    )
+
     /**
      * ✅ Obtiene el id_cliente configurado en el dispositivo.
      */
@@ -246,7 +252,7 @@ class PacienteRemoteRepository(private val context: Context) {
     // ==========================================
     // REGISTRAR MEDICIÓN
     // ==========================================
-    suspend fun enviarMediciones(mediciones: MedicionesRequest): Boolean {
+    suspend fun enviarMediciones(mediciones: MedicionesRequest): EnvioMedicionResult {
         return try {
             Log.d(TAG, "📤 Enviando medición al servidor:")
             Log.d(TAG, "   id_UsuarioWeb: ${mediciones.idUsuarioWeb}")
@@ -260,22 +266,31 @@ class PacienteRemoteRepository(private val context: Context) {
 
             if (jsonSize > 5 * 1024 * 1024) {
                 Log.e(TAG, "❌ JSON demasiado grande (>5 MB), abortando envío")
-                return false
+                return EnvioMedicionResult(false, error = "Payload mayor a 5 MB")
             }
 
             val response = RetrofitClient.apiService.registrarMedicion(mediciones)
 
             if (response.isSuccessful) {
-                Log.d(TAG, "✅ Medición registrada: id=${response.body()?.id}")
-                true
+                val body = response.body()
+                val accepted = body?.codigo == "0" && body.id != null
+                if (accepted) {
+                    Log.d(TAG, "Medición registrada: id=${body.id}")
+                    EnvioMedicionResult(true, remoteId = body.id)
+                } else {
+                    val reason = body?.mensaje?.takeIf { it.isNotBlank() }
+                        ?: "Respuesta sin confirmación de insert (codigo=${body?.codigo}, id=${body?.id})"
+                    Log.e(TAG, "El servidor no confirmó el insert: $reason")
+                    EnvioMedicionResult(false, error = reason)
+                }
             } else {
                 val errorBody = response.errorBody()?.string()
                 Log.e(TAG, "❌ HTTP ${response.code()} → $errorBody")
-                false
+                EnvioMedicionResult(false, error = "HTTP ${response.code()}")
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Excepción enviando medición: ${e.message}", e)
-            false
+            EnvioMedicionResult(false, error = e.message ?: e.javaClass.simpleName)
         }
     }
 }

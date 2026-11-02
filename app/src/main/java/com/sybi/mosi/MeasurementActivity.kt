@@ -550,12 +550,13 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
             Thread {
                 // Todo el trabajo pesado en background
-                guardarResultadosEnBD()
+                val idResultado = guardarResultadosEnBD()
                 saveAllResults()
 
                 runOnUiThread {
                     startActivity(Intent(this, ResultsActivity::class.java)
-                        .putExtra("id_local", pacienteIdLocal))
+                        .putExtra("id_local", pacienteIdLocal)
+                        .putExtra("id_resultado", idResultado))
                     finish()
                 }
             }.start()
@@ -576,12 +577,13 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             .setMessage("¿Deseas ver el informe de tus mediciones antes de salir?")
             .setPositiveButton("Ver informe") { _, _ ->
                 Thread {
-                    guardarResultadosEnBD()
+                    val idResultado = guardarResultadosEnBD()
                     saveAllResults()
                     runOnUiThread {
                         startActivity(
                             Intent(this, ResultsActivity::class.java)
                                 .putExtra("id_local", pacienteIdLocal)
+                                .putExtra("id_resultado", idResultado)
                         )
                         finish()
                     }
@@ -1555,7 +1557,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }
     }
 
-    private fun guardarResultadosEnBD() {
+    private fun guardarResultadosEnBD(): Long {
         val db = AppDatabase.getInstance(this)
         val dao = db.resultadoDao()
 
@@ -1620,7 +1622,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         // Insert síncrono: esta función siempre corre dentro de un Thread de fondo (al
         // confirmar y al salir con informe), así garantizamos que el registro ya esté en BD
         // antes de abrir la pantalla siguiente (el informe lo lee de la BD).
-        runBlocking { dao.insertarResultado(r) }
+        val idResultado = runBlocking { dao.insertarResultado(r) }
+        com.sybi.mosi.integration.MedicionesSyncWorker.schedule(this, 5L)
+        return idResultado
     }
 
     // ── Callbacks del Controller ──────────────────────────

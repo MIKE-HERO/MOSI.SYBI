@@ -127,6 +127,7 @@ dependencies {
 
     // Cifrado en reposo de la contraseña SMTP (llave en el Android Keystore del equipo)
     implementation("androidx.security:security-crypto:1.0.0")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     implementation("com.google.mediapipe:tasks-vision:0.10.18")
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
