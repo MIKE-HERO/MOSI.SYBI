@@ -43,9 +43,16 @@ object EmailSender {
     const val PREF_FROM_NAME = "smtp_from_name"
     const val PREF_SSL = "smtp_ssl"
 
+    // --- DATOS POR DEFECTO APLICADOS ---
     private const val DEFAULT_HOST = "mail.medicallife.com.mx"
     private const val DEFAULT_PORT = 465
     private const val DEFAULT_USER = "teleconsulta@medicallife.com.mx"
+    private const val DEFAULT_PASS = "^0y89dc0a~yykTlx"
+    private const val DEFAULT_FROM = "teleconsulta@medicallife.com.mx"
+    private const val DEFAULT_FROM_NAME = "Teleconsulta"
+    private const val DEFAULT_SSL = true
+    // -----------------------------------
+
     data class Config(
         val host: String,
         val port: Int,
@@ -88,10 +95,10 @@ object EmailSender {
             host = p.getString(PREF_HOST, DEFAULT_HOST) ?: DEFAULT_HOST,
             port = p.getInt(PREF_PORT, DEFAULT_PORT),
             user = p.getString(PREF_USER, DEFAULT_USER) ?: DEFAULT_USER,
-            pass = securePrefs(context).getString(PREF_PASS, "") ?: "",
-            from = p.getString(PREF_FROM, p.getString(PREF_USER, DEFAULT_USER) ?: DEFAULT_USER) ?: DEFAULT_USER,
-            fromName = p.getString(PREF_FROM_NAME, "") ?: "",
-            useSsl = p.getBoolean(PREF_SSL, true)
+            pass = securePrefs(context).getString(PREF_PASS, DEFAULT_PASS) ?: DEFAULT_PASS,
+            from = p.getString(PREF_FROM, DEFAULT_FROM) ?: DEFAULT_FROM,
+            fromName = p.getString(PREF_FROM_NAME, DEFAULT_FROM_NAME) ?: DEFAULT_FROM_NAME,
+            useSsl = p.getBoolean(PREF_SSL, DEFAULT_SSL)
         )
     }
 
