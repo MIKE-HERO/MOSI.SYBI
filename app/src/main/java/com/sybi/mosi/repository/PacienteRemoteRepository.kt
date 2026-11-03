@@ -25,6 +25,12 @@ class PacienteRemoteRepository(private val context: Context) {
         val idPaciente: Int? = primerUsuario?.idUsuarioWeb?.toIntOrNull()
     )
 
+    data class EnvioMedicionResult(
+        val success: Boolean,
+        val remoteId: Int? = null,
+        val error: String = ""
+    )
+
     /**
      * ✅ Obtiene el id_cliente configurado en el dispositivo.
      */
@@ -246,59 +252,45 @@ class PacienteRemoteRepository(private val context: Context) {
     // ==========================================
     // REGISTRAR MEDICIÓN
     // ==========================================
-    suspend fun enviarMediciones(mediciones: MedicionesRequest): Boolean {
-        val jsonString = com.google.gson.Gson().toJson(mediciones)
-        val jsonSize = jsonString.length
+    suspend fun enviarMediciones(mediciones: MedicionesRequest): EnvioMedicionResult {
+        return try {
+            Log.d(TAG, "📤 Enviando medición al servidor:")
+            Log.d(TAG, "   id_UsuarioWeb: ${mediciones.idUsuarioWeb}")
+            Log.d(TAG, "   id_VendingMachine: ${mediciones.idVendingMachine}")
+            Log.d(TAG, "   recordID: ${mediciones.recordID}")
+            Log.d(TAG, "   device_id: ${mediciones.deviceId}")
+            Log.d(TAG, "   ECG Base64 length: ${mediciones.ecgImg?.length ?: 0} chars (~${(mediciones.ecgImg?.length ?: 0) / 1024} KB)")
 
-        Log.d(TAG, "📤 Enviando medición al servidor:")
-        Log.d(TAG, "   id_UsuarioWeb: ${mediciones.idUsuarioWeb}")
-        Log.d(TAG, "   id_VendingMachine: ${mediciones.idVendingMachine}")
-        Log.d(TAG, "   recordID: ${mediciones.recordID}")
-        Log.d(TAG, "   device_id: ${mediciones.deviceId}")
-        Log.d(TAG, "   ECG Base64 length: ${mediciones.ecgImg?.length ?: 0} chars (~${(mediciones.ecgImg?.length ?: 0) / 1024} KB)")
-        Log.d(TAG, "   JSON total: ~${jsonSize / 1024} KB")
+            val jsonSize = com.google.gson.Gson().toJson(mediciones).length
+            Log.d(TAG, "   JSON total: ~${jsonSize / 1024} KB")
 
-        if (jsonSize > 15 * 1024 * 1024) {
-            Log.e(TAG, "⚠️ Advertencia: JSON extremadamente grande (>15 MB)")
-        }
+            if (jsonSize > 5 * 1024 * 1024) {
+                Log.e(TAG, "❌ JSON demasiado grande (>5 MB), abortando envío")
+                return EnvioMedicionResult(false, error = "Payload mayor a 5 MB")
+            }
 
-        // ✅ Medir estado de la red antes del envío
-        val speedInfo = com.sybi.mosi.network.NetworkSpeedHelper.medirEstadoRed(context)
-        Log.i(TAG, "🌐 [Velocidad al iniciar envío] ${speedInfo.detalles}")
+            val response = RetrofitClient.apiService.registrarMedicion(mediciones)
 
-        val maxIntentos = 3
-        var intento = 1
-        var exito = false
-
-        while (intento <= maxIntentos && !exito) {
-            val startTime = android.os.SystemClock.elapsedRealtime()
-            try {
-                Log.d(TAG, "🚀 Intento $intento de $maxIntentos de enviar mediciones...")
-                val response = RetrofitClient.apiService.registrarMedicion(mediciones)
-                val duracionMs = android.os.SystemClock.elapsedRealtime() - startTime
-
-                // ✅ Registrar velocidad alcanzada
-                com.sybi.mosi.network.NetworkSpeedHelper.registrarEnvio(jsonSize.toLong(), duracionMs)
-
-                if (response.isSuccessful) {
-                    Log.d(TAG, "✅ Medición registrada exitosamente: id=${response.body()?.id} (en ${duracionMs}ms)")
-                    exito = true
+            if (response.isSuccessful) {
+                val body = response.body()
+                val accepted = body?.codigo == "0" && body.id != null
+                if (accepted) {
+                    Log.d(TAG, "Medición registrada: id=${body.id}")
+                    EnvioMedicionResult(true, remoteId = body.id)
                 } else {
-                    val errorBody = response.errorBody()?.string()
-                    Log.e(TAG, "❌ HTTP ${response.code()} en intento $intento → $errorBody")
+                    val reason = body?.mensaje?.takeIf { it.isNotBlank() }
+                        ?: "Respuesta sin confirmación de insert (codigo=${body?.codigo}, id=${body?.id})"
+                    Log.e(TAG, "El servidor no confirmó el insert: $reason")
+                    EnvioMedicionResult(false, error = reason)
                 }
-            } catch (e: Exception) {
-                val duracionMs = android.os.SystemClock.elapsedRealtime() - startTime
-                Log.e(TAG, "❌ Excepción enviando medición en intento $intento (${duracionMs}ms): ${e.message}")
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Log.e(TAG, "❌ HTTP ${response.code()} → $errorBody")
+                EnvioMedicionResult(false, error = "HTTP ${response.code()}")
             }
-
-            if (!exito && intento < maxIntentos) {
-                Log.w(TAG, "⏳ Reintentando envío en 2 segundos...")
-                kotlinx.coroutines.delay(2000L)
-            }
-            intento++
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Excepción enviando medición: ${e.message}", e)
+            EnvioMedicionResult(false, error = e.message ?: e.javaClass.simpleName)
         }
-
-        return exito
     }
 }

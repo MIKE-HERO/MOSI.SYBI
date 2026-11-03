@@ -370,20 +370,38 @@ class ResultsActivity : BaseActivity() {
                 Log.d(TAG, "📤 Enviando mediciones...")
                 Log.d(TAG, "   id_UsuarioWeb: $idUsuarioWeb")
 
-                val exito = runBlocking { sender.enviar(requestData) }
+                val envio = runBlocking { sender.enviar(requestData) }
+                val resultadoId = resultadoActual?.id_resultado ?: 0L
+                val fechaIntento = java.text.SimpleDateFormat(
+                    "yyyy-MM-dd'T'HH:mm:ssXXX",
+                    java.util.Locale.US
+                ).format(java.util.Date())
+                if (resultadoId > 0L) {
+                    runBlocking {
+                        val dao = AppDatabase.getInstance(this@ResultsActivity).resultadoDao()
+                        if (envio.success) {
+                            dao.marcarSincronizado(resultadoId, envio.remoteId, fechaIntento)
+                        } else {
+                            dao.marcarErrorSincronizacion(resultadoId, envio.error.take(500), fechaIntento)
+                        }
+                    }
+                }
 
                 uiHandler.post {
                     detenerMensajesEnvio()
-                    envioExitoso = exito
+                    envioExitoso = envio.success
                     btnStartConsultation.isEnabled = true
                     btnStartConsultation.text = "Iniciar consulta"
 
                     Toast.makeText(
                         this@ResultsActivity,
-                        if (exito) "✅ Resultados enviados al doctor"
-                        else "⚠️ No se pudieron enviar los resultados",
+                        if (envio.success) "✅ Resultados confirmados por el servidor"
+                        else "⚠️ Pendiente de sincronizar; se reintentará automáticamente",
                         Toast.LENGTH_SHORT
                     ).show()
+                }
+                if (!envio.success) {
+                    com.sybi.mosi.integration.MedicionesSyncWorker.schedule(this@ResultsActivity, 30L)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Error enviando: ${e.message}", e)

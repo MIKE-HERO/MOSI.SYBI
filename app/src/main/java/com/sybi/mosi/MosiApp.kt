@@ -5,8 +5,14 @@ import android.content.Context
 import com.sybi.mosi.helpers.FaceBiometricsCache
 
 class MosiApp : Application() {
+    companion object {
+        lateinit var instance: MosiApp
+            private set
+    }
+
     override fun onCreate() {
         super.onCreate()
+        instance = this
         // Asegurar que existan los puertos seriales por defecto en SharedPreferences desde el inicio
         val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         DeviceDefaults.ensureDefaultPorts(devicePrefs)
@@ -20,5 +26,10 @@ class MosiApp : Application() {
         // Registrar incidente de reencendido/arranque y monitoreo de conectividad para el reporte diario
         DailyReportManager.recordBootIncident(this)
         com.sybi.mosi.network.NetworkMonitor.start(this)
+
+        // La tarea usa un request_id nuevo y solo envía estado técnico, nunca datos clínicos.
+        com.sybi.mosi.integration.MosiTelemetryWorker.schedule(this)
+        com.sybi.mosi.integration.MedicionesSyncWorker.schedule(this, 20L)
+        com.sybi.mosi.integration.MosiStartupReporter.reportInstalledUpdate(this)
     }
 }

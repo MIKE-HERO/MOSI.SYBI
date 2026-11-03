@@ -13,9 +13,12 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import com.sybi.mosi.integration.MosiApiClient
+import com.sybi.mosi.integration.MosiSecureStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 /**
  * Lanzador de la consulta de telemedicina.
@@ -33,15 +36,25 @@ class TelemedicineActivity : BaseActivity() {
         private const val TAG = "TelemedicineActivity"
         const val EXTRA_ID_USUARIO_WEB = "id_usuario_web"
         private const val REQUEST_PERMISSIONS_CODE = 200
+        private const val STATE_SESSION_ID = "mosi_telemedicine_session_id"
+        private const val STATE_REPORTED_START = "mosi_telemedicine_reported_start"
+        private const val STATE_REPORTED_END = "mosi_telemedicine_reported_end"
     }
 
     private var idUsuarioWeb: Int = 0
     private lateinit var tvEstado: TextView
     private var onPermissionsGrantedAction: (() -> Unit)? = null
+    private var sessionId: String = UUID.randomUUID().toString()
+    private var reportedStart = false
+    private var reportedEnd = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_telemedicine)
+
+        sessionId = savedInstanceState?.getString(STATE_SESSION_ID).orEmpty().ifBlank { UUID.randomUUID().toString() }
+        reportedStart = savedInstanceState?.getBoolean(STATE_REPORTED_START) ?: false
+        reportedEnd = savedInstanceState?.getBoolean(STATE_REPORTED_END) ?: false
 
         idUsuarioWeb = intent.getIntExtra(EXTRA_ID_USUARIO_WEB, 0)
         Log.d(TAG, "📥 id_usuario_web recibido: $idUsuarioWeb")
@@ -86,12 +99,23 @@ class TelemedicineActivity : BaseActivity() {
     }
 
     override fun onDestroy() {
+        if (!isChangingConfigurations && reportedStart && !reportedEnd) {
+            reportedEnd = true
+            reportarEventoMosi("cancelacion", "La pantalla de telemedicina se cerró sin usar el botón Salir")
+        }
         val appContext = applicationContext
         CoroutineScope(Dispatchers.IO).launch {
             VideoLoopRemote.restaurarSilencio(appContext, TAG)
         }
         startService(Intent(this, SerialService::class.java))
         super.onDestroy()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(STATE_SESSION_ID, sessionId)
+        outState.putBoolean(STATE_REPORTED_START, reportedStart)
+        outState.putBoolean(STATE_REPORTED_END, reportedEnd)
+        super.onSaveInstanceState(outState)
     }
 
     private fun urlConsulta(): Uri {
@@ -161,13 +185,23 @@ class TelemedicineActivity : BaseActivity() {
         // efimero=true: cada consulta pide permiso de cámara/mic de nuevo, sin reusar uno
         // guardado de una sesión anterior (ver CustomTabsHelper.openUrl).
         val exito = CustomTabsHelper.openUrl(this, uri, efimero = true)
-        if (!exito) {
+        if (exito) {
+            if (!reportedStart) {
+                reportedStart = true
+                reportarEventoMosi("inicio")
+            }
+        } else {
+            reportarEventoMosi("error", "No se encontró un navegador compatible")
             tvEstado.text = "No se pudo abrir la consulta en el navegador."
             Toast.makeText(this, "No se encontró un navegador compatible instalado", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun irAInicio() {
+        if (reportedStart && !reportedEnd) {
+            reportedEnd = true
+            reportarEventoMosi("fin")
+        }
         DailyReportManager.onTelemedicineEnded(this, idUsuarioWeb)
         AutoLogHelper.enviarLogFinConsulta(this)
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -175,5 +209,21 @@ class TelemedicineActivity : BaseActivity() {
         }
         startActivity(intent)
         finish()
+    }
+
+    private fun reportarEventoMosi(evento: String, detalle: String? = null) {
+        val appContext = applicationContext
+        if (!MosiSecureStore.estaActivado(appContext)) return
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                MosiApiClient(appContext).reportarEventoTelemedicina(
+                    event = evento,
+                    sessionId = sessionId,
+                    detail = detalle
+                )
+            }.onFailure { error ->
+                Log.w(TAG, "No se pudo reportar evento MOSI de telemedicina '$evento': ${error.message}")
+            }
+        }
     }
 }

@@ -93,6 +93,10 @@ class MainActivity : BaseActivity() {
         setContentView(R.layout.activity_main)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
+        if (!com.sybi.mosi.integration.MosiSecureStore.estaActivado(this)) {
+            startActivity(Intent(this, com.sybi.mosi.integration.MosiActivationActivity::class.java))
+        }
+
         rootLayout = findViewById(R.id.mainRootLayout)
         settingsSurface = findViewById(R.id.settingsSurface)
         languageSurface = findViewById(R.id.languageSurface)
@@ -114,6 +118,7 @@ class MainActivity : BaseActivity() {
         // --- BÚSQUEDA AUTOMÁTICA DE ACTUALIZACIONES AL ARRANCAR ---
         lifecycleScope.launch(Dispatchers.IO) {
             kotlinx.coroutines.delay(3000)
+            if (!com.sybi.mosi.integration.MosiSecureStore.estaActivado(this@MainActivity)) return@launch
             val updateManager = com.sybi.mosi.updater.UpdateManager(this@MainActivity)
             val pInfo = try { packageManager.getPackageInfo(packageName, 0) } catch (_: Exception) { null }
             val currentVersion = pInfo?.versionName ?: "1.0.0"
@@ -125,7 +130,10 @@ class MainActivity : BaseActivity() {
                     com.sybi.mosi.updater.UpdateActivity.start(
                         this@MainActivity,
                         latestRelease.downloadUrl,
-                        latestRelease.tagName
+                        latestRelease.tagName,
+                        sha256 = latestRelease.sha256,
+                        updateId = latestRelease.updateId,
+                        requestId = latestRelease.requestId
                     )
                 }
             }

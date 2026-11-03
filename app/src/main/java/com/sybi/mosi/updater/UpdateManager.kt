@@ -10,27 +10,35 @@ import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import com.sybi.mosi.admin.PermisosAdmin
+import com.sybi.mosi.integration.MosiApiClient
+import com.sybi.mosi.integration.MosiSecureStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONArray
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
-data class GitHubRelease(
+data class MosiRelease(
     val tagName: String,
     val name: String,
-    val downloadUrl: String
+    val downloadUrl: String,
+    val updateId: String = "",
+    val versionCode: Long = 0,
+    val sha256: String = "",
+    val requestId: String = ""
 )
 
 class UpdateManager(private val context: Context) {
 
+    @Volatile
+    var lastInstallError: String? = null
+        private set
+
     companion object {
         private const val TAG = "UpdateManager"
-        private const val DEFAULT_REPO_OWNER = "MIKE-HERO"
-        private const val DEFAULT_REPO_NAME = "MOSI.SYBI"
 
         /**
          * Flag oculto de Android: INSTALL_ALLOW_DOWNGRADE.
@@ -39,18 +47,6 @@ class UpdateManager(private val context: Context) {
          */
         private const val INSTALL_ALLOW_DOWNGRADE = 0x00000001
 
-        fun getRepoOwner(context: Context): String {
-            val prefs = context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-            return prefs.getString("GithubRepoOwner", DEFAULT_REPO_OWNER) ?: DEFAULT_REPO_OWNER
-        }
-
-        fun getRepoName(context: Context): String {
-            val prefs = context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-            return prefs.getString("GithubRepoName", DEFAULT_REPO_NAME) ?: DEFAULT_REPO_NAME
-        }
-
-        val LATEST_APK_URL: String
-            get() = "https://github.com/$DEFAULT_REPO_OWNER/$DEFAULT_REPO_NAME/releases/latest/download/app-release.apk"
     }
 
     private val client = OkHttpClient.Builder()
@@ -60,67 +56,24 @@ class UpdateManager(private val context: Context) {
         .followSslRedirects(true)
         .build()
 
-    private val repoOwner: String
-        get() = getRepoOwner(context)
-
-    private val repoName: String
-        get() = getRepoName(context)
-
-    private val releasesApiUrl: String
-        get() = "https://api.github.com/repos/$repoOwner/$repoName/releases"
-
-    /**
-     * Obtiene la lista de releases/versiones disponibles desde la API de GitHub.
-     */
-    suspend fun fetchReleases(): List<GitHubRelease> = withContext(Dispatchers.IO) {
-        val releasesList = mutableListOf<GitHubRelease>()
+    /** Consulta el canal de actualizaciones MOSI autenticado para esta cabina. */
+    suspend fun fetchReleases(): List<MosiRelease> = withContext(Dispatchers.IO) {
         try {
-            val requestBuilder = Request.Builder()
-                .url(releasesApiUrl)
-                .header("User-Agent", "QuioscoApp")
-                .header("Accept", "application/vnd.github.v3+json")
-
-            val prefs = context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-            val token = prefs.getString("GithubToken", "") ?: ""
-            if (token.isNotBlank()) {
-                requestBuilder.header("Authorization", "Bearer $token")
-            }
-
-            val response = client.newCall(requestBuilder.build()).execute()
-            if (response.isSuccessful) {
-                val bodyString = response.body?.string()
-                if (!bodyString.isNullOrEmpty()) {
-                    val jsonArray = JSONArray(bodyString)
-                    for (i in 0 until jsonArray.length()) {
-                        val obj = jsonArray.getJSONObject(i)
-                        val tagName = obj.optString("tag_name", "")
-                        val name = obj.optString("name", tagName)
-
-                        var apkDownloadUrl = "https://github.com/$repoOwner/$repoName/releases/download/$tagName/app-release.apk"
-                        val assets = obj.optJSONArray("assets")
-                        if (assets != null) {
-                            for (j in 0 until assets.length()) {
-                                val asset = assets.getJSONObject(j)
-                                val assetName = asset.optString("name", "")
-                                if (assetName.endsWith(".apk", ignoreCase = true)) {
-                                    apkDownloadUrl = asset.optString("browser_download_url", apkDownloadUrl)
-                                    break
-                                }
-                            }
-                        }
-
-                        if (tagName.isNotEmpty()) {
-                            releasesList.add(GitHubRelease(tagName, name, apkDownloadUrl))
-                        }
-                    }
-                }
-            } else {
-                Log.e(TAG, "Error al consultar releases de GitHub: ${response.code} ${response.message}")
-            }
+            if (!MosiSecureStore.estaActivado(context)) return@withContext emptyList()
+            val update = MosiApiClient(context).consultarActualizacion() ?: return@withContext emptyList()
+            listOf(MosiRelease(
+                tagName = update.versionName,
+                name = update.versionName,
+                downloadUrl = update.apkUrl,
+                updateId = update.id,
+                versionCode = update.versionCode,
+                sha256 = update.sha256,
+                requestId = update.requestId
+            ))
         } catch (e: Exception) {
-            Log.e(TAG, "Excepción consultando releases de GitHub: ${e.message}", e)
+            Log.e(TAG, "Error consultando actualizaciones MOSI: ${e.message}")
+            emptyList()
         }
-        releasesList
     }
 
     /**
@@ -128,6 +81,7 @@ class UpdateManager(private val context: Context) {
      */
     suspend fun downloadApk(
         downloadUrl: String,
+        expectedSha256: String = "",
         onProgress: (percent: Int, bytesDownloaded: Long, totalBytes: Long) -> Unit
     ): File? = withContext(Dispatchers.IO) {
         try {
@@ -135,9 +89,8 @@ class UpdateManager(private val context: Context) {
                 .url(downloadUrl)
                 .header("User-Agent", "QuioscoApp")
 
-            val prefs = context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-            val token = prefs.getString("GithubToken", "") ?: ""
-            if (token.isNotBlank() && downloadUrl.contains("api.github.com")) {
+            val token = MosiSecureStore.token(context)
+            if (token.isNotBlank()) {
                 requestBuilder.header("Authorization", "Bearer $token")
             }
 
@@ -178,12 +131,34 @@ class UpdateManager(private val context: Context) {
             outputStream.close()
             inputStream.close()
 
+            if (expectedSha256.isNotBlank()) {
+                val actualHash = sha256(apkFile)
+                if (!actualHash.equals(expectedSha256, ignoreCase = true)) {
+                    Log.e(TAG, "SHA-256 del APK no coincide; se descarta la descarga")
+                    apkFile.delete()
+                    return@withContext null
+                }
+            }
+
             Log.d(TAG, "APK descargado exitosamente en: ${apkFile.absolutePath}")
             apkFile
         } catch (e: Exception) {
             Log.e(TAG, "Error al descargar APK: ${e.message}", e)
             null
         }
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            while (true) {
+                val read = input.read(buffer)
+                if (read <= 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     /**
@@ -212,7 +187,7 @@ class UpdateManager(private val context: Context) {
     }
 
     /**
-     * Revisa en el arranque si hay una nueva versión en GitHub. Si la hay,
+     * Revisa en el arranque si el canal MOSI asignó una nueva versión. Si la hay,
      * la descarga e instala de forma silenciosa e ininterrumpida.
      */
     suspend fun checkAndAutoUpdateOnStartup(onStatusUpdate: ((String) -> Unit)? = null): Boolean = withContext(Dispatchers.IO) {
@@ -224,11 +199,11 @@ class UpdateManager(private val context: Context) {
             }
             val currentVersionName = pInfo?.versionName ?: "1.0.0"
 
-            Log.d(TAG, "🔍 Revisando actualizaciones automáticas en arranque. Versión instalada: v$currentVersionName (Repo: $repoOwner/$repoName)")
+            Log.d(TAG, "Revisando canal MOSI. Versión instalada: v$currentVersionName")
 
             val releases = fetchReleases()
             if (releases.isEmpty()) {
-                Log.d(TAG, "No se encontraron releases en GitHub.")
+                Log.d(TAG, "El canal MOSI no asignó una actualización.")
                 return@withContext false
             }
 
@@ -236,10 +211,10 @@ class UpdateManager(private val context: Context) {
             val latestTag = latestRelease.tagName
 
             if (isNewerVersion(latestTag, currentVersionName)) {
-                Log.i(TAG, "🚀 Nueva versión detectada en GitHub: $latestTag (instalada: v$currentVersionName). Iniciando actualización silenciosa...")
+                Log.i(TAG, "Nueva versión MOSI: $latestTag (instalada: v$currentVersionName).")
                 onStatusUpdate?.invoke("Actualización encontrada ($latestTag). Descargando...")
 
-                val apkFile = downloadApk(latestRelease.downloadUrl) { percent, _, _ ->
+                val apkFile = downloadApk(latestRelease.downloadUrl, latestRelease.sha256) { percent, _, _ ->
                     if (percent >= 0) {
                         onStatusUpdate?.invoke("Descargando actualización $latestTag: $percent%")
                     }
@@ -262,87 +237,78 @@ class UpdateManager(private val context: Context) {
     }
 
     /**
-     * Método unificado de instalación silenciosa:
-     * 1. Si es Device Owner, instala con PackageInstaller (sin acción del usuario).
-     * 2. Si el dispositivo tiene acceso Root (su), ejecuta 'pm install -r -d' en segundo plano.
-     * 3. De lo contrario, intenta PackageInstaller con USER_ACTION_NOT_REQUIRED.
-     * 4. Como último recurso si todo lo silencioso falla, abre la ventana del sistema.
+     * Método unificado de instalación:
+     * Si la app es Device Owner (Administrador del Quiosco), instala silenciosamente sin intervención.
+     * Si no, abre el instalador de Android mediante Intent.
+     *
+     * @param forceReinstall si es true, permite reinstalar la MISMA versión y también
+     *        instalar versiones ANTERIORES (downgrade). Si es false, solo actualiza.
      */
     fun installApkAuto(apkFile: File, forceReinstall: Boolean = false): Boolean {
-        apkFile.setReadable(true, false)
-
-        if (PermisosAdmin.esPropietario(context)) {
-            Log.i(TAG, "La app es Device Owner: ejecutando instalación silenciosa vía PackageInstaller...")
-            val ok = installApkSilently(apkFile, forceReinstall)
-            if (ok) return true
+        lastInstallError = validateApk(apkFile)
+        if (lastInstallError != null) {
+            Log.e(TAG, "APK rechazado antes de instalar: $lastInstallError")
+            return false
         }
-
-        Log.i(TAG, "Probando instalación silenciosa con permisos Root (su -c pm install)...")
-        val okRoot = installApkViaRoot(apkFile)
-        if (okRoot) {
-            Log.i(TAG, "✅ Instalación silenciosa vía Root enviada correctamente.")
-            return true
+        return if (PermisosAdmin.esPropietario(context)) {
+            Log.i(TAG, "La app es Device Owner: ejecutando instalación silenciosa (forceReinstall=$forceReinstall)...")
+            installApkSilently(apkFile, forceReinstall)
+        } else {
+            lastInstallError = "La app no es Device Owner; Android requiere confirmación manual"
+            Log.w(TAG, "La app no es Device Owner: abriendo instalador con confirmación del usuario...")
+            installApk(apkFile)
         }
-
-        Log.i(TAG, "Probando instalación silenciosa vía PackageInstaller...")
-        val okSilent = installApkSilently(apkFile, forceReinstall)
-        if (okSilent) return true
-
-        Log.w(TAG, "No fue posible instalar en silencio: abriendo instalador con confirmación del usuario...")
-        return installApk(apkFile)
     }
 
-    /**
-     * Intenta la instalación silenciosa ejecutando 'pm install -r -d' con permisos Root.
-     * Optimizado específicamente para Android 7.1.2 (Nougat) y tablets quiosco rooteadas.
-     */
-    fun installApkViaRoot(apkFile: File): Boolean {
-        if (!apkFile.exists() || apkFile.length() <= 0) return false
+    private fun validateApk(apkFile: File): String? {
+        if (!apkFile.exists() || apkFile.length() <= 0L) return "El APK no existe o está vacío"
         return try {
-            Log.d(TAG, "⚡ [Android 7.1.2] Ejecutando instalación silenciosa vía Root...")
-            apkFile.setReadable(true, false)
-            val sourcePath = apkFile.absolutePath
-            val tmpPath = "/data/local/tmp/quiosco-update.apk"
-
-            // En Android 7.1.2, copiar el APK a /data/local/tmp garantiza que el gestor de paquetes de Android
-            // tenga acceso de lectura ilimitado sin chocar con permisos de almacenamiento.
-            val command = "cp \"$sourcePath\" \"$tmpPath\" && chmod 777 \"$tmpPath\" && pm install -r -d \"$tmpPath\" && rm -f \"$tmpPath\""
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
-            val exitCode = process.waitFor()
-
-            if (exitCode == 0) {
-                Log.i(TAG, "✅ [Android 7.1.2] Instalación silenciosa vía Root completada (exitCode 0)")
-                true
+            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
             } else {
-                val error = process.errorStream.bufferedReader().readText()
-                Log.w(TAG, "⚠️ Falló instalación Root con copia en /tmp (exitCode $exitCode): $error")
-
-                // Intento secundario de instalación directa
-                val directProc = Runtime.getRuntime().exec(arrayOf("su", "-c", "pm install -r -d \"$sourcePath\""))
-                val directExitCode = directProc.waitFor()
-                if (directExitCode == 0) {
-                    Log.i(TAG, "✅ [Android 7.1.2] Instalación silenciosa vía Root directa completada (exitCode 0)")
-                    true
-                } else {
-                    false
-                }
+                @Suppress("DEPRECATION") android.content.pm.PackageManager.GET_SIGNATURES
             }
+            val archive = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, flags)
+                ?: return "Android no reconoce el archivo como APK"
+            if (archive.packageName != context.packageName) {
+                return "Package incompatible: ${archive.packageName} (esperado ${context.packageName})"
+            }
+            val installed = context.packageManager.getPackageInfo(context.packageName, flags)
+            val installedSignatures = signaturesOf(installed)
+            val archiveSignatures = signaturesOf(archive)
+            if (installedSignatures.isEmpty() || archiveSignatures.isEmpty()) {
+                return "No se pudo verificar la firma del APK"
+            }
+            if (installedSignatures.none { installedCert -> archiveSignatures.any { it.contentEquals(installedCert) } }) {
+                return "La firma del APK no coincide con la aplicación instalada"
+            }
+            null
         } catch (e: Exception) {
-            Log.w(TAG, "No se pudo ejecutar su pm install en Android 7.1.2: ${e.message}")
-            false
+            "No se pudo validar el APK: ${e.message ?: e.javaClass.simpleName}"
+        }
+    }
+
+    private fun signaturesOf(info: android.content.pm.PackageInfo): List<ByteArray> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.signingInfo?.apkContentsSigners.orEmpty().map { it.toByteArray() }
+        } else {
+            @Suppress("DEPRECATION") info.signatures.orEmpty().map { it.toByteArray() }
         }
     }
 
     /**
-     * Realiza una instalación SILENCIOSA usando la API de PackageInstaller.
+     * Realiza una instalación SILENCIOSA usando la API de PackageInstaller (para Device Owner).
+     *
+     * @param forceReinstall si es true:
+     *   - Permite reinstalar la misma versión (mismo versionCode).
+     *   - Permite instalar versiones anteriores (downgrade).
+     *   - En Android 12+ no pide confirmación al usuario.
      */
     fun installApkSilently(apkFile: File, forceReinstall: Boolean = false): Boolean {
         if (!apkFile.exists() || apkFile.length() <= 0) {
             Log.e(TAG, "El archivo APK no existe o está vacío: ${apkFile.absolutePath}")
             return false
         }
-
-        apkFile.setReadable(true, false)
 
         val packageInstaller = context.packageManager.packageInstaller
         var session: PackageInstaller.Session? = null
@@ -352,28 +318,23 @@ class UpdateManager(private val context: Context) {
             )
             params.setAppPackageName(context.packageName)
 
-            // Configurar USER_ACTION_NOT_REQUIRED siempre (evita pedir acción al usuario en Android 12+)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (forceReinstall) {
+                // ── Permitir reinstalar la misma versión y hacer downgrade ──
                 try {
-                    params.setRequireUserAction(
-                        PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED
-                    )
+                    // Android 12+ (API 31): no pedir confirmación al usuario
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        params.setRequireUserAction(
+                            PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED
+                        )
+                    }
                 } catch (e: Exception) {
                     Log.w(TAG, "No se pudo configurar USER_ACTION_NOT_REQUIRED: ${e.message}")
                 }
-            }
 
-            // Configurar INSTALL_REASON_POLICY (indica que es por administración del quiosco)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try {
-                    params.setInstallReason(android.content.pm.PackageManager.INSTALL_REASON_POLICY)
-                } catch (e: Exception) {
-                    Log.w(TAG, "No se pudo configurar INSTALL_REASON_POLICY: ${e.message}")
+                // Android 9+ (API 28): permitir downgrade / misma versión
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    allowDowngrade(params)
                 }
-            }
-
-            if (forceReinstall && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                allowDowngrade(params)
             }
 
             val sessionId = packageInstaller.createSession(params)
