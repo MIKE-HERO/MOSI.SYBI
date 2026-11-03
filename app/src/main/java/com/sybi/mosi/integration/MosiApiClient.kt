@@ -97,6 +97,25 @@ class MosiApiClient(private val context: Context) {
         return token
     }
 
+    fun verificarServidorInstalacion(): String {
+        val url = resolveRoute("/api/mosi_instalador_login.php")
+        val request = Request.Builder().url(url).header("Accept", "application/json")
+            .post(JSONObject().toString().toRequestBody(JSON)).build()
+        client.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            val json = runCatching { JSONObject(text) }.getOrNull()
+            // El endpoint responde 422 a un POST vacío: eso confirma que existe,
+            // procesa JSON y está listo para recibir las credenciales reales.
+            val healthy = (response.isSuccessful && json?.optBoolean("ok") == true) ||
+                (response.code == 422 && json?.has("error") == true)
+            if (!healthy) {
+                val detail = json?.optString("error")?.takeIf { it.isNotBlank() }
+                throw MosiApiException(detail ?: "Administrador no disponible (HTTP ${response.code})", response.code)
+            }
+            return url
+        }
+    }
+
     fun listarSucursales(tokenInstalador: String): List<MosiSucursal> {
         val response = post(
             "/api/mosi_instalacion_sucursales.php", JSONObject(), authenticated = false,
