@@ -42,6 +42,8 @@ class MosiApiException(message: String, val statusCode: Int? = null) : Exception
 class MosiApiClient(private val context: Context) {
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
+        /** Administrador MOSI; es distinto del portal clínico configurado para videollamadas. */
+        private const val ADMIN_BASE_URL = "https://www.sybiml.com/php8/adminVending/public/"
     }
 
     private val client = OkHttpClient.Builder()
@@ -312,8 +314,9 @@ class MosiApiClient(private val context: Context) {
 
     private fun resolveRoute(route: String): String {
         if (route.startsWith("https://")) return route
-        val base = TelemedicineSettingsActivity.getBaseUrl(context).toHttpUrl()
-        return base.newBuilder().encodedPath(if (route.startsWith('/')) route else "/$route").query(null).build().toString()
+        val base = ADMIN_BASE_URL.toHttpUrl()
+        return base.resolve(route.trimStart('/'))?.toString()
+            ?: throw MosiApiException("Ruta administrativa MOSI inválida: $route")
     }
 
     private fun requireSerial(): String = MosiSecureStore.serialActivado(context).ifBlank {
