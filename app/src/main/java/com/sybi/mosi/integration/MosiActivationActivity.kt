@@ -1,6 +1,7 @@
 package com.sybi.mosi.integration
 
 import android.os.Bundle
+import android.graphics.Color
 import android.provider.Settings
 import android.util.Patterns
 import android.view.View
@@ -53,6 +54,14 @@ class MosiActivationActivity : BaseActivity() {
         findViewById<EditText>(R.id.etVideoLoopHost).setText(com.sybi.mosi.VideoLoopRemote.getSavedHost(this))
         findViewById<EditText>(R.id.etVideoLoopPort).setText(com.sybi.mosi.VideoLoopRemote.getSavedPort(this).toString())
 
+        val packageInfo = packageManager.getPackageInfo(packageName, 0)
+        @Suppress("DEPRECATION")
+        val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            packageInfo.longVersionCode
+        } else packageInfo.versionCode.toLong()
+        findViewById<TextView>(R.id.tvInstalledVersion).text =
+            "Versión instalada ${packageInfo.versionName.orEmpty()} ($versionCode)"
+
         findViewById<Button>(R.id.btnInstallerLogin).setOnClickListener { loginInstaller(it as Button) }
         findViewById<Button>(R.id.btnCabinNext).setOnClickListener { validateCabin() }
         findViewById<Button>(R.id.btnVideoNext).setOnClickListener { validateVideoLoop() }
@@ -60,8 +69,31 @@ class MosiActivationActivity : BaseActivity() {
         findViewById<Button>(R.id.btnCompleteInstallation).setOnClickListener { completeInstallation(it as Button) }
         findViewById<Button>(R.id.btnUseActivationCode).setOnClickListener { showLegacy() }
         findViewById<Button>(R.id.btnActivateCabin).setOnClickListener { activateLegacy(it as Button) }
+        findViewById<Button>(R.id.btnRetryAdminConnection).setOnClickListener { checkAdminConnection() }
         back.setOnClickListener { if (currentStep > 1) showStep(currentStep - 1) else showStep(1) }
         showStep(1)
+        checkAdminConnection()
+    }
+
+    private fun checkAdminConnection() {
+        val connection = findViewById<TextView>(R.id.tvAdminConnection)
+        val retry = findViewById<Button>(R.id.btnRetryAdminConnection)
+        retry.isEnabled = false
+        connection.setTextColor(Color.parseColor("#52677A"))
+        connection.text = "Comprobando conexión con el administrador…"
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching { api.verificarServidorInstalacion() }
+            withContext(Dispatchers.Main) {
+                retry.isEnabled = true
+                result.onSuccess {
+                    connection.setTextColor(Color.parseColor("#16794A"))
+                    connection.text = "Administrador conectado correctamente"
+                }.onFailure {
+                    connection.setTextColor(Color.parseColor("#B3261E"))
+                    connection.text = "Sin conexión: ${it.message ?: "error desconocido"}"
+                }
+            }
+        }
     }
 
     private fun loginInstaller(button: Button) {

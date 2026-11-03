@@ -15,6 +15,17 @@
                 android:layout_height="wrap_content" android:layout_marginTop="6dp"
                 android:gravity="center" android:text="Paso 1 de 5 · Instalador"
                 android:textColor="#52677A" android:textSize="15sp" />
+            <TextView android:id="@+id/tvInstalledVersion" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="8dp"
+                android:gravity="center" android:text="Versión instalada"
+                android:textColor="#17324D" android:textSize="14sp" android:textStyle="bold" />
+            <TextView android:id="@+id/tvAdminConnection" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                android:gravity="center" android:text="Comprobando conexión con el administrador…"
+                android:textColor="#52677A" android:textSize="13sp" />
+            <Button android:id="@+id/btnRetryAdminConnection" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:layout_gravity="center"
+                android:layout_marginTop="4dp" android:text="Comprobar servidor" />
 
             <LinearLayout android:id="@+id/panelInstaller" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:layout_marginTop="24dp" android:orientation="vertical">
