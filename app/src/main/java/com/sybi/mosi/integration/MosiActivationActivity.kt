@@ -5,16 +5,20 @@ import android.graphics.Color
 import android.provider.Settings
 import android.util.Patterns
 import android.view.View
+import android.widget.AutoCompleteTextView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Filter
+import android.widget.Filterable
 import android.widget.LinearLayout
-import android.widget.Spinner
 import android.widget.TextView
 import androidx.lifecycle.lifecycleScope
 import com.sybi.mosi.BaseActivity
 import com.sybi.mosi.DeviceInfoActivity
 import com.sybi.mosi.R
+import com.sybi.mosi.network.Cliente
+import com.sybi.mosi.network.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -25,10 +29,14 @@ class MosiActivationActivity : BaseActivity() {
     private lateinit var stepLabel: TextView
     private lateinit var back: Button
     private lateinit var serial: EditText
-    private lateinit var branchSpinner: Spinner
+    private lateinit var clientField: AutoCompleteTextView
+    private lateinit var branchField: AutoCompleteTextView
     private lateinit var panels: List<LinearLayout>
     private var installerToken = ""
+    private var clients: List<Cliente> = emptyList()
+    private var selectedClient: Cliente? = null
     private var branches: List<MosiSucursal> = emptyList()
+    private var selectedBranch: MosiSucursal? = null
     private var currentStep = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,7 +47,8 @@ class MosiActivationActivity : BaseActivity() {
         stepLabel = findViewById(R.id.tvWizardStep)
         back = findViewById(R.id.btnWizardBack)
         serial = findViewById(R.id.etActivationSerial)
-        branchSpinner = findViewById(R.id.spinnerBranch)
+        clientField = findViewById(R.id.etActivationClient)
+        branchField = findViewById(R.id.etActivationBranch)
         panels = listOf(
             findViewById(R.id.panelInstaller), findViewById(R.id.panelCabin),
             findViewById(R.id.panelVideoLoop), findViewById(R.id.panelPrinter),
@@ -105,25 +114,135 @@ class MosiActivationActivity : BaseActivity() {
         }
         busy(button, "Validando instalador...") {
             val token = api.iniciarSesionInstalador(email, password)
-            val loadedBranches = api.listarSucursales(token)
-            if (loadedBranches.isEmpty()) throw MosiApiException("No hay sucursales activas disponibles")
+            val response = RetrofitClient.apiService.obtenerClientes()
+            if (!response.isSuccessful) {
+                throw MosiApiException("No fue posible consultar clientes (HTTP ${response.code()})")
+            }
+            val loadedClients = response.body()?.clientes.orEmpty().filter {
+                !it.idCliente.isNullOrBlank() && !it.nombreCliente.isNullOrBlank()
+            }
+            if (loadedClients.isEmpty()) throw MosiApiException("No hay clientes disponibles")
             withContext(Dispatchers.Main) {
                 installerToken = token
-                branches = loadedBranches
-                branchSpinner.adapter = ArrayAdapter(
-                    this@MosiActivationActivity,
-                    android.R.layout.simple_spinner_dropdown_item,
-                    branches
-                )
+                clients = loadedClients
+                configureClients()
                 findViewById<EditText>(R.id.etInstallerPassword).text?.clear()
                 showStep(2)
             }
         }
     }
 
+    private fun configureClients() {
+        val items = clients.map { clientLabel(it) to it.idCliente.orEmpty() }
+        clientField.setAdapter(searchableAdapter(items))
+        enableFullDropdown(clientField) { clients.isNotEmpty() }
+        clientField.setOnItemClickListener { _, _, _, _ ->
+            val client = clients.firstOrNull { clientLabel(it) == clientField.text.toString() }
+                ?: return@setOnItemClickListener
+            selectedClient = client
+            clientField.setText(clientLabel(client), false)
+            clientField.setSelection(clientField.text.length)
+            selectedBranch = null
+            branches = emptyList()
+            branchField.setText("", false)
+            branchField.setAdapter(null)
+            loadBranches(client)
+        }
+    }
+
+    private fun loadBranches(client: Cliente) {
+        val clientId = client.idCliente.orEmpty()
+        status.text = "Cargando sucursales de ${client.nombreCliente.orEmpty()}..."
+        status.visibility = View.VISIBLE
+        lifecycleScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                val response = RetrofitClient.apiService.obtenerSucursales(clientId)
+                if (!response.isSuccessful) {
+                    throw MosiApiException("No fue posible consultar sucursales (HTTP ${response.code()})")
+                }
+                response.body()?.sucursales.orEmpty().mapNotNull { item ->
+                    val id = item.idSucursal?.toIntOrNull() ?: return@mapNotNull null
+                    val name = item.nombreSucursal?.trim().orEmpty()
+                    if (name.isBlank()) null else MosiSucursal(id, name)
+                }
+            }
+            withContext(Dispatchers.Main) {
+                result.onSuccess { loaded ->
+                    if (selectedClient?.idCliente != clientId) return@onSuccess
+                    branches = loaded
+                    configureBranches()
+                    if (loaded.isEmpty()) {
+                        showError("Este cliente no tiene sucursales disponibles.")
+                    } else {
+                        clearStatus()
+                        branchField.requestFocus()
+                        branchField.showDropDown()
+                    }
+                }.onFailure { showError(it.message ?: "No fue posible cargar las sucursales.") }
+            }
+        }
+    }
+
+    private fun configureBranches() {
+        val items = branches.map { branchLabel(it) to it.id.toString() }
+        branchField.setAdapter(searchableAdapter(items))
+        enableFullDropdown(branchField) { branches.isNotEmpty() }
+        branchField.setOnItemClickListener { _, _, _, _ ->
+            val branch = branches.firstOrNull { branchLabel(it) == branchField.text.toString() }
+                ?: return@setOnItemClickListener
+            selectedBranch = branch
+            branchField.setText(branchLabel(branch), false)
+            branchField.setSelection(branchField.text.length)
+        }
+    }
+
+    private fun searchableAdapter(items: List<Pair<String, String>>): ArrayAdapter<String> =
+        object : ArrayAdapter<String>(this, android.R.layout.simple_dropdown_item_1line, items.map { it.first }) {
+            override fun getFilter(): Filter = object : Filter() {
+                override fun performFiltering(constraint: CharSequence?): FilterResults {
+                    val query = constraint?.toString()?.trim()?.lowercase().orEmpty()
+                    val matches = if (query.isBlank()) items else items.filter { (label, id) ->
+                        label.lowercase().contains(query) || id.lowercase().contains(query)
+                    }
+                    return FilterResults().apply {
+                        values = matches.map { it.first }
+                        count = matches.size
+                    }
+                }
+
+                @Suppress("UNCHECKED_CAST")
+                override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                    clear()
+                    addAll((results?.values as? List<String>).orEmpty())
+                    notifyDataSetChanged()
+                }
+            }
+        }
+
+    private fun enableFullDropdown(field: AutoCompleteTextView, hasItems: () -> Boolean) {
+        val open = {
+            if (hasItems()) {
+                field.selectAll()
+                (field.adapter as? Filterable)?.filter?.filter("") { field.showDropDown() }
+            }
+        }
+        field.setOnClickListener { open() }
+        field.setOnFocusChangeListener { _, focused -> if (focused) open() }
+    }
+
+    private fun clientLabel(client: Cliente) =
+        "${client.nombreCliente.orEmpty()} (${client.idCliente.orEmpty()})"
+
+    private fun branchLabel(branch: MosiSucursal) = "${branch.nombre} (${branch.id})"
+
     private fun validateCabin() {
-        if (serial.text.toString().trim().isBlank() || branchSpinner.selectedItemPosition !in branches.indices) {
-            showError("Capture el número de serie y seleccione una sucursal.")
+        val client = selectedClient
+        val branch = selectedBranch
+        val validSelection = client != null && branch != null &&
+            clientField.text.toString() == clientLabel(client) &&
+            branchField.text.toString() == branchLabel(branch)
+        if (serial.text.toString().trim().isBlank() || !validSelection) {
+            showError("Capture el número de serie y seleccione un cliente y una sucursal de las listas.")
             return
         }
         showStep(3)
@@ -154,9 +273,11 @@ class MosiActivationActivity : BaseActivity() {
             showError("Capture una IP y puerto válidos para la impresora.")
             return
         }
-        val branch = branches[branchSpinner.selectedItemPosition]
+        val client = selectedClient ?: return
+        val branch = selectedBranch ?: return
         findViewById<TextView>(R.id.tvInstallSummary).text =
             "Serie: ${serial.text.toString().trim()}\n" +
+                "Cliente: ${client.nombreCliente.orEmpty()}\n" +
                 "Sucursal: ${branch.nombre}\n" +
                 "Pantalla: ${value(R.id.etVideoLoopHost)}:${value(R.id.etVideoLoopPort)}\n" +
                 "Impresora: $printerHost:$printerPort\n\n" +
@@ -170,10 +291,12 @@ class MosiActivationActivity : BaseActivity() {
             showStep(1)
             return
         }
-        val branch = branches.getOrNull(branchSpinner.selectedItemPosition) ?: return
+        val client = selectedClient ?: return
+        val branch = selectedBranch ?: return
         busy(button, "Vinculando cabina con el administrador...") {
             api.completarInstalacion(
-                installerToken, serial.text.toString(), branch,
+                installerToken, serial.text.toString(),
+                client.idCliente.orEmpty(), client.nombreCliente.orEmpty(), branch,
                 value(R.id.etVideoLoopHost), value(R.id.etVideoLoopPort).toInt(),
                 value(R.id.etVideoLoopKey), value(R.id.etVideoLoopEmail),
                 value(R.id.etPrinterHost), value(R.id.etPrinterPort).toInt()

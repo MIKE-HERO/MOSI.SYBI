@@ -133,6 +133,8 @@ class MosiApiClient(private val context: Context) {
     fun completarInstalacion(
         tokenInstalador: String,
         numeroSerie: String,
+        clienteId: String,
+        clienteNombre: String,
         sucursal: MosiSucursal,
         videoLoopHost: String,
         videoLoopPort: Int,
@@ -143,6 +145,8 @@ class MosiApiClient(private val context: Context) {
     ): JSONObject {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         val config = JSONObject()
+            .put("id_cliente", clienteId.trim())
+            .put("cliente_nombre", clienteNombre.trim())
             .put("videoloop_host", videoLoopHost.trim())
             .put("videoloop_port", videoLoopPort)
             .put("videoloop_clave", videoLoopKey)
@@ -166,6 +170,8 @@ class MosiApiClient(private val context: Context) {
         guardarActivacion(data, numeroSerie)
         context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE).edit()
             .putString(DeviceInfoActivity.PREF_DEVICE_SERIAL, numeroSerie.trim())
+            .putString(TelemedicineSettingsActivity.PREF_CLIENTE, clienteId.trim())
+            .putString(TelemedicineSettingsActivity.PREF_CLIENTE_NOMBRE, clienteNombre.trim())
             .putString(TelemedicineSettingsActivity.PREF_SUCURSAL, sucursal.id.toString())
             .putString(TelemedicineSettingsActivity.PREF_SUCURSAL_NOMBRE, sucursal.nombre)
             .putBoolean(TelemedicineSettingsActivity.PREF_TELEMEDICINE_ENABLED, true)

@@ -50,9 +50,20 @@
                     android:layout_height="wrap_content" android:hint="Número de serie MOSI"
                     android:inputType="textCapCharacters" android:maxLines="1" />
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp" android:text="Sucursal" android:textColor="#52677A" />
-                <Spinner android:id="@+id/spinnerBranch" android:layout_width="match_parent"
-                    android:layout_height="52dp" />
+                    android:layout_marginTop="16dp" android:text="Cliente" android:textColor="#52677A" />
+                <AutoCompleteTextView android:id="@+id/etActivationClient"
+                    android:layout_width="match_parent" android:layout_height="52dp"
+                    android:completionThreshold="1" android:hint="Escribe nombre o ID del cliente"
+                    android:inputType="textCapWords" android:maxLines="1" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp" android:text="Sucursal" android:textColor="#52677A" />
+                <AutoCompleteTextView android:id="@+id/etActivationBranch"
+                    android:layout_width="match_parent" android:layout_height="52dp"
+                    android:completionThreshold="1" android:hint="Escribe nombre o ID de la sucursal"
+                    android:inputType="textCapWords" android:maxLines="1" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp" android:text="Selecciona un resultado de la lista."
+                    android:textColor="#718096" android:textSize="12sp" />
                 <Button android:id="@+id/btnCabinNext" android:layout_width="match_parent"
                     android:layout_height="wrap_content" android:layout_marginTop="20dp"
                     android:backgroundTint="#0F3E82" android:text="Continuar" android:textColor="#FFFFFF" />
