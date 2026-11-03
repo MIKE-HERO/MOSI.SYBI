@@ -12,8 +12,8 @@ android {
         applicationId = "com.sybi.mosi"
         minSdk = 25
         targetSdk = 34
-        versionCode = 30
-        versionName = "1.0.25"
+        versionCode = 32
+        versionName = "1.0.27"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
