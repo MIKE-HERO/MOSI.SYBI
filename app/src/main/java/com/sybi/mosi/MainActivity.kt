@@ -72,6 +72,7 @@ class MainActivity : BaseActivity() {
     private var connectionReceiver: BroadcastReceiver? = null
     private var scaleReceiver: BroadcastReceiver? = null
     private var backgroundReceiver: BroadcastReceiver? = null
+    private var languageButtonReceiver: BroadcastReceiver? = null   // ✅ CAMBIO SWITCH IDIOMA
 
     // Control para evitar abrir LoginActivity múltiples veces por la misma pisada de báscula
     @Volatile private var isLaunchingLogin = false
@@ -195,6 +196,17 @@ class MainActivity : BaseActivity() {
             IntentFilter("ACTION_UPDATE_TITLE")
         )
 
+        // --- RECEPTOR PARA MOSTRAR/OCULTAR EL BOTÓN DE IDIOMA --- ✅ CAMBIO SWITCH IDIOMA
+        languageButtonReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                updateLanguageButtonVisibility()
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            languageButtonReceiver!!,
+            IntentFilter("ACTION_UPDATE_LANGUAGE_BUTTON")
+        )
+
         applyMedicalBackground(
             getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
                 .getString("MedicalBackground", "azul")
@@ -312,6 +324,7 @@ class MainActivity : BaseActivity() {
         }
 
         updateDeviceButtonsVisibility()
+        updateLanguageButtonVisibility()   // ✅ CAMBIO SWITCH IDIOMA — aplicar visibilidad inicial
 
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDoubleTap(e: MotionEvent): Boolean {
@@ -325,6 +338,17 @@ class MainActivity : BaseActivity() {
         touchInterceptor.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
             true
+        }
+    }
+
+    // ==========================================
+    // VISIBILIDAD DEL BOTÓN DE IDIOMA   ✅ CAMBIO SWITCH IDIOMA
+    // ==========================================
+    private fun updateLanguageButtonVisibility() {
+        val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val visible = prefs.getBoolean("ShowLanguageButton", true)
+        if (::languageSurface.isInitialized) {
+            languageSurface.visibility = if (visible) View.VISIBLE else View.GONE
         }
     }
 
@@ -661,6 +685,7 @@ class MainActivity : BaseActivity() {
                 appPrefs.getString("MedicalBackground", "azul")
             )
         }
+        updateLanguageButtonVisibility()   // ✅ CAMBIO SWITCH IDIOMA — refrescar al volver desde Ajustes
         shineOverlay.startSweeping()
         startBreathingEffect()
 
@@ -720,6 +745,9 @@ class MainActivity : BaseActivity() {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
             backgroundReceiver?.let {
+                LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
+            }
+            languageButtonReceiver?.let {   // ✅ CAMBIO SWITCH IDIOMA
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
         } catch (e: Exception) {

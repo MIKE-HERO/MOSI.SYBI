@@ -3,6 +3,7 @@ package com.sybi.mosi
 import android.app.Application
 import android.content.Context
 import com.sybi.mosi.helpers.FaceBiometricsCache
+import com.sybi.mosi.helpers.LocaleHelper
 
 class MosiApp : Application() {
     companion object {
@@ -10,9 +11,15 @@ class MosiApp : Application() {
             private set
     }
 
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(LocaleHelper.applyLanguage(base))
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
+        LocaleHelper.applyLanguage(this)
+
         // Asegurar que existan los puertos seriales por defecto en SharedPreferences desde el inicio
         val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         DeviceDefaults.ensureDefaultPorts(devicePrefs)

@@ -11,12 +11,12 @@ import android.view.WindowManager
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.sybi.mosi.R
 import com.sybi.mosi.integration.MosiApiClient
 import com.sybi.mosi.integration.MosiSecureStore
 import kotlinx.coroutines.Dispatchers
+import com.sybi.mosi.BaseActivity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,7 +26,7 @@ import kotlinx.coroutines.withContext
  * Muestra el progreso de descarga de la versión y la barra/anillo de carga.
  * Bloquea la salida o retroceso hasta que la actualización finaliza.
  */
-class UpdateActivity : AppCompatActivity() {
+class UpdateActivity : BaseActivity() {
 
     companion object {
         private const val TAG = "UpdateActivity"
