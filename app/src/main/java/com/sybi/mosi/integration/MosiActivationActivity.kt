@@ -17,8 +17,6 @@ import androidx.lifecycle.lifecycleScope
 import com.sybi.mosi.BaseActivity
 import com.sybi.mosi.DeviceInfoActivity
 import com.sybi.mosi.R
-import com.sybi.mosi.network.Cliente
-import com.sybi.mosi.network.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,8 +31,8 @@ class MosiActivationActivity : BaseActivity() {
     private lateinit var branchField: AutoCompleteTextView
     private lateinit var panels: List<LinearLayout>
     private var installerToken = ""
-    private var clients: List<Cliente> = emptyList()
-    private var selectedClient: Cliente? = null
+    private var clients: List<MosiCliente> = emptyList()
+    private var selectedClient: MosiCliente? = null
     private var branches: List<MosiSucursal> = emptyList()
     private var selectedBranch: MosiSucursal? = null
     private var currentStep = 1
@@ -114,13 +112,7 @@ class MosiActivationActivity : BaseActivity() {
         }
         busy(button, "Validando instalador...") {
             val token = api.iniciarSesionInstalador(email, password)
-            val response = RetrofitClient.apiService.obtenerClientes()
-            if (!response.isSuccessful) {
-                throw MosiApiException("No fue posible consultar clientes (HTTP ${response.code()})")
-            }
-            val loadedClients = response.body()?.clientes.orEmpty().filter {
-                !it.idCliente.isNullOrBlank() && !it.nombreCliente.isNullOrBlank()
-            }
+            val loadedClients = api.listarClientes(token)
             if (loadedClients.isEmpty()) throw MosiApiException("No hay clientes disponibles")
             withContext(Dispatchers.Main) {
                 installerToken = token
@@ -133,7 +125,7 @@ class MosiActivationActivity : BaseActivity() {
     }
 
     private fun configureClients() {
-        val items = clients.map { clientLabel(it) to it.idCliente.orEmpty() }
+        val items = clients.map { clientLabel(it) to it.id }
         clientField.setAdapter(searchableAdapter(items))
         enableFullDropdown(clientField) { clients.isNotEmpty() }
         clientField.setOnItemClickListener { _, _, _, _ ->
@@ -150,25 +142,17 @@ class MosiActivationActivity : BaseActivity() {
         }
     }
 
-    private fun loadBranches(client: Cliente) {
-        val clientId = client.idCliente.orEmpty()
-        status.text = "Cargando sucursales de ${client.nombreCliente.orEmpty()}..."
+    private fun loadBranches(client: MosiCliente) {
+        val clientId = client.id
+        status.text = "Cargando sucursales de ${client.nombre}..."
         status.visibility = View.VISIBLE
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
-                val response = RetrofitClient.apiService.obtenerSucursales(clientId)
-                if (!response.isSuccessful) {
-                    throw MosiApiException("No fue posible consultar sucursales (HTTP ${response.code()})")
-                }
-                response.body()?.sucursales.orEmpty().mapNotNull { item ->
-                    val id = item.idSucursal?.toIntOrNull() ?: return@mapNotNull null
-                    val name = item.nombreSucursal?.trim().orEmpty()
-                    if (name.isBlank()) null else MosiSucursal(id, name)
-                }
+                api.listarSucursales(installerToken, clientId)
             }
             withContext(Dispatchers.Main) {
                 result.onSuccess { loaded ->
-                    if (selectedClient?.idCliente != clientId) return@onSuccess
+                    if (selectedClient?.id != clientId) return@onSuccess
                     branches = loaded
                     configureBranches()
                     if (loaded.isEmpty()) {
@@ -230,8 +214,7 @@ class MosiActivationActivity : BaseActivity() {
         field.setOnFocusChangeListener { _, focused -> if (focused) open() }
     }
 
-    private fun clientLabel(client: Cliente) =
-        "${client.nombreCliente.orEmpty()} (${client.idCliente.orEmpty()})"
+    private fun clientLabel(client: MosiCliente) = "${client.nombre} (${client.id})"
 
     private fun branchLabel(branch: MosiSucursal) = "${branch.nombre} (${branch.id})"
 
@@ -277,7 +260,7 @@ class MosiActivationActivity : BaseActivity() {
         val branch = selectedBranch ?: return
         findViewById<TextView>(R.id.tvInstallSummary).text =
             "Serie: ${serial.text.toString().trim()}\n" +
-                "Cliente: ${client.nombreCliente.orEmpty()}\n" +
+                "Cliente: ${client.nombre}\n" +
                 "Sucursal: ${branch.nombre}\n" +
                 "Pantalla: ${value(R.id.etVideoLoopHost)}:${value(R.id.etVideoLoopPort)}\n" +
                 "Impresora: $printerHost:$printerPort\n\n" +
@@ -296,7 +279,7 @@ class MosiActivationActivity : BaseActivity() {
         busy(button, "Vinculando cabina con el administrador...") {
             api.completarInstalacion(
                 installerToken, serial.text.toString(),
-                client.idCliente.orEmpty(), client.nombreCliente.orEmpty(), branch,
+                client.id, client.nombre, branch,
                 value(R.id.etVideoLoopHost), value(R.id.etVideoLoopPort).toInt(),
                 value(R.id.etVideoLoopKey), value(R.id.etVideoLoopEmail),
                 value(R.id.etPrinterHost), value(R.id.etPrinterPort).toInt()

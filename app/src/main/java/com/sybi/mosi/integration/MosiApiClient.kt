@@ -36,6 +36,8 @@ data class MosiSucursal(val id: Int, val nombre: String) {
     override fun toString(): String = nombre
 }
 
+data class MosiCliente(val id: String, val nombre: String)
+
 class MosiApiException(message: String, val statusCode: Int? = null) : Exception(message)
 
 /** Cliente del canal administrativo MOSI. Nunca registra tokens ni cuerpos clínicos. */
@@ -116,9 +118,24 @@ class MosiApiClient(private val context: Context) {
         }
     }
 
-    fun listarSucursales(tokenInstalador: String): List<MosiSucursal> {
+    fun listarClientes(tokenInstalador: String): List<MosiCliente> {
         val response = post(
-            "/api/mosi_instalacion_sucursales.php", JSONObject(), authenticated = false,
+            "/api/mosi_instalacion_clientes.php", JSONObject(), authenticated = false,
+            extraHeaders = mapOf("X-Tecnico-Token" to tokenInstalador)
+        )
+        val items = response.optJSONArray("data") ?: JSONArray()
+        return (0 until items.length()).mapNotNull { index ->
+            val item = items.optJSONObject(index) ?: return@mapNotNull null
+            val id = item.optString("id_cliente").trim()
+            val nombre = item.optString("nombre").trim()
+            if (id.isNotBlank() && nombre.isNotBlank()) MosiCliente(id, nombre) else null
+        }
+    }
+
+    fun listarSucursales(tokenInstalador: String, clienteId: String): List<MosiSucursal> {
+        val response = post(
+            "/api/mosi_instalacion_sucursales.php",
+            JSONObject().put("id_cliente", clienteId.trim()), authenticated = false,
             extraHeaders = mapOf("X-Tecnico-Token" to tokenInstalador)
         )
         val items = response.optJSONArray("data") ?: JSONArray()
