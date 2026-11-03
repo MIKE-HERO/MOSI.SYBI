@@ -32,6 +32,10 @@ data class MosiAvailableUpdate(
     val requestId: String
 )
 
+data class MosiSucursal(val id: Int, val nombre: String) {
+    override fun toString(): String = nombre
+}
+
 class MosiApiException(message: String, val statusCode: Int? = null) : Exception(message)
 
 /** Cliente del canal administrativo MOSI. Nunca registra tokens ni cuerpos clínicos. */
@@ -76,6 +80,91 @@ class MosiApiClient(private val context: Context) {
             .putString(DeviceInfoActivity.PREF_DEVICE_SERIAL, numeroSerie.trim())
             .apply()
         return data
+    }
+
+    fun iniciarSesionInstalador(email: String, password: String): String {
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        val response = post(
+            "/api/mosi_instalador_login.php",
+            JSONObject().put("email", email.trim()).put("password", password)
+                .put("app_version", info.versionName.orEmpty()),
+            authenticated = false
+        )
+        val token = response.optJSONObject("data")?.optString("token").orEmpty()
+        if (!token.startsWith("TECH_")) throw MosiApiException("El servidor no entregó una sesión de instalador válida")
+        return token
+    }
+
+    fun listarSucursales(tokenInstalador: String): List<MosiSucursal> {
+        val response = post(
+            "/api/mosi_instalacion_sucursales.php", JSONObject(), authenticated = false,
+            extraHeaders = mapOf("X-Tecnico-Token" to tokenInstalador)
+        )
+        val items = response.optJSONArray("data") ?: JSONArray()
+        return (0 until items.length()).mapNotNull { index ->
+            val item = items.optJSONObject(index) ?: return@mapNotNull null
+            val id = item.optInt("id_sucursal_clinica")
+            val nombre = item.optString("nombre").trim()
+            if (id > 0 && nombre.isNotBlank()) MosiSucursal(id, nombre) else null
+        }
+    }
+
+    fun completarInstalacion(
+        tokenInstalador: String,
+        numeroSerie: String,
+        sucursal: MosiSucursal,
+        videoLoopHost: String,
+        videoLoopPort: Int,
+        videoLoopKey: String,
+        videoLoopEmail: String,
+        printerIp: String,
+        printerPort: Int
+    ): JSONObject {
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        val config = JSONObject()
+            .put("videoloop_host", videoLoopHost.trim())
+            .put("videoloop_port", videoLoopPort)
+            .put("videoloop_clave", videoLoopKey)
+            .put("videoloop_email", videoLoopEmail.trim())
+            .put("impresora_ip", printerIp.trim())
+            .put("impresora_puerto", printerPort)
+        val body = JSONObject()
+            .put("numero_serie", numeroSerie.trim())
+            .put("id_sucursal_clinica", sucursal.id)
+            .put("device_id", MosiSecureStore.deviceId(context))
+            .put("android_id", androidId())
+            .put("package_name", context.packageName)
+            .put("certificado_sha256", certificateSha256())
+            .put("app_version", info.versionName.orEmpty())
+            .put("configuracion", config)
+        val response = post(
+            "/api/mosi_instalacion_completar.php", body, authenticated = false,
+            extraHeaders = mapOf("X-Tecnico-Token" to tokenInstalador)
+        )
+        val data = response.optJSONObject("data") ?: throw MosiApiException("La instalación no devolvió datos")
+        guardarActivacion(data, numeroSerie)
+        context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE).edit()
+            .putString(DeviceInfoActivity.PREF_DEVICE_SERIAL, numeroSerie.trim())
+            .putString(TelemedicineSettingsActivity.PREF_SUCURSAL, sucursal.id.toString())
+            .putString(TelemedicineSettingsActivity.PREF_SUCURSAL_NOMBRE, sucursal.nombre)
+            .putBoolean(TelemedicineSettingsActivity.PREF_TELEMEDICINE_ENABLED, true)
+            .putString("printer_ip", printerIp.trim())
+            .apply()
+        com.sybi.mosi.VideoLoopRemote.saveHostPort(context, "${videoLoopHost.trim()}:$videoLoopPort")
+        com.sybi.mosi.VideoLoopRemote.saveKey(context, videoLoopKey)
+        return data
+    }
+
+    private fun guardarActivacion(data: JSONObject, numeroSerie: String) {
+        val token = data.optString("token")
+        if (!token.startsWith("MLMOSI_")) throw MosiApiException("El servidor no entregó un token MOSI válido")
+        val routes = data.optJSONObject("rutas") ?: JSONObject()
+        MosiSecureStore.guardarActivacion(
+            context, token, numeroSerie, data.optLong("intervalo_sincronizacion", 300L),
+            routes.optString("telemetria", "/api/mosi_telemetria.php"),
+            routes.optString("actualizacion_consultar", "/api/mosi_actualizacion_consultar.php"),
+            routes.optString("actualizacion_evento", "/api/mosi_actualizacion_evento.php")
+        )
     }
 
     fun enviarTelemetria(requestId: String, telemetry: JSONObject) {
@@ -183,7 +272,12 @@ class MosiApiClient(private val context: Context) {
             .put("sensores", sensors)
     }
 
-    private fun post(route: String, body: JSONObject, authenticated: Boolean): JSONObject {
+    private fun post(
+        route: String,
+        body: JSONObject,
+        authenticated: Boolean,
+        extraHeaders: Map<String, String> = emptyMap()
+    ): JSONObject {
         val requestBuilder = Request.Builder()
             .url(resolveRoute(route))
             .header("Accept", "application/json")
@@ -193,20 +287,25 @@ class MosiApiClient(private val context: Context) {
             if (token.isBlank()) throw MosiApiException("Esta cabina no está activada")
             requestBuilder.header("Authorization", "Bearer $token")
         }
+        extraHeaders.forEach { (name, value) -> requestBuilder.header(name, value) }
         client.newCall(requestBuilder.build()).execute().use { response ->
             val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                if (response.code == 401 || response.code == 403) MosiSecureStore.borrarActivacion(context)
-                throw MosiApiException("Servidor MOSI respondió HTTP ${response.code}", response.code)
+                if (authenticated && (response.code == 401 || response.code == 403)) {
+                    MosiSecureStore.borrarActivacion(context)
+                }
+                val error = runCatching { JSONObject(text).optString("error") }.getOrNull()
+                throw MosiApiException(error?.takeIf { it.isNotBlank() } ?: "Servidor MOSI respondió HTTP ${response.code}", response.code)
             }
             val json = runCatching { JSONObject(text) }
                 .getOrElse { throw MosiApiException("El servidor MOSI devolvió JSON inválido") }
             val success = when {
+                json.has("ok") -> json.optBoolean("ok")
                 json.has("success") -> json.optBoolean("success")
                 json.has("exito") -> json.optBoolean("exito")
                 else -> true
             }
-            if (!success) throw MosiApiException(json.optString("mensaje", "Operación rechazada por MOSI"))
+            if (!success) throw MosiApiException(json.optString("error", json.optString("mensaje", "Operación rechazada por MOSI")))
             return json
         }
     }

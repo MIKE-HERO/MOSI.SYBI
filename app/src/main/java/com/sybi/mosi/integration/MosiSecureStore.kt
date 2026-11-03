@@ -22,6 +22,7 @@ object MosiSecureStore {
     private const val KEY_UPDATE_ID = "pending_update_id"
     private const val KEY_UPDATE_VERSION = "pending_update_version"
     private const val KEY_UPDATE_REQUEST_ID = "pending_update_request_id"
+    private const val KEY_VIDEOLOOP_KEY = "videoloop_key"
 
     private fun prefs(context: Context): SharedPreferences {
         val alias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
@@ -69,6 +70,13 @@ object MosiSecureStore {
     fun borrarActivacion(context: Context) {
         withPrefs(context, Unit) { it.edit().remove(KEY_TOKEN).remove(KEY_SERIAL).apply() }
     }
+
+    fun guardarClaveVideoLoop(context: Context, clave: String) {
+        prefs(context).edit().putString(KEY_VIDEOLOOP_KEY, clave.trim()).apply()
+    }
+
+    fun claveVideoLoop(context: Context): String =
+        withPrefs(context, "") { it.getString(KEY_VIDEOLOOP_KEY, "").orEmpty() }
 
     fun deviceId(context: Context): String {
         val existing = withPrefs(context, "") { it.getString(KEY_DEVICE_ID, "").orEmpty() }
