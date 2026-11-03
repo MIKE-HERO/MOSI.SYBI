@@ -101,6 +101,8 @@ object AutoLogHelper {
 
         if (archivo != null && archivo.exists()) {
             val fechaStr = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())
+            val diagRed = com.sybi.mosi.network.NetworkSpeedHelper.obtenerDiagnosticoRedCompleto(context)
+
             val resultado = EmailSender.enviar(
                 config = config,
                 destino = DESTINO_SOPORTE,
@@ -109,7 +111,11 @@ object AutoLogHelper {
                     <h2>Log automático de quiosco MOSI</h2>
                     <p><b>Motivo:</b> $motivo</p>
                     <p><b>Fecha y hora:</b> $fechaStr</p>
-                    <p>Se adjunta el archivo con el registro de log del quiosco.</p>
+                    <div style="background-color: #f4f4f4; padding: 10px; border-radius: 5px; font-family: monospace;">
+                        <b>Diagnóstico de Red y Velocidad de Internet:</b><br/>
+                        <pre>$diagRed</pre>
+                    </div>
+                    <p>Se adjunta el archivo con el registro completo de log del quiosco.</p>
                 """.trimIndent(),
                 adjunto = archivo,
                 nombreAdjunto = "mosi_log_auto.log"

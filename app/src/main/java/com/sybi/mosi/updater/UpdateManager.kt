@@ -262,36 +262,87 @@ class UpdateManager(private val context: Context) {
     }
 
     /**
-     * Método unificado de instalación:
-     * Si la app es Device Owner (Administrador del Quiosco), instala silenciosamente sin intervención.
-     * Si no, abre el instalador de Android mediante Intent.
-     *
-     * @param forceReinstall si es true, permite reinstalar la MISMA versión y también
-     *        instalar versiones ANTERIORES (downgrade). Si es false, solo actualiza.
+     * Método unificado de instalación silenciosa:
+     * 1. Si es Device Owner, instala con PackageInstaller (sin acción del usuario).
+     * 2. Si el dispositivo tiene acceso Root (su), ejecuta 'pm install -r -d' en segundo plano.
+     * 3. De lo contrario, intenta PackageInstaller con USER_ACTION_NOT_REQUIRED.
+     * 4. Como último recurso si todo lo silencioso falla, abre la ventana del sistema.
      */
     fun installApkAuto(apkFile: File, forceReinstall: Boolean = false): Boolean {
-        return if (PermisosAdmin.esPropietario(context)) {
-            Log.i(TAG, "La app es Device Owner: ejecutando instalación silenciosa (forceReinstall=$forceReinstall)...")
-            installApkSilently(apkFile, forceReinstall)
-        } else {
-            Log.w(TAG, "La app no es Device Owner: abriendo instalador con confirmación del usuario...")
-            installApk(apkFile)
+        apkFile.setReadable(true, false)
+
+        if (PermisosAdmin.esPropietario(context)) {
+            Log.i(TAG, "La app es Device Owner: ejecutando instalación silenciosa vía PackageInstaller...")
+            val ok = installApkSilently(apkFile, forceReinstall)
+            if (ok) return true
+        }
+
+        Log.i(TAG, "Probando instalación silenciosa con permisos Root (su -c pm install)...")
+        val okRoot = installApkViaRoot(apkFile)
+        if (okRoot) {
+            Log.i(TAG, "✅ Instalación silenciosa vía Root enviada correctamente.")
+            return true
+        }
+
+        Log.i(TAG, "Probando instalación silenciosa vía PackageInstaller...")
+        val okSilent = installApkSilently(apkFile, forceReinstall)
+        if (okSilent) return true
+
+        Log.w(TAG, "No fue posible instalar en silencio: abriendo instalador con confirmación del usuario...")
+        return installApk(apkFile)
+    }
+
+    /**
+     * Intenta la instalación silenciosa ejecutando 'pm install -r -d' con permisos Root.
+     * Optimizado específicamente para Android 7.1.2 (Nougat) y tablets quiosco rooteadas.
+     */
+    fun installApkViaRoot(apkFile: File): Boolean {
+        if (!apkFile.exists() || apkFile.length() <= 0) return false
+        return try {
+            Log.d(TAG, "⚡ [Android 7.1.2] Ejecutando instalación silenciosa vía Root...")
+            apkFile.setReadable(true, false)
+            val sourcePath = apkFile.absolutePath
+            val tmpPath = "/data/local/tmp/quiosco-update.apk"
+
+            // En Android 7.1.2, copiar el APK a /data/local/tmp garantiza que el gestor de paquetes de Android
+            // tenga acceso de lectura ilimitado sin chocar con permisos de almacenamiento.
+            val command = "cp \"$sourcePath\" \"$tmpPath\" && chmod 777 \"$tmpPath\" && pm install -r -d \"$tmpPath\" && rm -f \"$tmpPath\""
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
+            val exitCode = process.waitFor()
+
+            if (exitCode == 0) {
+                Log.i(TAG, "✅ [Android 7.1.2] Instalación silenciosa vía Root completada (exitCode 0)")
+                true
+            } else {
+                val error = process.errorStream.bufferedReader().readText()
+                Log.w(TAG, "⚠️ Falló instalación Root con copia en /tmp (exitCode $exitCode): $error")
+
+                // Intento secundario de instalación directa
+                val directProc = Runtime.getRuntime().exec(arrayOf("su", "-c", "pm install -r -d \"$sourcePath\""))
+                val directExitCode = directProc.waitFor()
+                if (directExitCode == 0) {
+                    Log.i(TAG, "✅ [Android 7.1.2] Instalación silenciosa vía Root directa completada (exitCode 0)")
+                    true
+                } else {
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "No se pudo ejecutar su pm install en Android 7.1.2: ${e.message}")
+            false
         }
     }
 
     /**
-     * Realiza una instalación SILENCIOSA usando la API de PackageInstaller (para Device Owner).
-     *
-     * @param forceReinstall si es true:
-     *   - Permite reinstalar la misma versión (mismo versionCode).
-     *   - Permite instalar versiones anteriores (downgrade).
-     *   - En Android 12+ no pide confirmación al usuario.
+     * Realiza una instalación SILENCIOSA usando la API de PackageInstaller.
      */
     fun installApkSilently(apkFile: File, forceReinstall: Boolean = false): Boolean {
         if (!apkFile.exists() || apkFile.length() <= 0) {
             Log.e(TAG, "El archivo APK no existe o está vacío: ${apkFile.absolutePath}")
             return false
         }
+
+        apkFile.setReadable(true, false)
 
         val packageInstaller = context.packageManager.packageInstaller
         var session: PackageInstaller.Session? = null
@@ -301,23 +352,28 @@ class UpdateManager(private val context: Context) {
             )
             params.setAppPackageName(context.packageName)
 
-            if (forceReinstall) {
-                // ── Permitir reinstalar la misma versión y hacer downgrade ──
+            // Configurar USER_ACTION_NOT_REQUIRED siempre (evita pedir acción al usuario en Android 12+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 try {
-                    // Android 12+ (API 31): no pedir confirmación al usuario
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        params.setRequireUserAction(
-                            PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED
-                        )
-                    }
+                    params.setRequireUserAction(
+                        PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED
+                    )
                 } catch (e: Exception) {
                     Log.w(TAG, "No se pudo configurar USER_ACTION_NOT_REQUIRED: ${e.message}")
                 }
+            }
 
-                // Android 9+ (API 28): permitir downgrade / misma versión
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    allowDowngrade(params)
+            // Configurar INSTALL_REASON_POLICY (indica que es por administración del quiosco)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try {
+                    params.setInstallReason(android.content.pm.PackageManager.INSTALL_REASON_POLICY)
+                } catch (e: Exception) {
+                    Log.w(TAG, "No se pudo configurar INSTALL_REASON_POLICY: ${e.message}")
                 }
+            }
+
+            if (forceReinstall && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                allowDowngrade(params)
             }
 
             val sessionId = packageInstaller.createSession(params)

@@ -28,14 +28,14 @@ object RetrofitClient {
             level = HttpLoggingInterceptor.Level.HEADERS
         }
 
-        // DNS con timeout manual de 10 segundos
+        // DNS con timeout de 30 segundos para redes lentas
         val timeoutDns = object : Dns {
             override fun lookup(hostname: String): List<InetAddress> {
                 val future = dnsExecutor.submit(Callable {
                     Dns.SYSTEM.lookup(hostname)
                 })
                 return try {
-                    future.get(10, TimeUnit.SECONDS)
+                    future.get(30, TimeUnit.SECONDS)
                 } catch (e: Exception) {
                     future.cancel(true)
                     throw java.net.UnknownHostException("DNS lookup timeout for $hostname")
@@ -52,11 +52,11 @@ object RetrofitClient {
                 chain.proceed(request)
             }
             .addInterceptor(logging)
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
-            .callTimeout(30, TimeUnit.SECONDS)      // ✅ timeout total de la petición
-            .retryOnConnectionFailure(true)         // ✅ reintentar en fallos transitorios
+            .connectTimeout(60, TimeUnit.SECONDS)   // ✅ Adaptado para conexiones lentas
+            .readTimeout(180, TimeUnit.SECONDS)    // ✅ 3 min de lectura sin corte prematuro
+            .writeTimeout(180, TimeUnit.SECONDS)   // ✅ 3 min de escritura para subidas lentas
+            .callTimeout(0, TimeUnit.SECONDS)      // ✅ Sin límite de tiempo global estricto
+            .retryOnConnectionFailure(true)        // ✅ Reintentar automáticamente en fallos
             .build()
 
         Retrofit.Builder()

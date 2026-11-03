@@ -132,11 +132,12 @@ class EcgManager(
         editor.putString("ecg_res_code", results.resCode)
 
         image?.let {
-            // ✅ Base64 con la imagen ORIGINAL, sin recomprimir ni redimensionar.
-            //    PNG al 100% = sin pérdida de calidad.
-            val base64 = bitmapToBase64Original(it)
+            // ✅ Comprimir y optimizar la imagen del ECG (JPEG 85%, máx. 1600px)
+            //    Mantiene máxima nitidez visual pero reduce el tamaño de ~4.5 MB a ~200 KB
+            //    impidiendo timeouts en conexiones lentas.
+            val base64 = bitmapToBase64Optimizado(it)
             editor.putString("ecg_image", base64)
-            Log.d(TAG, "📷 ECG Base64 (original PNG): ${base64.length / 1024} KB")
+            Log.d(TAG, "📷 ECG Base64 (optimizado JPEG): ${base64.length / 1024} KB")
         }
         editor.apply()
     }
@@ -144,14 +145,26 @@ class EcgManager(
     fun getLastJpgPath(): String? = helper?.lastJpgPath
 
     /**
-     * Convierte el Bitmap a Base64 SIN comprimir ni redimensionar.
-     * Usa PNG sin pérdida para preservar la calidad del ECG.
+     * Convierte el Bitmap a Base64 optimizado para un envío rápido por internet.
+     * Escala a máximo 1600px y comprime a JPEG 85% preservando excelente nitidez.
      */
-    private fun bitmapToBase64Original(bitmap: Bitmap): String {
+    private fun bitmapToBase64Optimizado(bitmap: Bitmap): String {
+        val maxDim = 1600
+        val width = bitmap.width
+        val height = bitmap.height
+        val scaledBitmap = if (width > maxDim || height > maxDim) {
+            val scale = minOf(maxDim.toFloat() / width, maxDim.toFloat() / height)
+            val newW = (width * scale).toInt()
+            val newH = (height * scale).toInt()
+            Bitmap.createScaledBitmap(bitmap, newW, newH, true)
+        } else {
+            bitmap
+        }
+
         val baos = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos)
         val bytes = baos.toByteArray()
-        Log.d(TAG, "📷 ECG original (PNG): ${bytes.size / 1024} KB (${bitmap.width}x${bitmap.height})")
+        Log.d(TAG, "📷 ECG optimizado (JPEG 85%): ${bytes.size / 1024} KB (${scaledBitmap.width}x${scaledBitmap.height})")
         return Base64.encodeToString(bytes, Base64.NO_WRAP)
     }
 }
