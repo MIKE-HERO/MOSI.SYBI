@@ -13,8 +13,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import com.sybi.mosi.integration.MosiApiClient
-import com.sybi.mosi.integration.MosiSecureStore
+import com.sybi.mosi.integration.MosiTelemedicineSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -99,9 +98,9 @@ class TelemedicineActivity : BaseActivity() {
     }
 
     override fun onDestroy() {
-        if (!isChangingConfigurations && reportedStart && !reportedEnd) {
+        if (isFinishing && !isChangingConfigurations && reportedStart && !reportedEnd) {
             reportedEnd = true
-            reportarEventoMosi("cancelacion", "La pantalla de telemedicina se cerró sin usar el botón Salir")
+            MosiTelemedicineSession.cancel(this, "La pantalla de telemedicina se cerró sin usar el botón Salir")
         }
         val appContext = applicationContext
         CoroutineScope(Dispatchers.IO).launch {
@@ -188,10 +187,10 @@ class TelemedicineActivity : BaseActivity() {
         if (exito) {
             if (!reportedStart) {
                 reportedStart = true
-                reportarEventoMosi("inicio")
+                MosiTelemedicineSession.start(this, sessionId)
             }
         } else {
-            reportarEventoMosi("error", "No se encontró un navegador compatible")
+            MosiTelemedicineSession.error(this, sessionId, "No se encontró un navegador compatible")
             tvEstado.text = "No se pudo abrir la consulta en el navegador."
             Toast.makeText(this, "No se encontró un navegador compatible instalado", Toast.LENGTH_LONG).show()
         }
@@ -200,7 +199,7 @@ class TelemedicineActivity : BaseActivity() {
     private fun irAInicio() {
         if (reportedStart && !reportedEnd) {
             reportedEnd = true
-            reportarEventoMosi("fin")
+            MosiTelemedicineSession.finish(this)
         }
         DailyReportManager.onTelemedicineEnded(this, idUsuarioWeb)
         AutoLogHelper.enviarLogFinConsulta(this)
@@ -211,19 +210,4 @@ class TelemedicineActivity : BaseActivity() {
         finish()
     }
 
-    private fun reportarEventoMosi(evento: String, detalle: String? = null) {
-        val appContext = applicationContext
-        if (!MosiSecureStore.estaActivado(appContext)) return
-        CoroutineScope(Dispatchers.IO).launch {
-            runCatching {
-                MosiApiClient(appContext).reportarEventoTelemedicina(
-                    event = evento,
-                    sessionId = sessionId,
-                    detail = detalle
-                )
-            }.onFailure { error ->
-                Log.w(TAG, "No se pudo reportar evento MOSI de telemedicina '$evento': ${error.message}")
-            }
-        }
-    }
 }

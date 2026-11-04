@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import com.sybi.mosi.integration.MosiTelemedicineSession
 
 /**
  * Trampolín que recibe el deep link que dispara la página de telemedicina cuando TERMINA la
@@ -30,6 +31,7 @@ class FinConsultaActivity : Activity() {
         Log.d(TAG, "📴 Deep link de fin de consulta recibido: ${intent?.data}")
 
         val idWebParam = intent?.data?.getQueryParameter("id_usuario")?.toIntOrNull() ?: 0
+        MosiTelemedicineSession.finish(this)
         DailyReportManager.onTelemedicineEnded(this, idWebParam)
 
         // Enviar log automático si está activado
