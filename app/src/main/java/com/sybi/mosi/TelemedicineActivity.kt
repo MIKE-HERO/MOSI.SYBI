@@ -13,9 +13,13 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import com.sybi.mosi.network.ConnectivityStatusProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 /**
  * Lanzador de la consulta de telemedicina.
@@ -83,15 +87,69 @@ class TelemedicineActivity : BaseActivity() {
         // reabre todos los puertos solo con que se vuelva a arrancar el servicio, así que es
         // seguro parar/reiniciar en cada entrada/salida de esta pantalla.
         stopService(Intent(this, SerialService::class.java))
+
+        // ✅ Iniciar registro de red y latencia cada segundo durante la llamada de telemedicina
+        iniciarLogeoRedTelemedicina()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        detenerLogeoRedTelemedicina()
     }
 
     override fun onDestroy() {
+        detenerLogeoRedTelemedicina()
         val appContext = applicationContext
         CoroutineScope(Dispatchers.IO).launch {
             VideoLoopRemote.restaurarSilencio(appContext, TAG)
         }
         startService(Intent(this, SerialService::class.java))
         super.onDestroy()
+    }
+
+    private var networkLoggingJob: kotlinx.coroutines.Job? = null
+
+    private fun iniciarLogeoRedTelemedicina() {
+        networkLoggingJob?.cancel()
+        networkLoggingJob = CoroutineScope(Dispatchers.IO).launch {
+            val client = OkHttpClient.Builder()
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(5, TimeUnit.SECONDS)
+                .build()
+
+            val baseUrl = runCatching { TelemedicineSettingsActivity.getBaseUrl(this@TelemedicineActivity) }.getOrNull() ?: "https://www.sybiml.com"
+
+            while (true) {
+                try {
+                    val startTime = System.currentTimeMillis()
+                    val conn = ConnectivityStatusProvider.get(applicationContext)
+
+                    var latencyMs = -1L
+                    var httpStatus = -1
+                    try {
+                        val request = Request.Builder().url(baseUrl).head().build()
+                        client.newCall(request).execute().use { resp ->
+                            httpStatus = resp.code
+                            latencyMs = System.currentTimeMillis() - startTime
+                        }
+                    } catch (e: Exception) {
+                        latencyMs = System.currentTimeMillis() - startTime
+                        httpStatus = -999
+                        Log.w(TAG, "⚠️ [TELEMEDICINA RED] Ping error: ${e.message}")
+                    }
+
+                    Log.d(TAG, "⏱️ [TELEMEDICINA RED 1s] Transporte: ${conn.transport} | Internet: ${conn.internetAvailable} | WiFi: ${conn.wifiConnected} | Ethernet: ${conn.ethernetConnected} | SSID: ${conn.ssid ?: "N/A"} | Latencia/RTT: ${latencyMs}ms | HTTP Status: $httpStatus")
+                } catch (e: Exception) {
+                    Log.w(TAG, "⚠️ [TELEMEDICINA RED] Error en log periódico de red: ${e.message}")
+                }
+                kotlinx.coroutines.delay(1000L)
+            }
+        }
+    }
+
+    private fun detenerLogeoRedTelemedicina() {
+        networkLoggingJob?.cancel()
+        networkLoggingJob = null
     }
 
     private fun urlConsulta(): Uri {
@@ -169,7 +227,6 @@ class TelemedicineActivity : BaseActivity() {
 
     private fun irAInicio() {
         DailyReportManager.onTelemedicineEnded(this, idUsuarioWeb)
-        AutoLogHelper.enviarLogFinConsulta(this)
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }

@@ -1579,29 +1579,29 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         val r = Resultado(
             id_local = pacienteIdLocal,
             id_usuario_web = idUsuarioWebFinal,   // ✅ Este es el valor correcto
-            altura = if (state.height > 0) "%.1f".format(state.height) else "",
-            peso = if (state.weight > 0) "%.3f".format(state.weight) else "",
-            imc = if (state.imc > 0) "%.1f".format(state.imc) else "",
-            grasa_corporal = if (state.fatRate > 0) "%.1f".format(state.fatRate) else "",
-            grasa_corporal_kg = if (state.fatKg > 0) "%.1f".format(state.fatKg) else "",
-            agua_corporal = if (state.waterRate > 0) "%.1f".format(state.waterRate) else "",
-            agua_corporal_kg = if (state.waterKg > 0) "%.1f".format(state.waterKg) else "",
-            masa_muscular = if (state.muscle > 0) "%.1f".format(state.muscle) else "",
-            masa_libre_grasa = if (state.notFat > 0) "%.1f".format(state.notFat) else "",
-            proteina = if (state.protein > 0) "%.1f".format(state.protein) else "",
-            minerales = if (state.mineral > 0) "%.1f".format(state.mineral) else "",
+            altura = if (state.height > 0) "%.1f".format(java.util.Locale.US, state.height) else "",
+            peso = if (state.weight > 0) "%.3f".format(java.util.Locale.US, state.weight) else "",
+            imc = if (state.imc > 0) "%.1f".format(java.util.Locale.US, state.imc) else "",
+            grasa_corporal = if (state.fatRate > 0) "%.1f".format(java.util.Locale.US, state.fatRate) else "",
+            grasa_corporal_kg = if (state.fatKg > 0) "%.1f".format(java.util.Locale.US, state.fatKg) else "",
+            agua_corporal = if (state.waterRate > 0) "%.1f".format(java.util.Locale.US, state.waterRate) else "",
+            agua_corporal_kg = if (state.waterKg > 0) "%.1f".format(java.util.Locale.US, state.waterKg) else "",
+            masa_muscular = if (state.muscle > 0) "%.1f".format(java.util.Locale.US, state.muscle) else "",
+            masa_libre_grasa = if (state.notFat > 0) "%.1f".format(java.util.Locale.US, state.notFat) else "",
+            proteina = if (state.protein > 0) "%.1f".format(java.util.Locale.US, state.protein) else "",
+            minerales = if (state.mineral > 0) "%.1f".format(java.util.Locale.US, state.mineral) else "",
             metabolismo_basal = if (state.metabolism > 0) state.metabolism.toString() else "",
-            grasa_visceral = if (state.visceralFat > 0) "%.1f".format(state.visceralFat) else "",
-            peso_ideal = if (state.idealWeight > 0) "%.1f".format(state.idealWeight) else "",
+            grasa_visceral = if (state.visceralFat > 0) "%.1f".format(java.util.Locale.US, state.visceralFat) else "",
+            peso_ideal = if (state.idealWeight > 0) "%.1f".format(java.util.Locale.US, state.idealWeight) else "",
             tipo_grasa = if (state.fatType > 0) state.fatType.toString() else "",
             sistolica = if (state.systolic > 0) state.systolic.toString() else "",
             diastolica = if (state.diastolic > 0) state.diastolic.toString() else "",
             pulso = if (state.pulse > 0) state.pulse.toString() else "",
-            temperatura = if (state.temperature > 0) "%.1f".format(state.temperature) else "",
-            temperatura_f = if (state.temperatureF > 0) "%.1f".format(state.temperatureF) else "",
+            temperatura = if (state.temperature > 0) "%.1f".format(java.util.Locale.US, state.temperature) else "",
+            temperatura_f = if (state.temperatureF > 0) "%.1f".format(java.util.Locale.US, state.temperatureF) else "",
             spo2 = if (state.spo2 > 0) state.spo2.toString() else "",
             frecuencia_pulso = if (state.pulseRate > 0) state.pulseRate.toString() else "",
-            indice_perfusion = if (state.pi > 0) "%.1f".format(state.pi) else "",
+            indice_perfusion = if (state.pi > 0) "%.1f".format(java.util.Locale.US, state.pi) else "",
             frecuencia_cardiaca = state.ecgResults?.heartRate?.toString() ?: "",
             eje_p = state.ecgResults?.pAxis ?: "",
             eje_qrs = state.ecgResults?.qrsAxis ?: "",
@@ -1640,6 +1640,18 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     override fun onMeasurementComplete() {
         runOnUiThread {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
+
+            // ✅ Log detallado de confirmación y resultados de cada medición
+            Log.d(TAG, "✅ [MEDICIÓN COMPLETADA] Tipo: $currentMeasurementType")
+            when (currentMeasurementType) {
+                "ALTURA_PESO" -> Log.d(TAG, "   📏 Altura y Peso -> Altura: ${state.height} cm, Peso: ${state.weight} kg, IMC: ${state.imc}")
+                "COMPOSICION" -> Log.d(TAG, "   🧬 Composición Corporal -> Grasa: ${state.fatRate}% (${state.fatKg} kg), Agua: ${state.waterRate}% (${state.waterKg} kg), Músculo: ${state.muscle} kg, Metabolismo: ${state.metabolism} kcal, Grasa Visceral: ${state.visceralFat}, Peso Ideal: ${state.idealWeight} kg, Proteína: ${state.protein}%, Minerales: ${state.mineral} kg, Masa Libre de Grasa: ${state.notFat} kg, Tipo Grasa: ${state.fatType}")
+                "PRESION" -> Log.d(TAG, "   🩺 Presión Arterial -> Sistólica: ${state.systolic} mmHg, Diastólica: ${state.diastolic} mmHg, Pulso: ${state.pulse} bpm")
+                "TEMPERATURA" -> Log.d(TAG, "   🌡️ Temperatura -> ${state.temperature} °C (${state.temperatureF} °F), Modo: ${state.bodyMode}")
+                "OXIGENO" -> Log.d(TAG, "   🫁 Oxígeno -> SpO2: ${state.spo2}%, Frecuencia de Pulso: ${state.pulseRate} bpm, Índice de Perfusión (PI): ${state.pi}")
+                "ECG" -> Log.d(TAG, "   ⚡ ECG -> Frecuencia Cardíaca: ${state.ecgResults?.heartRate} bpm, Eje P: ${state.ecgResults?.pAxis}, Eje QRS: ${state.ecgResults?.qrsAxis}, Eje T: ${state.ecgResults?.tAxis}, PR: ${state.ecgResults?.prInterval} ms, QRS: ${state.ecgResults?.qrsDuration} ms, QT: ${state.ecgResults?.qtd} ms, QTc: ${state.ecgResults?.qtc} ms, Resultado: ${state.ecgResults?.resCode}")
+            }
+
             controller.cancelStatusDelayed()
             showStatusMessage(getString(R.string.measurement_success), "#4CAF50")
             if (currentMeasurementType == "ALTURA_PESO") {

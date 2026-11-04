@@ -32,9 +32,6 @@ class FinConsultaActivity : Activity() {
         val idWebParam = intent?.data?.getQueryParameter("id_usuario")?.toIntOrNull() ?: 0
         DailyReportManager.onTelemedicineEnded(this, idWebParam)
 
-        // Enviar log automático si está activado
-        AutoLogHelper.enviarLogFinConsulta(this)
-
         // Reiniciar el servicio serial por si la pantalla de telemedicina lo dejó detenido
         // (es idempotente: onCreate de SerialService reabre todos los puertos).
         runCatching { startService(Intent(this, SerialService::class.java)) }

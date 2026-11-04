@@ -4,7 +4,8 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/bg_consent_dialog"
-    android:paddingBottom="8dp">
+    android:paddingBottom="8dp"
+    android:clipChildren="true">
 
     <!-- TÍTULO FIJO ARRIBA -->
     <LinearLayout
@@ -131,7 +132,7 @@
         android:paddingEnd="28dp"
         android:paddingBottom="20dp"
         android:gravity="center"
-        android:background="#F1F5F7">
+        android:background="@drawable/bg_consent_dialog_bottom">
 
         <Button
             android:id="@+id/btnCancelDatos"

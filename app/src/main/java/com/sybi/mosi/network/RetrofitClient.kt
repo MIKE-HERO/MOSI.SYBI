@@ -52,10 +52,10 @@ object RetrofitClient {
                 chain.proceed(request)
             }
             .addInterceptor(logging)
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
-            .callTimeout(30, TimeUnit.SECONDS)      // ✅ timeout total de la petición
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)     // ✅ Ampliado a 30s para cargas de ~1MB (ECG)
+            .callTimeout(60, TimeUnit.SECONDS)      // ✅ Ampliado a 60s el timeout total
             .retryOnConnectionFailure(true)         // ✅ reintentar en fallos transitorios
             .build()
 
