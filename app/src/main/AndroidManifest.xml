@@ -177,6 +177,14 @@
             android:name=".SerialService"
             android:exported="false" />
 
+        <!-- Cola de impresión remota de recetas: sondea usuariosWeb/printJobs y manda a la
+             impresora IPP del kiosco. Tiene que ser un Service y no un poller en la Activity
+             porque la teleconsulta corre en Custom Tabs y TelemedicineActivity queda detenida
+             justo cuando el médico imprime. Ver PrintJobService. -->
+        <service
+            android:name=".PrintJobService"
+            android:exported="false" />
+
         <!-- 🔥 FileProvider (NECESARIO en Android 7+) -->
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -70,6 +70,18 @@ class TelemedicineActivity : BaseActivity() {
             return
         }
 
+        // Cola de impresión remota de recetas. Se arranca aquí, con la consulta, y se detiene
+        // en onDestroy. Durante la teleconsulta esta Activity está detenida (la consulta corre
+        // en Custom Tabs) pero el Service sigue sondeando, que es justo cuando el médico
+        // imprime. Sin impresora configurada no se arranca: no hay a dónde mandar nada, y así
+        // los trabajos quedan 'pendiente' en el servidor en vez de consumirse con un ack.
+        val printerIp = getSharedPreferences("DevicePrefs", MODE_PRIVATE)
+            .getString(ReportSettingsActivity.PREF_PRINTER_IP, "")
+            ?.trim()
+        if (!printerIp.isNullOrBlank()) {
+            PrintJobService.iniciar(this)
+        }
+
         tvEstado = findViewById(R.id.tvTelemedicineEstado)
         findViewById<Button>(R.id.btnReintentarConsulta).setOnClickListener {
             verificarPermisosYComenzar { abrirConsulta() }
@@ -99,6 +111,7 @@ class TelemedicineActivity : BaseActivity() {
     }
 
     override fun onDestroy() {
+        PrintJobService.detener(this)
         if (!isChangingConfigurations && reportedStart && !reportedEnd) {
             reportedEnd = true
             reportarEventoMosi("cancelacion", "La pantalla de telemedicina se cerró sin usar el botón Salir")

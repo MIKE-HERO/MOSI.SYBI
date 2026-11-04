@@ -68,4 +68,21 @@ interface ApiService {
         @Part("slot") slot: RequestBody,
         @Part archivo: MultipartBody.Part
     ): Response<ActualizarLogoResponse>
+
+    // ── Cola de impresión remota de recetas (ver PrintJobDtos.kt) ──
+    // El médico imprime la receta en su navegador durante la teleconsulta y, si la sesión
+    // trae una cabina, el servidor encola el mismo HTML para que el kiosco lo imprima en su
+    // impresora local. Este par de llamadas es el lado del kiosco: sondear y confirmar.
+    // Call (no suspend) a propósito: el poller corre en un Service con su propio hilo, igual
+    // que obtenerLogosCliente/obtenerDatosSucursal, que también se consumen bloqueando.
+    @GET("usuariosWeb/printJobs")
+    fun obtenerPrintJobs(
+        @Query("idMachine") idMachine: Int
+    ): Call<PrintJobsResponse>
+
+    @POST("usuariosWeb/printJobs/{id}/ack")
+    fun confirmarPrintJob(
+        @Path("id") idJob: Int,
+        @Body body: PrintJobAckRequest
+    ): Call<PrintJobAckResponse>
 }
