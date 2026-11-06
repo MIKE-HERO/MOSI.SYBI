@@ -24,16 +24,13 @@ object ThermalPrinterHelper {
     // ============================================
     // CONFIGURACIÓN DE PÁGINA DE CÓDIGOS
     // ============================================
-    // Opciones:
-    //   0  -> CP437 (US, sin acentos)
-    //   2  -> CP850 (Latin-1, con acentos pero sin ¿¡)
-    //   16 -> CP1252 (Windows Latin-1, con acentos + ¿¡)  ← RECOMENDADO
-    //   19 -> CP858 (Latin-1 + €)
-    //
-    // Cambia estos valores si tu impresora no soporta CP1252.
     private const val CODEPAGE_NUM = 16
     private const val CODEPAGE_CHARSET = "windows-1252"
     private const val USAR_ACENTOS = true
+
+    // ✅ Tamaño del QR (128x128 es ideal para tickets de 58mm y evita saturar el búfer)
+    private const val QR_WIDTH = 128
+    private const val QR_HEIGHT = 128
 
     fun imprimirTicket(
         context: Context,
@@ -49,7 +46,6 @@ object ThermalPrinterHelper {
             return false
         }
 
-        // ✅ DEFENSIVO: usar SOLO el primer resultado
         val r = resultados.firstOrNull()
         if (r == null) {
             Log.w(TAG, "⚠️ Lista de resultados vacía, no se imprime nada")
@@ -84,12 +80,8 @@ object ThermalPrinterHelper {
                 return false
             }
 
-            // ✅ Charset según la página de códigos elegida
             val charset = Charset.forName(CODEPAGE_CHARSET)
 
-            // ============================================
-            // COMANDOS ESC/POS
-            // ============================================
             val INIT = byteArrayOf(0x1B, 0x40)
             val ALIGN_LEFT = byteArrayOf(0x1B, 0x61, 0x00)
             val ALIGN_CENTER = byteArrayOf(0x1B, 0x61, 0x01)
@@ -97,14 +89,10 @@ object ThermalPrinterHelper {
             val BOLD_OFF = byteArrayOf(0x1B, 0x45, 0x00)
             val REVERSE_OFF = byteArrayOf(0x1D, 0x42, 0x00)
             val UPSIDE_DOWN_OFF = byteArrayOf(0x1B, 0x7B, 0x00)
-            // ✅ Seleccionar página de códigos: ESC t n
             val SELECT_CODEPAGE = byteArrayOf(0x1B, 0x74, CODEPAGE_NUM.toByte())
             val FEED_LINES = byteArrayOf(0x1B, 0x64, 0x05)
             val CUT = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
 
-            // ============================================
-            // INICIALIZACIÓN ROBUSTA
-            // ============================================
             outputStream.write(INIT)
             outputStream.write(REVERSE_OFF)
             outputStream.write(UPSIDE_DOWN_OFF)
@@ -119,7 +107,6 @@ object ThermalPrinterHelper {
             outputStream.flush()
             try { Thread.sleep(300) } catch (_: InterruptedException) {}
 
-            // ✅ Función auxiliar: sanitizar si no se usan acentos
             fun String.prepararParaImpresora(): String {
                 return if (USAR_ACENTOS) this else this.sanitizarParaImpresora()
             }
@@ -141,7 +128,7 @@ object ThermalPrinterHelper {
             val title = customTitle?.takeIf { it.isNotBlank() } ?: appPrefs.getString("PdfTitle", defaultTitle) ?: defaultTitle
             val subtitle = customSubtitle?.takeIf { it.isNotBlank() } ?: appPrefs.getString("PdfSubtitle", "") ?: ""
 
-            writeLine("")   // ✅ Espacio antes de la sección
+            writeLine("")
             writeLine(title, bold = true, alignCenter = true)
             if (subtitle.isNotBlank()) {
                 writeLine(subtitle, bold = false, alignCenter = true)
@@ -182,7 +169,7 @@ object ThermalPrinterHelper {
             writeLine("RESULTADOS DE MEDICIÓN", bold = true, alignCenter = true)
 
             if (showAlturaPeso && (r.altura.isNotBlank() || r.peso.isNotBlank())) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- ALTURA Y PESO ---", bold = true, alignCenter = true)
                 if (r.altura.isNotBlank()) writeLine("Altura: ${r.altura} cm")
                 if (r.peso.isNotBlank()) writeLine("Peso: ${r.peso} kg")
@@ -190,7 +177,7 @@ object ThermalPrinterHelper {
             }
 
             if (showComposicion && (r.grasa_corporal.isNotBlank() || r.agua_corporal.isNotBlank() || r.masa_muscular.isNotBlank() || r.metabolismo_basal.isNotBlank())) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- COMPOSICIÓN CORPORAL ---", bold = true, alignCenter = true)
                 if (r.grasa_corporal.isNotBlank()) writeLine("Grasa Corporal: ${r.grasa_corporal}% (${r.grasa_corporal_kg} kg)")
                 if (r.agua_corporal.isNotBlank()) writeLine("Agua Corporal: ${r.agua_corporal}% (${r.agua_corporal_kg} kg)")
@@ -205,14 +192,14 @@ object ThermalPrinterHelper {
             }
 
             if (showPresion && r.sistolica.isNotBlank() && r.diastolica.isNotBlank()) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- PRESIÓN ARTERIAL ---", bold = true, alignCenter = true)
                 writeLine("Presión: ${r.sistolica}/${r.diastolica} mmHg")
                 if (r.pulso.isNotBlank()) writeLine("Pulso: ${r.pulso} bpm")
             }
 
             if (showOxigeno && r.spo2.isNotBlank()) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- OXÍGENO EN SANGRE ---", bold = true, alignCenter = true)
                 writeLine("SpO2: ${r.spo2}%")
                 if (r.frecuencia_pulso.isNotBlank()) writeLine("Pulso: ${r.frecuencia_pulso} bpm")
@@ -220,13 +207,13 @@ object ThermalPrinterHelper {
             }
 
             if (showTemperatura && r.temperatura.isNotBlank()) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- TEMPERATURA CORPORAL ---", bold = true, alignCenter = true)
                 writeLine("Temperatura: ${r.temperatura} °C / ${r.temperatura_f} °F")
             }
 
             if (showEcg && (r.frecuencia_cardiaca.isNotBlank() || r.resultado_ecg.isNotBlank())) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- ELECTROCARDIOGRAMA ---", bold = true, alignCenter = true)
                 writeLine("Frec. Cardíaca: ${r.frecuencia_cardiaca} bpm")
                 if (r.eje_p.isNotBlank()) writeLine("Eje P/QRS/T: ${r.eje_p}/${r.eje_qrs}/${r.eje_t}")
@@ -240,7 +227,6 @@ object ThermalPrinterHelper {
             writeDivider()
             writeLine("¡Gracias por su visita!", bold = true, alignCenter = true)
 
-            // ✅ AVANZAR LÍNEAS Y CORTAR
             outputStream.write(FEED_LINES)
             outputStream.flush()
             try { Thread.sleep(150) } catch (_: InterruptedException) {}
@@ -249,7 +235,6 @@ object ThermalPrinterHelper {
             outputStream.flush()
             try { Thread.sleep(150) } catch (_: InterruptedException) {}
 
-            // ✅ RESET FINAL
             outputStream.write(INIT)
             outputStream.flush()
 
@@ -296,10 +281,6 @@ object ThermalPrinterHelper {
         }
     }
 
-    /**
-     * Reemplaza caracteres no soportados por equivalentes ASCII.
-     * Se usa como plan B si la impresora no soporta la página de códigos elegida.
-     */
     private fun String.sanitizarParaImpresora(): String {
         return this
             .replace("á", "a").replace("é", "e").replace("í", "i")
@@ -318,7 +299,7 @@ object ThermalPrinterHelper {
      * Escribe un ByteArray de forma dosificada (throttled) para evitar saturar
      * el buffer del puerto serie UART/TTL a 9600 baudios.
      */
-    private fun OutputStream.writeThrottled(bytes: ByteArray, chunkSize: Int = 128, delayMs: Long = 15) {
+    private fun OutputStream.writeThrottled(bytes: ByteArray, chunkSize: Int = 64, delayMs: Long = 20) {
         var offset = 0
         while (offset < bytes.size) {
             val count = Math.min(chunkSize, bytes.size - offset)
@@ -334,7 +315,7 @@ object ThermalPrinterHelper {
     /**
      * Genera un Bitmap con el código QR deseado usando ZXing.
      */
-    fun generarQrBitmap(content: String, width: Int = 192, height: Int = 192): Bitmap? {
+    fun generarQrBitmap(content: String, width: Int = QR_WIDTH, height: Int = QR_HEIGHT): Bitmap? {
         return try {
             val hints = mapOf(
                 EncodeHintType.CHARACTER_SET to "UTF-8",
@@ -361,55 +342,47 @@ object ThermalPrinterHelper {
     }
 
     /**
-     * Convierte un Bitmap monocromático a comandos ESC * 33 (24-dot Double Density Column Bit Image).
-     * Usa espaciado de línea ajustado a 21/180 de pulgada (ESC 3 21) para eliminar las franjas
-     * blancas horizontales y mantener la proporción cuadrada 1:1 del código QR sin estirarlo.
+     * Convierte un Bitmap monocromático a comandos ESC/POS usando el comando GS v 0 (Raster Bit Image).
+     * Este método es más robusto y evita el desbordamiento de búfer que ocurre con ESC *.
      */
-    fun bitmapToEscPosColumnBitImage(bitmap: Bitmap): ByteArray {
+    fun bitmapToEscPosRaster(bitmap: Bitmap): ByteArray {
         val width = bitmap.width
         val height = bitmap.height
         val stream = ByteArrayOutputStream()
 
-        // ESC 3 21 (0x1B 0x33 0x15) -> Ajusta el avance de línea a 21/180 pulgada para eliminar franjas blancas
-        val SET_LINE_SPACE_21 = byteArrayOf(0x1B, 0x33, 0x15)
-        // ESC 2 (0x1B 0x32) -> Restaura espaciado de línea predeterminado
-        val RESET_LINE_SPACE = byteArrayOf(0x1B, 0x32)
+        // GS v 0 m xL xH yL yH
+        // m = 0 (Normal mode)
+        // xL, xH = ancho en bytes (debe ser múltiplo de 8)
+        // yL, yH = alto en píxeles
+        val widthBytes = (width + 7) / 8
+        val xL = (widthBytes % 256).toByte()
+        val xH = (widthBytes / 256).toByte()
+        val yL = (height % 256).toByte()
+        val yH = (height / 256).toByte()
 
-        stream.write(SET_LINE_SPACE_21)
+        stream.write(byteArrayOf(0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH))
 
-        val nL = (width % 256).toByte()
-        val nH = (width / 256).toByte()
-
-        var y = 0
-        while (y < height) {
-            // Comando ESC * m nL nH (m = 33 / 0x21 para 24-dot double density: 203x203 dpi)
-            stream.write(byteArrayOf(0x1B, 0x2A, 0x21, nL, nH))
-
-            for (x in 0 until width) {
-                for (k in 0 until 3) { // 3 bytes por columna (24 puntos verticales)
-                    var b = 0
-                    for (bit in 0 until 8) {
-                        val pixelY = y + k * 8 + bit
-                        if (pixelY < height) {
-                            val pixel = bitmap.getPixel(x, pixelY)
-                            val red = Color.red(pixel)
-                            val green = Color.green(pixel)
-                            val blue = Color.blue(pixel)
-                            val alpha = Color.alpha(pixel)
-                            val isBlack = alpha > 128 && (red + green + blue) / 3 < 128
-                            if (isBlack) {
-                                b = b or (1 shl (7 - bit))
-                            }
+        // Enviar los datos de la imagen
+        for (y in 0 until height) {
+            for (xByte in 0 until widthBytes) {
+                var b = 0
+                for (bit in 0 until 8) {
+                    val x = xByte * 8 + bit
+                    if (x < width) {
+                        val pixel = bitmap.getPixel(x, y)
+                        val red = Color.red(pixel)
+                        val green = Color.green(pixel)
+                        val blue = Color.blue(pixel)
+                        val alpha = Color.alpha(pixel)
+                        val isBlack = alpha > 128 && (red + green + blue) / 3 < 128
+                        if (isBlack) {
+                            b = b or (1 shl (7 - bit))
                         }
                     }
-                    stream.write(b)
                 }
+                stream.write(b)
             }
-            stream.write(0x0A) // Avance de línea ajustado a 21 puntos
-            y += 24
         }
-
-        stream.write(RESET_LINE_SPACE)
         return stream.toByteArray()
     }
 
@@ -474,7 +447,6 @@ object ThermalPrinterHelper {
             val FEED_LINES = byteArrayOf(0x1B, 0x64, 0x04)
             val CUT = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
 
-            // Inicialización limpia
             outputStream.write(INIT)
             outputStream.write(REVERSE_OFF)
             outputStream.write(if (invertirOrientacion) UPSIDE_DOWN_ON else UPSIDE_DOWN_OFF)
@@ -490,27 +462,27 @@ object ThermalPrinterHelper {
                 outputStream.flush()
             }
 
-            // NOTA: En impresoras SPRT de quiosco, la rotación UPSIDE_DOWN_ON
-            // imprime las líneas de abajo hacia arriba en el papel físico.
-            // Enviamos los elementos en orden inverso (Pie -> QR -> Título) para que
-            // en la tira impresa el Título quede arriba, el QR en el centro y el Pie abajo.
-
             if (invertirOrientacion) {
                 // --- 1. PIE DE TICKET (Se imprime primero -> queda ABAJO en el papel) ---
                 writeLine("--------------------------------", alignCenter = true)
-                writeLine("Texto QR: $qrContent", alignCenter = true)
+                // ✅ El texto se corta si es muy largo; acórtalo o divide
+                writeLine("Texto QR: Prueba de impresión", alignCenter = true)
                 writeLine("")
 
                 // --- 2. CÓDIGO QR (Se imprime segundo -> queda en el CENTRO del papel) ---
-                val qrBitmap = generarQrBitmap(qrContent, width = 192, height = 192)
+                try { Thread.sleep(300) } catch (_: InterruptedException) {}
+
+                val qrBitmap = generarQrBitmap(qrContent, width = QR_WIDTH, height = QR_HEIGHT)
                 if (qrBitmap != null) {
                     val rotatedBitmap = qrBitmap.rotate180()
-                    val columnBytes = bitmapToEscPosColumnBitImage(rotatedBitmap)
+                    val imageBytes = bitmapToEscPosRaster(rotatedBitmap)
+
                     outputStream.write(ALIGN_CENTER)
                     outputStream.flush()
-                    outputStream.writeThrottled(columnBytes, chunkSize = 128, delayMs = 15)
+                    // ✅ Enviar en trozos más pequeños y con más delay para evitar desbordamiento
+                    outputStream.writeThrottled(imageBytes, chunkSize = 64, delayMs = 25)
                     outputStream.flush()
-                    try { Thread.sleep(300) } catch (_: InterruptedException) {}
+                    try { Thread.sleep(500) } catch (_: InterruptedException) {}
                 }
 
                 writeLine("")
@@ -526,18 +498,21 @@ object ThermalPrinterHelper {
                 writeLine("Escanee el siguiente código:", alignCenter = true)
                 writeLine("")
 
-                val qrBitmap = generarQrBitmap(qrContent, width = 192, height = 192)
+                try { Thread.sleep(300) } catch (_: InterruptedException) {}
+
+                val qrBitmap = generarQrBitmap(qrContent, width = QR_WIDTH, height = QR_HEIGHT)
                 if (qrBitmap != null) {
-                    val columnBytes = bitmapToEscPosColumnBitImage(qrBitmap)
+                    val imageBytes = bitmapToEscPosRaster(qrBitmap)
+
                     outputStream.write(ALIGN_CENTER)
                     outputStream.flush()
-                    outputStream.writeThrottled(columnBytes, chunkSize = 128, delayMs = 15)
+                    outputStream.writeThrottled(imageBytes, chunkSize = 64, delayMs = 25)
                     outputStream.flush()
-                    try { Thread.sleep(300) } catch (_: InterruptedException) {}
+                    try { Thread.sleep(500) } catch (_: InterruptedException) {}
                 }
 
                 writeLine("")
-                writeLine("Texto QR: $qrContent", alignCenter = true)
+                writeLine("Texto QR: Prueba de impresión", alignCenter = true)
                 writeLine("--------------------------------", alignCenter = true)
             }
 

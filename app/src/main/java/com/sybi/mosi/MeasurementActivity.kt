@@ -390,14 +390,16 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 btnRepeat.visibility = View.VISIBLE
                 onMeasurementComplete()
 
-                // Reordenar esta Activity al frente si la app externa de ECG sigue en primer plano
+                // ═══ FIX: SOLO traer la Activity al frente. NUNCA force-stop. ═══
+                // La app externa de ECG se cierra sola al terminar; forzarla a
+                // cerrarse con `su am force-stop` puede matarla ANTES de que
+                // termine de escribir los archivos XML/JPG o de entregar el
+                // resultado, y es exactamente lo que causaba que al volver a la
+                // pantalla de medición se quedara "esperando resultados".
                 val bringToFrontIntent = Intent(this, MeasurementActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 }
                 startActivity(bringToFrontIntent)
-
-                // Forzar el cierre de la app externa de ECG
-                cerrarAppEcgExterna()
             },
             onError = {
                 Toast.makeText(this, "Error en la medición de ECG", Toast.LENGTH_LONG).show()
@@ -764,7 +766,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         layoutResultadosEcg.visibility = View.GONE
 
-        // ═══ FIX: si el startTime ya está vencido (>75s), liberar UI completa ═══
+        // Si el startTime ya está vencido (>75s), liberar UI completa
         if (ecgEsperandoResultado && ecgMeasurementStartTime > 0L) {
             val elapsed = System.currentTimeMillis() - ecgMeasurementStartTime
             if (elapsed > ECG_TIMEOUT_MS) {
@@ -772,11 +774,17 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 liberarEcgAtascado()
                 return
             }
-            // ═══ FIX: si lleva >70s pero <75s, dar un margen de 5s y arrancar watchdog ═══
             if (elapsed > ECG_UMBRAL_LIBERAR_AL_VOLVER_MS) {
                 Log.w(TAG, "⚠️ ECG a punto de vencer (${elapsed}ms); arrancando watchdog")
                 arrancarEcgWatchdog()
             }
+            // ═══ FIX: si el paciente vuelve a la pestaña ECG y aún hay una
+            //          medición pendiente, forzar UNA búsqueda inmediata del
+            //          resultado. La app externa ya escribió los archivos y
+            //          ECGHelper puede haberse quedado en un estado donde
+            //          onResume() no disparó. Forzamos un re-poll manual. ═══
+            Log.d(TAG, "showEcgTab: ECG pendiente, forzando búsqueda inmediata del resultado")
+            ecgManager.onResume()   // ← fuerza readFileData() con isPolling=false
         }
 
         if (completedMeasurements.contains("ECG") || state.hasEcg()) {
@@ -1978,10 +1986,20 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         ecgManager.onResume()
         updateButtonVisibility()
         checkLastMeasurement()
-        // ═══ FIX: reanudar watchdog si había un ECG pendiente ═══
+
+        // ═══ FIX: si hay un ECG pendiente y estamos en la pestaña ECG,
+        //          reanudar watchdog Y forzar búsqueda inmediata del resultado.
+        //          El paciente acaba de volver de la app externa (que ya
+        //          escribió los archivos) y necesitamos que ECGHelper los lea
+        //          aunque onResume() del helper no haya disparado. ═══
         if (ecgEsperandoResultado) {
             arrancarEcgWatchdog()
+            if (currentMeasurementType == "ECG") {
+                Log.d(TAG, "onResume: ECG pendiente, forzando búsqueda del resultado")
+                ecgManager.onResume()
+            }
         }
+
         if (VideoLoopRemote.isMeasurementMuteEnabled(this)) {
             val appContext = applicationContext
             CoroutineScope(Dispatchers.IO).launch {

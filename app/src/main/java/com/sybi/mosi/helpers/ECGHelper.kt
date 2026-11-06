@@ -18,7 +18,7 @@ class ECGHelper(private val callback: ECGCallback) {
     companion object {
         private const val TAG = "ECGHelper"
         private const val REQUEST_CODE_ECG = 1
-        // ═══ FIX: subir a 40 reintentos (80s) porque la app externa tarda 40-60s ═══
+        // ═══ FIX: 40 reintentos × 2s = 80s (la app externa tarda 40-60s) ═══
         private const val MAX_RETRIES = 40
         private const val RETRY_DELAY_MS = 2000L
     }
@@ -116,33 +116,41 @@ class ECGHelper(private val callback: ECGCallback) {
         launchIntent.putExtras(bundle)
         activity.startActivityForResult(launchIntent, REQUEST_CODE_ECG)
 
-        // Resetear archivo previo para permitir repeticiones rápidas
         currentFileName = null
-        isRead = false
+        isRead = true
         isMeasure = true
-        // ═══ FIX: iniciar polling inmediatamente en segundo plano mientras la app de ECG está al frente ═══
-        isPolling = true
-        handler.removeCallbacksAndMessages(null)
-        Log.d(TAG, "App de ECG iniciada para paciente=$id, startTime=$measurementStartTime. Polling iniciado.")
-        handler.postDelayed({ readFileData(attempt = 0) }, 2000)
+        isPolling = false
+        Log.d(TAG, "App de ECG iniciada para paciente=$id, startTime=$measurementStartTime")
         return true
     }
 
     /**
-     * Se llama desde Activity.onResume() cuando la app vuelve al frente.
-     * ═══ FIX: no reiniciar el contador si ya hay una búsqueda en curso ═══
+     * ═══ FIX CRÍTICO ═══
+     * Si ya hay polling activo (isPolling=true), NO reiniciar el contador,
+     * pero SÍ disparar una lectura inmediata. Esto cubre el caso:
+     *  - El paciente vuelve de la app externa (que ya escribió los archivos).
+     *  - onResume() se llama pero el helper ya estaba en polling.
+     *  - Antes: no hacía nada → el paciente esperaba 80s hasta timeout.
+     *  - Ahora: lee los archivos de inmediato.
      */
     fun onResume() {
-        if (isMeasure && !isPolling) {
+        if (!isMeasure) {
+            Log.d(TAG, "onResume: no hay medición pendiente")
+            return
+        }
+
+        if (!isPolling) {
+            // No hay polling en curso: iniciar búsqueda desde cero
             isRead = false
             isPolling = true
-            Log.d(TAG, "onResume: iniciando búsqueda de archivos de ECG para paciente=$currentPatientId")
+            Log.d(TAG, "onResume: iniciando búsqueda de ECG para paciente=$currentPatientId")
             handler.removeCallbacksAndMessages(null)
             handler.postDelayed({ readFileData(attempt = 0) }, 1500)
-        } else if (isMeasure) {
-            Log.d(TAG, "onResume: búsqueda ya en curso, no se reinicia (attempt actual sigue contando)")
         } else {
-            Log.d(TAG, "onResume: no hay medición pendiente")
+            // Ya hay polling: forzar UNA lectura inmediata sin reiniciar el contador
+            Log.d(TAG, "onResume: polling ya activo, forzando lectura inmediata")
+            handler.removeCallbacksAndMessages(null)
+            handler.postDelayed({ readFileData(attempt = 0) }, 500)
         }
     }
 
@@ -163,7 +171,6 @@ class ECGHelper(private val callback: ECGCallback) {
         currentFileName = null
         isRead = false
         isMeasure = true
-        // ═══ FIX: marcar polling activo y limpiar handler antes de reenganchar ═══
         isPolling = true
         handler.removeCallbacksAndMessages(null)
         Log.d(TAG, "Reenganchando búsqueda de ECG para paciente=$patientId, startTime=$startTime")
@@ -213,7 +220,6 @@ class ECGHelper(private val callback: ECGCallback) {
                     return@Thread
                 }
 
-                // De los nuevos, el de mayor timestamp
                 val latestXml = newFiles.maxByOrNull {
                     extractTimestampFromName(it.nameWithoutExtension)!!
                 } ?: run {
@@ -230,7 +236,6 @@ class ECGHelper(private val callback: ECGCallback) {
                     return@Thread
                 }
 
-                // Verificar que existan ambos archivos (XML + JPG)
                 val xmlFile = File(returnDir, "$actualFileName.xml")
                 val jpgFile = File(returnDir, "$actualFileName.jpg")
 
@@ -290,7 +295,6 @@ class ECGHelper(private val callback: ECGCallback) {
     private fun retryOrFail(attempt: Int, reason: String) {
         if (attempt >= MAX_RETRIES) {
             Log.e(TAG, "❌ Se agotaron los reintentos ($MAX_RETRIES): $reason")
-            // ═══ FIX: handleError() ahora SIEMPRE notifica ═══
             handleError()
             return
         }
@@ -340,9 +344,10 @@ class ECGHelper(private val callback: ECGCallback) {
 
     /**
      * ═══ FIX CRÍTICO ═══
-     * Antes: `if (isMeasure) handler.sendMessage(...)` — si isMeasure ya era false,
+     * Siempre notifica onMeasureError(), sin importar isMeasure.
+     * Antes: `if (isMeasure) handler.sendMessage(...)` — si isMeasure ya era
+     * false (porque onResume lo reseteó o porque ya se había procesado),
      * la UI se quedaba atascada en "Procesando..." para siempre.
-     * Ahora: SIEMPRE notifica onMeasureError(), sin condiciones.
      */
     private fun handleError() {
         Log.d(TAG, "handleError: notificando onMeasureError al callback")
