@@ -407,7 +407,7 @@
                     android:textSize="13sp"/>
             </LinearLayout>
 
-            <!-- TARJETA 3: IDIOMA -->
+            <!-- TARJETA 3: BOTÓN DE IDIOMA EN INICIO -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -420,7 +420,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Configuración de Idioma"
+                    android:text="Pantalla de inicio"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="#333333"
@@ -430,9 +430,9 @@
                     android:id="@+id/swShowLanguageButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Mostrar botón de cambio de idioma en la pantalla de inicio"
-                    android:textColor="#333333"
-                    android:textSize="14sp"/>
+                    android:text="Mostrar botón de idioma"
+                    android:textSize="15sp"
+                    android:textColor="#333333"/>
             </LinearLayout>
 
             <!-- ============================================================ -->

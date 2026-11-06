@@ -72,7 +72,7 @@ class MainActivity : BaseActivity() {
     private var connectionReceiver: BroadcastReceiver? = null
     private var scaleReceiver: BroadcastReceiver? = null
     private var backgroundReceiver: BroadcastReceiver? = null
-    private var languageButtonReceiver: BroadcastReceiver? = null   // ✅ CAMBIO SWITCH IDIOMA
+    private var languageButtonReceiver: BroadcastReceiver? = null
 
     // Control para evitar abrir LoginActivity múltiples veces por la misma pisada de báscula
     @Volatile private var isLaunchingLogin = false
@@ -94,10 +94,6 @@ class MainActivity : BaseActivity() {
         setContentView(R.layout.activity_main)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
-        if (!com.sybi.mosi.integration.MosiSecureStore.estaActivado(this)) {
-            startActivity(Intent(this, com.sybi.mosi.integration.MosiActivationActivity::class.java))
-        }
-
         rootLayout = findViewById(R.id.mainRootLayout)
         settingsSurface = findViewById(R.id.settingsSurface)
         languageSurface = findViewById(R.id.languageSurface)
@@ -115,30 +111,6 @@ class MainActivity : BaseActivity() {
         DeviceDefaults.ensureDefaultPorts(devicePrefs)
 
         startService(Intent(this, SerialService::class.java))
-
-        // --- BÚSQUEDA AUTOMÁTICA DE ACTUALIZACIONES AL ARRANCAR ---
-        lifecycleScope.launch(Dispatchers.IO) {
-            kotlinx.coroutines.delay(3000)
-            if (!com.sybi.mosi.integration.MosiSecureStore.estaActivado(this@MainActivity)) return@launch
-            val updateManager = com.sybi.mosi.updater.UpdateManager(this@MainActivity)
-            val pInfo = try { packageManager.getPackageInfo(packageName, 0) } catch (_: Exception) { null }
-            val currentVersion = pInfo?.versionName ?: "1.0.0"
-            val releases = updateManager.fetchReleases()
-            if (releases.isNotEmpty()) {
-                val latestRelease = releases[0]
-                if (updateManager.isNewerVersion(latestRelease.tagName, currentVersion)) {
-                    Log.i("MainActivity", "🚀 Nueva versión detectada (${latestRelease.tagName}). Abriendo UpdateActivity...")
-                    com.sybi.mosi.updater.UpdateActivity.start(
-                        this@MainActivity,
-                        latestRelease.downloadUrl,
-                        latestRelease.tagName,
-                        sha256 = latestRelease.sha256,
-                        updateId = latestRelease.updateId,
-                        requestId = latestRelease.requestId
-                    )
-                }
-            }
-        }
 
         // --- RECEPTOR PARA ACTUALIZAR DISPOSITIVOS ---
         deviceUpdateReceiver = object : BroadcastReceiver() {
@@ -194,17 +166,6 @@ class MainActivity : BaseActivity() {
         LocalBroadcastManager.getInstance(this).registerReceiver(
             titleReceiver!!,
             IntentFilter("ACTION_UPDATE_TITLE")
-        )
-
-        // --- RECEPTOR PARA MOSTRAR/OCULTAR EL BOTÓN DE IDIOMA --- ✅ CAMBIO SWITCH IDIOMA
-        languageButtonReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                updateLanguageButtonVisibility()
-            }
-        }
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-            languageButtonReceiver!!,
-            IntentFilter("ACTION_UPDATE_LANGUAGE_BUTTON")
         )
 
         applyMedicalBackground(
@@ -271,6 +232,17 @@ class MainActivity : BaseActivity() {
         }
         LocalBroadcastManager.getInstance(this).registerReceiver(scaleReceiver!!, scaleFilter)
 
+        // --- RECEPTOR PARA VISIBILIDAD DEL BOTÓN DE IDIOMA ---
+        languageButtonReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                updateLanguageButtonVisibility()
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            languageButtonReceiver!!,
+            IntentFilter("ACTION_UPDATE_LANGUAGE_BUTTON_VISIBILITY")
+        )
+
         val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val defaultColor = "#0F3E82"
         currentColor = appPrefs.getString("BackgroundColor", defaultColor) ?: defaultColor
@@ -324,7 +296,7 @@ class MainActivity : BaseActivity() {
         }
 
         updateDeviceButtonsVisibility()
-        updateLanguageButtonVisibility()   // ✅ CAMBIO SWITCH IDIOMA — aplicar visibilidad inicial
+        updateLanguageButtonVisibility()
 
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDoubleTap(e: MotionEvent): Boolean {
@@ -338,17 +310,6 @@ class MainActivity : BaseActivity() {
         touchInterceptor.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event)
             true
-        }
-    }
-
-    // ==========================================
-    // VISIBILIDAD DEL BOTÓN DE IDIOMA   ✅ CAMBIO SWITCH IDIOMA
-    // ==========================================
-    private fun updateLanguageButtonVisibility() {
-        val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-        val visible = prefs.getBoolean("ShowLanguageButton", true)
-        if (::languageSurface.isInitialized) {
-            languageSurface.visibility = if (visible) View.VISIBLE else View.GONE
         }
     }
 
@@ -685,9 +646,9 @@ class MainActivity : BaseActivity() {
                 appPrefs.getString("MedicalBackground", "azul")
             )
         }
-        updateLanguageButtonVisibility()   // ✅ CAMBIO SWITCH IDIOMA — refrescar al volver desde Ajustes
         shineOverlay.startSweeping()
         startBreathingEffect()
+        updateLanguageButtonVisibility()
 
         isLaunchingLogin = false
     }
@@ -747,7 +708,7 @@ class MainActivity : BaseActivity() {
             backgroundReceiver?.let {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
-            languageButtonReceiver?.let {   // ✅ CAMBIO SWITCH IDIOMA
+            languageButtonReceiver?.let {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
         } catch (e: Exception) {
@@ -757,6 +718,17 @@ class MainActivity : BaseActivity() {
         val intent = Intent("RELEASE_SERIAL_PORTS")
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
         stopService(Intent(this, SerialService::class.java))
+    }
+
+    // ==========================================
+    // ACTUALIZAR VISIBILIDAD DE BOTÓN DE IDIOMA
+    // ==========================================
+    private fun updateLanguageButtonVisibility() {
+        val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val showLanguage = appPrefs.getBoolean("ShowLanguageButton", true)
+        if (::languageSurface.isInitialized) {
+            languageSurface.visibility = if (showLanguage) View.VISIBLE else View.GONE
+        }
     }
 
     // ==========================================

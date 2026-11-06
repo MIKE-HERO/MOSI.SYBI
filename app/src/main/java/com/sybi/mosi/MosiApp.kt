@@ -2,24 +2,27 @@ package com.sybi.mosi
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import com.sybi.mosi.helpers.FaceBiometricsCache
-import com.sybi.mosi.helpers.LocaleHelper
+import com.sybi.mosi.updater.UpdateActivity
+import com.sybi.mosi.updater.UpdateManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MosiApp : Application() {
+
     companion object {
-        lateinit var instance: MosiApp
-            private set
+        private const val TAG = "MosiApp"
+        private var hasCheckedUpdate = false
     }
 
-    override fun attachBaseContext(base: Context) {
-        super.attachBaseContext(LocaleHelper.applyLanguage(base))
-    }
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
-        instance = this
-        LocaleHelper.applyLanguage(this)
-
         // Asegurar que existan los puertos seriales por defecto en SharedPreferences desde el inicio
         val devicePrefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         DeviceDefaults.ensureDefaultPorts(devicePrefs)
@@ -34,9 +37,37 @@ class MosiApp : Application() {
         DailyReportManager.recordBootIncident(this)
         com.sybi.mosi.network.NetworkMonitor.start(this)
 
-        // La tarea usa un request_id nuevo y solo envía estado técnico, nunca datos clínicos.
-        com.sybi.mosi.integration.MosiTelemetryWorker.schedule(this)
-        com.sybi.mosi.integration.MedicionesSyncWorker.schedule(this, 20L)
-        com.sybi.mosi.integration.MosiStartupReporter.reportInstalledUpdate(this)
+        // --- BÚSQUEDA AUTOMÁTICA DE ACTUALIZACIONES SOLO AL ARRANCAR LA APP (COLD START / ENCENDIDO) ---
+        if (!hasCheckedUpdate) {
+            hasCheckedUpdate = true
+            applicationScope.launch {
+                delay(4000) // Esperar 4 segundos para estabilizar la red y el Wi-Fi tras el encendido
+                try {
+                    val updateManager = UpdateManager(applicationContext)
+                    val pInfo = try {
+                        packageManager.getPackageInfo(packageName, 0)
+                    } catch (_: Exception) {
+                        null
+                    }
+                    val currentVersion = pInfo?.versionName ?: "1.0.0"
+                    val releases = updateManager.fetchReleases()
+                    if (releases.isNotEmpty()) {
+                        val latestRelease = releases[0]
+                        if (updateManager.isNewerVersion(latestRelease.tagName, currentVersion)) {
+                            Log.i(TAG, "🚀 [Arranque] Nueva versión detectada en GitHub (${latestRelease.tagName}). Lanzando UpdateActivity...")
+                            UpdateActivity.start(
+                                applicationContext,
+                                latestRelease.downloadUrl,
+                                latestRelease.tagName
+                            )
+                        } else {
+                            Log.i(TAG, "✅ [Arranque] La app está actualizada (v$currentVersion).")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error verificando actualizaciones al arrancar: ${e.message}", e)
+                }
+            }
+        }
     }
 }
