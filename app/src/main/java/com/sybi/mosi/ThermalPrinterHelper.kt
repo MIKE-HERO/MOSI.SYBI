@@ -1,10 +1,18 @@
 package com.sybi.mosi
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.Matrix
 import android.util.Log
 import android.serialport.api.SerialPort
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.sybi.mosi.database.Paciente
 import com.sybi.mosi.database.Resultado
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
@@ -304,5 +312,267 @@ object ThermalPrinterHelper {
             .replace("–", "-").replace("—", "-")
             .replace("“", "\"").replace("”", "\"")
             .replace("‘", "'").replace("’", "'")
+    }
+
+    /**
+     * Escribe un ByteArray de forma dosificada (throttled) para evitar saturar
+     * el buffer del puerto serie UART/TTL a 9600 baudios.
+     */
+    private fun OutputStream.writeThrottled(bytes: ByteArray, chunkSize: Int = 128, delayMs: Long = 15) {
+        var offset = 0
+        while (offset < bytes.size) {
+            val count = Math.min(chunkSize, bytes.size - offset)
+            this.write(bytes, offset, count)
+            this.flush()
+            offset += count
+            if (delayMs > 0 && offset < bytes.size) {
+                try { Thread.sleep(delayMs) } catch (_: InterruptedException) {}
+            }
+        }
+    }
+
+    /**
+     * Genera un Bitmap con el código QR deseado usando ZXing.
+     */
+    fun generarQrBitmap(content: String, width: Int = 192, height: Int = 192): Bitmap? {
+        return try {
+            val hints = mapOf(
+                EncodeHintType.CHARACTER_SET to "UTF-8",
+                EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
+                EncodeHintType.MARGIN to 1
+            )
+            val bitMatrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, width, height, hints)
+            val w = bitMatrix.width
+            val h = bitMatrix.height
+            val pixels = IntArray(w * h)
+            for (y in 0 until h) {
+                val offset = y * w
+                for (x in 0 until w) {
+                    pixels[offset + x] = if (bitMatrix.get(x, y)) Color.BLACK else Color.WHITE
+                }
+            }
+            val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            bitmap.setPixels(pixels, 0, w, 0, 0, w, h)
+            bitmap
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generando Bitmap de QR: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Convierte un Bitmap monocromático a comandos ESC * 33 (24-dot Double Density Column Bit Image).
+     * Usa espaciado de línea ajustado a 21/180 de pulgada (ESC 3 21) para eliminar las franjas
+     * blancas horizontales y mantener la proporción cuadrada 1:1 del código QR sin estirarlo.
+     */
+    fun bitmapToEscPosColumnBitImage(bitmap: Bitmap): ByteArray {
+        val width = bitmap.width
+        val height = bitmap.height
+        val stream = ByteArrayOutputStream()
+
+        // ESC 3 21 (0x1B 0x33 0x15) -> Ajusta el avance de línea a 21/180 pulgada para eliminar franjas blancas
+        val SET_LINE_SPACE_21 = byteArrayOf(0x1B, 0x33, 0x15)
+        // ESC 2 (0x1B 0x32) -> Restaura espaciado de línea predeterminado
+        val RESET_LINE_SPACE = byteArrayOf(0x1B, 0x32)
+
+        stream.write(SET_LINE_SPACE_21)
+
+        val nL = (width % 256).toByte()
+        val nH = (width / 256).toByte()
+
+        var y = 0
+        while (y < height) {
+            // Comando ESC * m nL nH (m = 33 / 0x21 para 24-dot double density: 203x203 dpi)
+            stream.write(byteArrayOf(0x1B, 0x2A, 0x21, nL, nH))
+
+            for (x in 0 until width) {
+                for (k in 0 until 3) { // 3 bytes por columna (24 puntos verticales)
+                    var b = 0
+                    for (bit in 0 until 8) {
+                        val pixelY = y + k * 8 + bit
+                        if (pixelY < height) {
+                            val pixel = bitmap.getPixel(x, pixelY)
+                            val red = Color.red(pixel)
+                            val green = Color.green(pixel)
+                            val blue = Color.blue(pixel)
+                            val alpha = Color.alpha(pixel)
+                            val isBlack = alpha > 128 && (red + green + blue) / 3 < 128
+                            if (isBlack) {
+                                b = b or (1 shl (7 - bit))
+                            }
+                        }
+                    }
+                    stream.write(b)
+                }
+            }
+            stream.write(0x0A) // Avance de línea ajustado a 21 puntos
+            y += 24
+        }
+
+        stream.write(RESET_LINE_SPACE)
+        return stream.toByteArray()
+    }
+
+    private fun Bitmap.rotate180(): Bitmap {
+        val matrix = Matrix().apply { postRotate(180f) }
+        return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+    }
+
+    /**
+     * Imprime un ticket de prueba con un código QR en la impresora térmica.
+     */
+    fun imprimirTestQr(
+        context: Context,
+        qrContent: String = "Impresión de QR de prueba",
+        invertirOrientacion: Boolean = true
+    ): Boolean {
+        val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val enabled = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_THERMAL_PRINTER, true)
+        if (!enabled) {
+            Log.w(TAG, "⚠️ Impresora térmica desactivada en ajustes")
+            return false
+        }
+
+        val portPath = prefs.getString("${TestElementsActivity.PREF_DEVICE_THERMAL_PRINTER}_port", "/dev/ttyS1") ?: "/dev/ttyS1"
+        val baudRate = SerialBaudConfig.get(prefs, TestElementsActivity.PREF_DEVICE_THERMAL_PRINTER)
+
+        val file = File(portPath)
+        if (!file.exists()) {
+            Log.e(TAG, "❌ Puerto de impresora térmica $portPath no existe")
+            return false
+        }
+
+        var outputStream: OutputStream? = null
+        var serialPort: SerialPort? = null
+
+        try {
+            try {
+                serialPort = SerialPort.getSerialPort(portPath, baudRate)
+                outputStream = serialPort.outputStream
+                Log.d(TAG, "✅ Puerto abierto con SerialPort (modo raw)")
+            } catch (e: Throwable) {
+                Log.w(TAG, "⚠️ SerialPort falló (${e.message}), usando FileOutputStream")
+                outputStream = FileOutputStream(file)
+            }
+
+            if (outputStream == null) {
+                Log.e(TAG, "❌ No se pudo obtener OutputStream para $portPath")
+                return false
+            }
+
+            val charset = Charset.forName(CODEPAGE_CHARSET)
+
+            val INIT = byteArrayOf(0x1B, 0x40)
+            val ALIGN_LEFT = byteArrayOf(0x1B, 0x61, 0x00)
+            val ALIGN_CENTER = byteArrayOf(0x1B, 0x61, 0x01)
+            val BOLD_ON = byteArrayOf(0x1B, 0x45, 0x01)
+            val BOLD_OFF = byteArrayOf(0x1B, 0x45, 0x00)
+            val REVERSE_OFF = byteArrayOf(0x1D, 0x42, 0x00)
+            val UPSIDE_DOWN_OFF = byteArrayOf(0x1B, 0x7B, 0x00)
+            val UPSIDE_DOWN_ON = byteArrayOf(0x1B, 0x7B, 0x01)
+            val SELECT_CODEPAGE = byteArrayOf(0x1B, 0x74, CODEPAGE_NUM.toByte())
+            val FEED_LINES = byteArrayOf(0x1B, 0x64, 0x04)
+            val CUT = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
+
+            // Inicialización limpia
+            outputStream.write(INIT)
+            outputStream.write(REVERSE_OFF)
+            outputStream.write(if (invertirOrientacion) UPSIDE_DOWN_ON else UPSIDE_DOWN_OFF)
+            outputStream.write(SELECT_CODEPAGE)
+            outputStream.flush()
+            try { Thread.sleep(300) } catch (_: InterruptedException) {}
+
+            fun writeLine(text: String, bold: Boolean = false, alignCenter: Boolean = false) {
+                if (alignCenter) outputStream.write(ALIGN_CENTER) else outputStream.write(ALIGN_LEFT)
+                if (bold) outputStream.write(BOLD_ON) else outputStream.write(BOLD_OFF)
+                val textToPrint = if (USAR_ACENTOS) text else text.sanitizarParaImpresora()
+                outputStream.write((textToPrint + "\n").toByteArray(charset))
+                outputStream.flush()
+            }
+
+            // NOTA: En impresoras SPRT de quiosco, la rotación UPSIDE_DOWN_ON
+            // imprime las líneas de abajo hacia arriba en el papel físico.
+            // Enviamos los elementos en orden inverso (Pie -> QR -> Título) para que
+            // en la tira impresa el Título quede arriba, el QR en el centro y el Pie abajo.
+
+            if (invertirOrientacion) {
+                // --- 1. PIE DE TICKET (Se imprime primero -> queda ABAJO en el papel) ---
+                writeLine("--------------------------------", alignCenter = true)
+                writeLine("Texto QR: $qrContent", alignCenter = true)
+                writeLine("")
+
+                // --- 2. CÓDIGO QR (Se imprime segundo -> queda en el CENTRO del papel) ---
+                val qrBitmap = generarQrBitmap(qrContent, width = 192, height = 192)
+                if (qrBitmap != null) {
+                    val rotatedBitmap = qrBitmap.rotate180()
+                    val columnBytes = bitmapToEscPosColumnBitImage(rotatedBitmap)
+                    outputStream.write(ALIGN_CENTER)
+                    outputStream.flush()
+                    outputStream.writeThrottled(columnBytes, chunkSize = 128, delayMs = 15)
+                    outputStream.flush()
+                    try { Thread.sleep(300) } catch (_: InterruptedException) {}
+                }
+
+                writeLine("")
+
+                // --- 3. TÍTULO Y SUBTÍTULO (Se imprime al final -> queda ARRIBA en el papel) ---
+                writeLine("Escanee el siguiente código:", alignCenter = true)
+                writeLine("--- PRUEBA DE CÓDIGO QR ---", bold = true, alignCenter = true)
+                writeLine("")
+            } else {
+                // Modo estándar sin inversión
+                writeLine("")
+                writeLine("--- PRUEBA DE CÓDIGO QR ---", bold = true, alignCenter = true)
+                writeLine("Escanee el siguiente código:", alignCenter = true)
+                writeLine("")
+
+                val qrBitmap = generarQrBitmap(qrContent, width = 192, height = 192)
+                if (qrBitmap != null) {
+                    val columnBytes = bitmapToEscPosColumnBitImage(qrBitmap)
+                    outputStream.write(ALIGN_CENTER)
+                    outputStream.flush()
+                    outputStream.writeThrottled(columnBytes, chunkSize = 128, delayMs = 15)
+                    outputStream.flush()
+                    try { Thread.sleep(300) } catch (_: InterruptedException) {}
+                }
+
+                writeLine("")
+                writeLine("Texto QR: $qrContent", alignCenter = true)
+                writeLine("--------------------------------", alignCenter = true)
+            }
+
+            outputStream.write(FEED_LINES)
+            outputStream.flush()
+            try { Thread.sleep(200) } catch (_: InterruptedException) {}
+
+            outputStream.write(CUT)
+            outputStream.flush()
+            try { Thread.sleep(200) } catch (_: InterruptedException) {}
+
+            outputStream.write(INIT)
+            outputStream.flush()
+
+            if (outputStream is FileOutputStream) {
+                try { outputStream.fd.sync() } catch (_: Exception) {}
+            }
+
+            Log.i(TAG, "✅ QR de prueba impreso exitosamente en $portPath")
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error imprimiendo QR de prueba: ${e.message}", e)
+            return false
+        } finally {
+            try {
+                outputStream?.flush()
+                if (outputStream is FileOutputStream) {
+                    try { outputStream.fd.sync() } catch (_: Exception) {}
+                }
+                outputStream?.close()
+            } catch (_: Exception) {}
+
+            try {
+                serialPort?.close()
+            } catch (_: Exception) {}
+        }
     }
 }

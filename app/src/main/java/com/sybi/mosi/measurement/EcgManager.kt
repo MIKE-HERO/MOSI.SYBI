@@ -42,6 +42,7 @@ class EcgManager(
     }
 
     private var helper: ECGHelper? = null
+    private var savedInternalPath: String? = null
 
     // ═══ FIX: watchdog para garantizar que onError() SIEMPRE se dispare ═══
     private val watchdogHandler = Handler(Looper.getMainLooper())
@@ -56,6 +57,9 @@ class EcgManager(
             ) {
                 // ═══ FIX: cancelar watchdog al recibir resultado exitoso ═══
                 cancelWatchdog()
+                // ═══ FIX: Guardar inmediatamente el Bitmap en almacenamiento interno ═══
+                savedInternalPath = EcgStorage.saveBitmapToInternal(activity, ecgImage)
+
                 val results = EcgResults(
                     heartRate, pAxis, qrsAxis, tAxis, prInterval,
                     qrsDuration, qtd, qtc, rv5, sv1, resCode
@@ -138,7 +142,7 @@ class EcgManager(
         editor.apply()
     }
 
-    fun getLastJpgPath(): String? = helper?.lastJpgPath
+    fun getLastJpgPath(): String? = savedInternalPath ?: helper?.lastJpgPath
 
     // ═══ FIX: watchdog propio del EcgManager ═══
     private fun armarWatchdog(patientId: String, startTime: Long) {

@@ -12,8 +12,8 @@ android {
         applicationId = "com.sybi.mosi"
         minSdk = 25
         targetSdk = 34
-        versionCode = 35
-        versionName = "1.0.30"
+        versionCode = 36
+        versionName = "1.0.31"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -117,6 +117,9 @@ dependencies {
     // Coil para cargar imágenes PNG, JPG, WEBP y SVG
     implementation("io.coil-kt:coil:2.6.0")
     implementation("io.coil-kt:coil-svg:2.6.0")
+
+    // ZXing para generación de códigos QR en impresoras térmicas
+    implementation("com.google.zxing:core:3.5.3")
 
     // Palette para extraer colores dominantes del logo (modo multicolor)
     implementation("androidx.palette:palette-ktx:1.0.0")

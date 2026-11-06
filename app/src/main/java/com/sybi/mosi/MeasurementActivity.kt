@@ -389,6 +389,15 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 btnStarECG.visibility = View.GONE
                 btnRepeat.visibility = View.VISIBLE
                 onMeasurementComplete()
+
+                // Reordenar esta Activity al frente si la app externa de ECG sigue en primer plano
+                val bringToFrontIntent = Intent(this, MeasurementActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }
+                startActivity(bringToFrontIntent)
+
+                // Forzar el cierre de la app externa de ECG
+                cerrarAppEcgExterna()
             },
             onError = {
                 Toast.makeText(this, "Error en la medición de ECG", Toast.LENGTH_LONG).show()
@@ -857,6 +866,19 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         } else {
             Toast.makeText(this, "No se pudo encontrar la app de ECG", Toast.LENGTH_LONG).show()
             onMeasurementError()
+        }
+    }
+
+    private fun cerrarAppEcgExterna() {
+        try {
+            Log.d(TAG, "Intentando cerrar app externa de ECG (com.ecgmac.ecgtab)...")
+            Runtime.getRuntime().exec(arrayOf("su", "-c", "am force-stop com.ecgmac.ecgtab"))
+        } catch (_: Exception) {
+            try {
+                Runtime.getRuntime().exec("am force-stop com.ecgmac.ecgtab")
+            } catch (e: Exception) {
+                Log.e(TAG, "No se pudo cerrar la app de ECG por shell", e)
+            }
         }
     }
 

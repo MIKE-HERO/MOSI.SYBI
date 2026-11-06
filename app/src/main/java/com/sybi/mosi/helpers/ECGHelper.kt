@@ -118,11 +118,13 @@ class ECGHelper(private val callback: ECGCallback) {
 
         // Resetear archivo previo para permitir repeticiones rápidas
         currentFileName = null
-        isRead = true
+        isRead = false
         isMeasure = true
-        // ═══ FIX: marcar polling activo al iniciar ═══
-        isPolling = false
-        Log.d(TAG, "App de ECG iniciada para paciente=$id, startTime=$measurementStartTime")
+        // ═══ FIX: iniciar polling inmediatamente en segundo plano mientras la app de ECG está al frente ═══
+        isPolling = true
+        handler.removeCallbacksAndMessages(null)
+        Log.d(TAG, "App de ECG iniciada para paciente=$id, startTime=$measurementStartTime. Polling iniciado.")
+        handler.postDelayed({ readFileData(attempt = 0) }, 2000)
         return true
     }
 

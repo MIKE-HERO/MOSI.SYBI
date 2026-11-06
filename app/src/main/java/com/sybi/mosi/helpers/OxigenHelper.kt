@@ -150,6 +150,7 @@ class OxigenHelper(private val context: Context) {
         lastPulseRate = null
         lastPI = null
         hasFingerDetected = false
+        lastNotifiedMessage = null
         measurementStartTime = System.currentTimeMillis()
         dataBuffer.clear()
         resetWindow()
@@ -230,6 +231,7 @@ class OxigenHelper(private val context: Context) {
             hasFingerDetected = false
             if (elapsed >= 3000) {
                 Log.d(TAG, "❌ Trama rechazada (estado sensor 0x${state.toString(16)})")
+                notifyOximeterStatus("Coloque el dedo dentro del oxímetro", "#FF9800")
                 resetWindow()
             }
             return
@@ -248,6 +250,7 @@ class OxigenHelper(private val context: Context) {
         }
 
         hasFingerDetected = true
+        notifyOximeterStatus("Midiendo oxígeno, permanezca inmóvil...", "#FF9800")
 
         // 4) Filtro de estabilidad (max-min dentro de la ventana)
         if (resultList.isNotEmpty()) {
@@ -353,5 +356,18 @@ class OxigenHelper(private val context: Context) {
         minSpO2 = Int.MAX_VALUE
         maxPR = 0
         minPR = Int.MAX_VALUE
+    }
+
+    private var lastNotifiedMessage: String? = null
+
+    private fun notifyOximeterStatus(msg: String, color: String) {
+        if (lastNotifiedMessage == msg) return
+        lastNotifiedMessage = msg
+        val intent = Intent("DEVICE_DATA_RECEIVED").apply {
+            putExtra("type", "STATUS")
+            putExtra("data", msg)
+            putExtra("color", color)
+        }
+        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
     }
 }
