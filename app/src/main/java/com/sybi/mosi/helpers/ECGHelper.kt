@@ -18,12 +18,15 @@ class ECGHelper(private val callback: ECGCallback) {
     companion object {
         private const val TAG = "ECGHelper"
         private const val REQUEST_CODE_ECG = 1
-        private const val MAX_RETRIES = 30          // ~60s de reintentos
+        // ═══ FIX: subir a 40 reintentos (80s) porque la app externa tarda 40-60s ═══
+        private const val MAX_RETRIES = 40
         private const val RETRY_DELAY_MS = 2000L
     }
 
     private var isRead = false
     private var isMeasure = false
+    // ═══ FIX: bandera para no reiniciar reintentos en cada onResume() ═══
+    private var isPolling = false
     private var currentFileName: String? = null
     private var currentPatientId: String? = null
     private var measurementStartTime: Long = 0
@@ -113,33 +116,38 @@ class ECGHelper(private val callback: ECGCallback) {
         launchIntent.putExtras(bundle)
         activity.startActivityForResult(launchIntent, REQUEST_CODE_ECG)
 
-        // ✅ Resetear archivo previo para permitir repeticiones rápidas
+        // Resetear archivo previo para permitir repeticiones rápidas
         currentFileName = null
         isRead = true
         isMeasure = true
+        // ═══ FIX: marcar polling activo al iniciar ═══
+        isPolling = false
         Log.d(TAG, "App de ECG iniciada para paciente=$id, startTime=$measurementStartTime")
         return true
     }
 
     /**
-     * ✅ Se llama desde Activity.onResume() cuando la app vuelve al frente.
-     *    Es el momento en que la app externa ya terminó la medición
-     *    y escribió los archivos. Iniciamos la búsqueda con reintentos.
+     * Se llama desde Activity.onResume() cuando la app vuelve al frente.
+     * ═══ FIX: no reiniciar el contador si ya hay una búsqueda en curso ═══
      */
     fun onResume() {
-        if (isRead && isMeasure) {
+        if (isMeasure && !isPolling) {
             isRead = false
-            Log.d(TAG, "onResume: esperando archivos nuevos para paciente=$currentPatientId")
-            handler.postDelayed({ readFileData() }, 2000)
+            isPolling = true
+            Log.d(TAG, "onResume: iniciando búsqueda de archivos de ECG para paciente=$currentPatientId")
+            handler.removeCallbacksAndMessages(null)
+            handler.postDelayed({ readFileData(attempt = 0) }, 1500)
+        } else if (isMeasure) {
+            Log.d(TAG, "onResume: búsqueda ya en curso, no se reinicia (attempt actual sigue contando)")
+        } else {
+            Log.d(TAG, "onResume: no hay medición pendiente")
         }
     }
 
-    /**
-     * ✅ Cancela la búsqueda de archivos y limpia tareas pendientes.
-     */
     fun cancel() {
         isRead = false
         isMeasure = false
+        isPolling = false
         handler.removeCallbacksAndMessages(null)
     }
 
@@ -153,13 +161,13 @@ class ECGHelper(private val callback: ECGCallback) {
         currentFileName = null
         isRead = false
         isMeasure = true
+        // ═══ FIX: marcar polling activo y limpiar handler antes de reenganchar ═══
+        isPolling = true
+        handler.removeCallbacksAndMessages(null)
         Log.d(TAG, "Reenganchando búsqueda de ECG para paciente=$patientId, startTime=$startTime")
         handler.postDelayed({ readFileData() }, 500)
     }
 
-    /**
-     * Método legacy. Ya no se usa desde MeasurementActivity pero se deja por compatibilidad.
-     */
     @Deprecated("Usar onResume() en su lugar")
     fun handleActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         Log.d(TAG, "handleActivityResult legacy: requestCode=$requestCode, resultCode=$resultCode")
@@ -174,7 +182,10 @@ class ECGHelper(private val callback: ECGCallback) {
             try {
                 val dir = getECGDirectory() ?: run { handleError(); return@Thread }
                 val returnDir = File(dir, "RETURN")
-                if (!returnDir.exists()) { handleError(); return@Thread }
+                if (!returnDir.exists()) {
+                    retryOrFail(attempt, "RETURN no existe")
+                    return@Thread
+                }
 
                 val patientId = currentPatientId
                 val xmlFiles = returnDir.listFiles { file ->
@@ -188,7 +199,7 @@ class ECGHelper(private val callback: ECGCallback) {
                     return@Thread
                 }
 
-                // ✅ Filtrar solo archivos creados DESPUÉS de iniciar la medición
+                // Filtrar solo archivos creados DESPUÉS de iniciar la medición
                 val newFiles = xmlFiles.filter { file ->
                     val ts = extractTimestampFromName(file.nameWithoutExtension)
                     ts != null && ts >= measurementStartTime
@@ -217,7 +228,7 @@ class ECGHelper(private val callback: ECGCallback) {
                     return@Thread
                 }
 
-                // ✅ Verificar que existan ambos archivos (XML + JPG)
+                // Verificar que existan ambos archivos (XML + JPG)
                 val xmlFile = File(returnDir, "$actualFileName.xml")
                 val jpgFile = File(returnDir, "$actualFileName.jpg")
 
@@ -277,15 +288,13 @@ class ECGHelper(private val callback: ECGCallback) {
     private fun retryOrFail(attempt: Int, reason: String) {
         if (attempt >= MAX_RETRIES) {
             Log.e(TAG, "❌ Se agotaron los reintentos ($MAX_RETRIES): $reason")
+            // ═══ FIX: handleError() ahora SIEMPRE notifica ═══
             handleError()
             return
         }
         handler.postDelayed({ readFileData(attempt + 1) }, RETRY_DELAY_MS)
     }
 
-    /**
-     * Convierte el timestamp del nombre (YYYYMMDDHHmmss) a epoch ms.
-     */
     private fun extractTimestampFromName(nameWithoutExtension: String): Long? {
         return try {
             val parts = nameWithoutExtension.split("_")
@@ -322,13 +331,23 @@ class ECGHelper(private val callback: ECGCallback) {
         }
         handler.sendMessage(msg)
         isMeasure = false
+        isPolling = false
         currentPatientId = null
         measurementStartTime = 0
     }
 
+    /**
+     * ═══ FIX CRÍTICO ═══
+     * Antes: `if (isMeasure) handler.sendMessage(...)` — si isMeasure ya era false,
+     * la UI se quedaba atascada en "Procesando..." para siempre.
+     * Ahora: SIEMPRE notifica onMeasureError(), sin condiciones.
+     */
     private fun handleError() {
-        if (isMeasure) handler.sendMessage(handler.obtainMessage(2))
+        Log.d(TAG, "handleError: notificando onMeasureError al callback")
+        handler.removeCallbacksAndMessages(null)
+        handler.sendMessage(handler.obtainMessage(2))
         isMeasure = false
+        isPolling = false
         currentPatientId = null
         measurementStartTime = 0
     }

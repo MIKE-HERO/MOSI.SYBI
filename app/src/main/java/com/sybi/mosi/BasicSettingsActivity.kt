@@ -55,6 +55,7 @@ class BasicSettingsActivity : BaseActivity() {
     private lateinit var txtVolume2Value: TextView
     private lateinit var imgVolume2Icon: ImageView
     private lateinit var swVideoMeasurementMute: Switch
+    private lateinit var swShowLanguageButton: Switch
 
     private lateinit var btnWifiSettings: LinearLayout
     private lateinit var imgWifiIcon: ImageView
@@ -113,6 +114,7 @@ class BasicSettingsActivity : BaseActivity() {
         setupVolumeControl()
         setupVolume2Control()
         setupMeasurementMuteSwitch()
+        setupShowLanguageButtonSwitch()
     }
 
     override fun onResume() {
@@ -157,6 +159,7 @@ class BasicSettingsActivity : BaseActivity() {
         txtVolume2Value = findViewById(R.id.txtVolume2Value)
         imgVolume2Icon = findViewById(R.id.imgVolume2Icon)
         swVideoMeasurementMute = findViewById(R.id.swVideoMeasurementMute)
+        swShowLanguageButton = findViewById(R.id.swShowLanguageButton)
 
         btnWifiSettings = findViewById(R.id.btnWifiSettings)
         imgWifiIcon = findViewById(R.id.imgWifiIcon)
@@ -293,6 +296,19 @@ class BasicSettingsActivity : BaseActivity() {
             VideoLoopRemote.isMeasurementMuteEnabled(this)
         swVideoMeasurementMute.setOnCheckedChangeListener { _, checked ->
             VideoLoopRemote.setMeasurementMuteEnabled(this, checked)
+        }
+    }
+
+    // ============================================================
+    // SWITCH MOSTRAR/OCULTAR BOTÓN DE IDIOMA EN MAINACTIVITY
+    // ============================================================
+    private fun setupShowLanguageButtonSwitch() {
+        val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        swShowLanguageButton.isChecked = prefs.getBoolean("ShowLanguageButton", true)
+        swShowLanguageButton.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("ShowLanguageButton", isChecked).apply()
+            LocalBroadcastManager.getInstance(this)
+                .sendBroadcast(Intent("ACTION_UPDATE_LANGUAGE_BUTTON_VISIBILITY"))
         }
     }
 
@@ -578,9 +594,13 @@ class BasicSettingsActivity : BaseActivity() {
             imgVolumeIcon.setColorFilter(colorInt)
             imgVolume2Icon.setColorFilter(colorInt)
 
-            // El switch de medición también toma el color del tema
+            // El switch de medición y el de idioma también toman el color del tema
             swVideoMeasurementMute.thumbTintList = colorStateList
             swVideoMeasurementMute.trackTintList = ColorStateList.valueOf(
+                Color.argb(80, Color.red(colorInt), Color.green(colorInt), Color.blue(colorInt))
+            )
+            swShowLanguageButton.thumbTintList = colorStateList
+            swShowLanguageButton.trackTintList = ColorStateList.valueOf(
                 Color.argb(80, Color.red(colorInt), Color.green(colorInt), Color.blue(colorInt))
             )
         } catch (e: Exception) {

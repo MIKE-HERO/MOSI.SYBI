@@ -72,6 +72,7 @@ class MainActivity : BaseActivity() {
     private var connectionReceiver: BroadcastReceiver? = null
     private var scaleReceiver: BroadcastReceiver? = null
     private var backgroundReceiver: BroadcastReceiver? = null
+    private var languageButtonReceiver: BroadcastReceiver? = null
 
     // Control para evitar abrir LoginActivity múltiples veces por la misma pisada de báscula
     @Volatile private var isLaunchingLogin = false
@@ -231,6 +232,17 @@ class MainActivity : BaseActivity() {
         }
         LocalBroadcastManager.getInstance(this).registerReceiver(scaleReceiver!!, scaleFilter)
 
+        // --- RECEPTOR PARA VISIBILIDAD DEL BOTÓN DE IDIOMA ---
+        languageButtonReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                updateLanguageButtonVisibility()
+            }
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            languageButtonReceiver!!,
+            IntentFilter("ACTION_UPDATE_LANGUAGE_BUTTON_VISIBILITY")
+        )
+
         val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
         val defaultColor = "#0F3E82"
         currentColor = appPrefs.getString("BackgroundColor", defaultColor) ?: defaultColor
@@ -284,6 +296,7 @@ class MainActivity : BaseActivity() {
         }
 
         updateDeviceButtonsVisibility()
+        updateLanguageButtonVisibility()
 
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDoubleTap(e: MotionEvent): Boolean {
@@ -635,6 +648,7 @@ class MainActivity : BaseActivity() {
         }
         shineOverlay.startSweeping()
         startBreathingEffect()
+        updateLanguageButtonVisibility()
 
         isLaunchingLogin = false
     }
@@ -694,6 +708,9 @@ class MainActivity : BaseActivity() {
             backgroundReceiver?.let {
                 LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
             }
+            languageButtonReceiver?.let {
+                LocalBroadcastManager.getInstance(this).unregisterReceiver(it)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error desregistrando receivers: ${e.message}")
         }
@@ -701,6 +718,17 @@ class MainActivity : BaseActivity() {
         val intent = Intent("RELEASE_SERIAL_PORTS")
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
         stopService(Intent(this, SerialService::class.java))
+    }
+
+    // ==========================================
+    // ACTUALIZAR VISIBILIDAD DE BOTÓN DE IDIOMA
+    // ==========================================
+    private fun updateLanguageButtonVisibility() {
+        val appPrefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        val showLanguage = appPrefs.getBoolean("ShowLanguageButton", true)
+        if (::languageSurface.isInitialized) {
+            languageSurface.visibility = if (showLanguage) View.VISIBLE else View.GONE
+        }
     }
 
     // ==========================================

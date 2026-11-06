@@ -40,6 +40,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         private const val KEY_CURRENT_MEASUREMENT_TYPE = "current_measurement_type"
         private const val KEY_ECG_ESPERANDO_RESULTADO = "ecg_esperando_resultado"
         private const val KEY_ECG_MEASUREMENT_START_TIME = "ecg_measurement_start_time"
+
+        // ═══ FIX: tiempo máximo para esperar ECG (app externa tarda 40-60s) ═══
+        // 75s = margen holgado sobre el peor caso de 60s
+        private const val ECG_TIMEOUT_MS = 75_000L
+        // Si el paciente regresa a la pestaña ECG después de este tiempo, liberar
+        private const val ECG_UMBRAL_LIBERAR_AL_VOLVER_MS = 70_000L
     }
 
     // ── Estado y managers ─────────────────────────────────
@@ -105,6 +111,21 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private var ecgEsperandoResultado = false
     private var ecgMeasurementStartTime = 0L
 
+    // ═══ FIX: watchdog periódico para liberar UI de ECG sin depender de showEcgTab() ═══
+    private val ecgWatchdogHandler = Handler(Looper.getMainLooper())
+    private val ecgWatchdogRunnable = object : Runnable {
+        override fun run() {
+            if (!ecgEsperandoResultado || ecgMeasurementStartTime == 0L) return
+            val elapsed = System.currentTimeMillis() - ecgMeasurementStartTime
+            if (elapsed > ECG_TIMEOUT_MS) {
+                Log.w(TAG, "⏰ Watchdog ECG: ${elapsed}ms sin resultado, liberando UI")
+                liberarEcgAtascado()
+            } else {
+                ecgWatchdogHandler.postDelayed(this, 5_000L)
+            }
+        }
+    }
+
     private lateinit var imgGuide: ImageView
     private lateinit var tvGuideStep: TextView
     private lateinit var guidePanel: View
@@ -140,7 +161,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private lateinit var btnConfirmMeasurements: View
     private lateinit var btnRepeat: View
     private lateinit var tvCountdownMessage: TextView
-    private lateinit var tvMeasurementTitle: TextView // NUEVO
+    private lateinit var tvMeasurementTitle: TextView
     private var countdownTimer: CountDownTimer? = null
     private var mediaPlayer: MediaPlayer? = null
 
@@ -209,15 +230,14 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
      * En equipos de poca RAM, Android puede matar esta Activity en segundo plano
      * mientras la app externa de ECG está al frente. Al volver, el proceso se
      * recrea desde cero: sin esto, se perdería el aviso de "procesando..." y la
-     * búsqueda del archivo de resultado nunca se reengancharía, dejando la
-     * medición colgada para siempre.
+     * búsqueda del archivo de resultado nunca se reengancharía.
+     *
+     * ═══ FIX: si el startTime ya está vencido (>75s), no reenganchar; liberar UI. ═══
      */
     private fun restoreEcgPendingState(savedInstanceState: Bundle?) {
         val savedState = savedInstanceState ?: return
         if (savedState.getString(KEY_CURRENT_MEASUREMENT_TYPE) != "ECG") return
 
-        // Evita que el auto-clic del primer botón disponible (pensado solo para el
-        // arranque inicial) pise la pestaña de ECG que estamos restaurando.
         firstButtonTriggered = true
 
         showEcgTab()
@@ -225,11 +245,23 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         val estabaEsperando = savedState.getBoolean(KEY_ECG_ESPERANDO_RESULTADO, false)
         val startTime = savedState.getLong(KEY_ECG_MEASUREMENT_START_TIME, 0L)
         if (estabaEsperando && startTime > 0L) {
+            val elapsed = System.currentTimeMillis() - startTime
+            if (elapsed > ECG_TIMEOUT_MS) {
+                Log.w(TAG, "restoreEcgPendingState: medición vencida (${elapsed}ms), no se reengancha")
+                erroredMeasurements.add("ECG")
+                showStatusMessage("Tiempo de espera agotado. Reintenta la medición.", ERROR_COLOR)
+                showSuccessCheck(false)
+                btnStarECG.visibility = View.VISIBLE
+                ecgLoadingView.visibility = View.GONE
+                setRepeatMode(true)
+                return
+            }
             ecgEsperandoResultado = true
             ecgMeasurementStartTime = startTime
             btnStarECG.visibility = View.GONE
             ecgLoadingView.visibility = View.VISIBLE
             ecgManager.resumePendingMeasurement(pacienteId.toString(), startTime)
+            arrancarEcgWatchdog()
         }
     }
 
@@ -264,7 +296,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         measurementResults = MeasurementResults(this)
         measurementResults.bindViews()
 
-        // Binding últimos resultados
         layoutLastResults = findViewById(R.id.layoutLastResults)
         lastGroupAlturaPeso = findViewById(R.id.lastGroupAlturaPeso)
         lastGroupPresion = findViewById(R.id.lastGroupPresion)
@@ -332,7 +363,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         btnConfirmMeasurements = findViewById(R.id.btnConfirmMeasurements)
         btnRepeat = findViewById(R.id.btnRepeatReading)
         tvCountdownMessage = findViewById(R.id.tvCountdownMessage)
-        tvMeasurementTitle = findViewById(R.id.tvMeasurementTitle) // NUEVO
+        tvMeasurementTitle = findViewById(R.id.tvMeasurementTitle)
         btnConfirmMeasurements.visibility = View.GONE
     }
 
@@ -340,7 +371,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         deviceManager = DeviceConnectionManager(this) {
             runOnUiThread {
                 updateDeviceStatusMessage()
-                // ✅ Si es la primera vez que llega la respuesta, dispara el primer botón
                 if (!firstButtonTriggered && !isFinishing) {
                     firstButtonTriggered = true
                     findFirstActiveButtonAndClick()
@@ -362,9 +392,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             },
             onError = {
                 Toast.makeText(this, "Error en la medición de ECG", Toast.LENGTH_LONG).show()
+                ecgEsperandoResultado = false
+                ecgMeasurementStartTime = 0L
                 onMeasurementError()
-                btnRepeat.visibility = View.VISIBLE
-                btnStarECG.visibility = View.GONE
             }
         )
         ecgManager.init()
@@ -397,21 +427,15 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         applyTheme(Color.parseColor(saved))
     }
 
-    /** Repinta la pantalla con [color] — llamado al abrir la pantalla y cada vez que cambia
-     *  el color de marca en vivo (ajuste manual o ciclo del modo multicolor). */
     private fun applyTheme(color: Int) {
         findViewById<View>(R.id.bottomMeasurementBarContainer).setBackgroundColor(color)
         btnStarECG.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
         applyPillTheme(color)
 
-        // Tono claro del propio color de marca para resaltar el ícono de la pestaña activa.
         tabIconActiveColor = lightenColor(color, 0.65f)
         if (::allButtons.isInitialized) actualizarTabSeleccionado(animar = false)
     }
 
-    /** Encapsula los valores de resultado y el mensaje de estado en píldoras con un tono claro
-     *  alusivo al color del tema (logo/menú), en todas las vistas de medición, y prepara los
-     *  colores del barrido de carga y del pulso de las píldoras en espera. */
     private fun applyPillTheme(themeColor: Int) {
         pillLightColor = lightenColor(themeColor, 0.85f)
         pillPulseColor = lightenColor(themeColor, 0.55f)
@@ -452,14 +476,13 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun updatePillColor(textView: TextView, isNormal: Boolean) {
         val color = if (isNormal) {
-            Color.parseColor("#4D4CAF50") // Verde semitransparente (~30% opacity Green)
+            Color.parseColor("#4D4CAF50")
         } else {
-            Color.parseColor("#4DF44336") // Rojo semitransparente (~30% opacity Red)
+            Color.parseColor("#4DF44336")
         }
         textView.background = pillDrawable(color, 18f)
     }
 
-    /** Píldoras de resultado de la vista activa que deben "pulsar" mientras se espera su valor. */
     private fun setActiveResultPills(vararg views: TextView) {
         activeResultPills = views.toList()
     }
@@ -549,7 +572,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             findViewById<TextView>(R.id.tvConfirmMeasurementsText)?.text = "Guardando..."
 
             Thread {
-                // Todo el trabajo pesado en background
                 guardarResultadosEnBD()
                 saveAllResults()
 
@@ -562,14 +584,11 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }
     }
 
-    /** ¿El paciente alcanzó a tomar al menos una medición en esta sesión? */
     private fun hayMedicionesTomadas(): Boolean =
         state.hasHeightWeight() || state.hasComposition() || state.hasPressure() ||
                 state.hasTemperature() || state.hasOxygen() || state.hasEcg() ||
                 completedMeasurements.isNotEmpty() || erroredMeasurements.isNotEmpty()
 
-    /** Al salir con mediciones tomadas: ofrecer ver el informe antes de irse. Si acepta, se
-     *  guardan en el historial (igual que al confirmar) y se abre el informe; si no, sale. */
     private fun mostrarDialogoSalirConInforme() {
         val dialog = android.app.AlertDialog.Builder(this)
             .setTitle("Mediciones tomadas")
@@ -734,8 +753,22 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         switchTab("ECG", "ecg", groupEcg)
         setActiveResultPills()
 
-        // Asegurar que groupEcg esté visible pero layoutResultadosEcg esté oculto inicialmente
         layoutResultadosEcg.visibility = View.GONE
+
+        // ═══ FIX: si el startTime ya está vencido (>75s), liberar UI completa ═══
+        if (ecgEsperandoResultado && ecgMeasurementStartTime > 0L) {
+            val elapsed = System.currentTimeMillis() - ecgMeasurementStartTime
+            if (elapsed > ECG_TIMEOUT_MS) {
+                Log.w(TAG, "⚠️ ECG vencido (${elapsed}ms) al volver a la pestaña; liberando UI")
+                liberarEcgAtascado()
+                return
+            }
+            // ═══ FIX: si lleva >70s pero <75s, dar un margen de 5s y arrancar watchdog ═══
+            if (elapsed > ECG_UMBRAL_LIBERAR_AL_VOLVER_MS) {
+                Log.w(TAG, "⚠️ ECG a punto de vencer (${elapsed}ms); arrancando watchdog")
+                arrancarEcgWatchdog()
+            }
+        }
 
         if (completedMeasurements.contains("ECG") || state.hasEcg()) {
             state.ecgResults?.let { showEcgResults(it, state.ecgImage!!) }
@@ -744,11 +777,54 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             showStatusMessage("Medición completada correctamente", "#4CAF50")
             showSuccessCheck(true)
         } else {
-            showStatusMessage("Presione el botón ECG para iniciar la medición", "#FF9800")
-            showSuccessCheck(false)
-            btnStarECG.visibility = if (ecgEsperandoResultado) View.GONE else View.VISIBLE
-            ecgLoadingView.visibility = if (ecgEsperandoResultado) View.VISIBLE else View.GONE
+            if (ecgEsperandoResultado) {
+                showStatusMessage("Procesando electrocardiograma...", "#FF9800")
+                showSuccessCheck(false)
+                btnStarECG.visibility = View.GONE
+                ecgLoadingView.visibility = View.VISIBLE
+                btnRepeat.visibility = View.GONE
+                arrancarEcgWatchdog()
+            } else {
+                showStatusMessage("Presione el botón ECG para iniciar la medición", "#FF9800")
+                showSuccessCheck(false)
+                btnStarECG.visibility = View.VISIBLE
+                ecgLoadingView.visibility = View.GONE
+                btnRepeat.visibility = if (erroredMeasurements.contains("ECG")) View.VISIBLE else View.GONE
+            }
+        }
+    }
+
+    /**
+     * ═══ FIX NUEVO ═══
+     * Libera el estado de ECG atascado: cancela watchdog, cancela polling,
+     * restaura botones y muestra mensaje de error con opción de reintentar.
+     * Es idempotente: si ya está liberado, no hace nada.
+     */
+    private fun liberarEcgAtascado() {
+        if (!ecgEsperandoResultado && !erroredMeasurements.contains("ECG")) return
+        Log.w(TAG, "🧹 liberarEcgAtascado: restaurando UI de ECG")
+        ecgEsperandoResultado = false
+        ecgMeasurementStartTime = 0L
+        ecgWatchdogHandler.removeCallbacksAndMessages(null)
+        ecgManager.cancel()
+        erroredMeasurements.add("ECG")
+        runOnUiThread {
+            if (isFinishing || isDestroyed) return@runOnUiThread
+            ecgLoadingView.visibility = View.GONE
+            btnStarECG.visibility = View.VISIBLE
             btnRepeat.visibility = View.GONE
+            showStatusMessage("Tiempo de espera agotado. Reintenta la medición.", ERROR_COLOR)
+            showSuccessCheck(false)
+            setRepeatMode(true)
+            checkLastMeasurement()
+        }
+    }
+
+    /** ═══ FIX: arranca el watchdog periódico (cada 5s evalúa si hay que liberar) ═══ */
+    private fun arrancarEcgWatchdog() {
+        ecgWatchdogHandler.removeCallbacks(ecgWatchdogRunnable)
+        if (ecgEsperandoResultado) {
+            ecgWatchdogHandler.postDelayed(ecgWatchdogRunnable, 5_000L)
         }
     }
 
@@ -760,13 +836,15 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         showStatusMessage("Función no disponible", "#FF9800")
     }
 
-    /** Derivaciones configuradas en "Parámetros de medición" (ver MeasurementParametersActivity). */
     private fun ecgDerivacionesConfiguradas(): Int =
         getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
             .getInt(TestElementsActivity.PREF_ECG_DERIVACIONES, 6)
 
     private fun startEcg(derivaciones: Int) {
         btnStarECG.visibility = View.GONE
+        // ═══ FIX: cancelar cualquier watchdog previo antes de arrancar uno nuevo ═══
+        ecgWatchdogHandler.removeCallbacks(ecgWatchdogRunnable)
+
         val startTime = System.currentTimeMillis()
         val ok = ecgManager.startMeasurement(
             pacienteNombre, pacienteId.toString(), pacienteGenero, pacienteFechaNacimiento, derivaciones
@@ -775,6 +853,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             ecgEsperandoResultado = true
             ecgMeasurementStartTime = startTime
             ecgLoadingView.visibility = View.VISIBLE
+            arrancarEcgWatchdog()
         } else {
             Toast.makeText(this, "No se pudo encontrar la app de ECG", Toast.LENGTH_LONG).show()
             onMeasurementError()
@@ -949,7 +1028,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                     state.pendingPI = intent.getDoubleExtra("pi", 0.0)
                     if (state.pendingSpO2 > 0) {
                         state.hasPendingResult = true
-                        // No mostramos groupOxigeno aquí aún, esperamos a onOxygenResult (confirmado)
                     }
                 }
                 "STATUS" -> {
@@ -968,6 +1046,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     }
 
     private fun showEcgResults(results: EcgResults, image: Bitmap) {
+        // ═══ FIX: cancelar watchdog al mostrar resultado exitoso ═══
+        ecgWatchdogHandler.removeCallbacks(ecgWatchdogRunnable)
+
         ecgImageView.setImageBitmap(image)
         ecgImageView.visibility = View.VISIBLE
         cardEcgImage.visibility = View.VISIBLE
@@ -1025,13 +1106,24 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         cancelCountdownTimer()
         controller.cancelTimers()
         controller.prepareTab(key.uppercase())
+
+        // ═══ FIX: si salimos de la pestaña ECG con medición pendiente vencida,
+        //          cancelar el polling en background ═══
+        if (currentMeasurementType == "ECG" && ecgEsperandoResultado &&
+            System.currentTimeMillis() - ecgMeasurementStartTime > ECG_UMBRAL_LIBERAR_AL_VOLVER_MS
+        ) {
+            Log.w(TAG, "switchTab: ECG pendiente vencido, cancelando polling")
+            ecgManager.cancel()
+            ecgEsperandoResultado = false
+            ecgMeasurementStartTime = 0L
+            erroredMeasurements.add("ECG")
+        }
+
         if (currentMeasurementType == "OXIGENO" && key.uppercase() != "OXIGENO") {
             LocalBroadcastManager.getInstance(this).sendBroadcast(Intent("STOP_OXYGEN_MEASURE"))
         }
         setRepeatMode(false)
         tvStatusProgress.visibility = View.GONE
-        // Por si se cambia de pestaña a medio "esperando resultado": no dejar la
-        // animación grande de la pestaña anterior atascada sobre la guía nueva.
         mostrarAnimacionMidiendo(false)
         listOf(groupAlturaPeso, groupTemperatura, groupComposicion, groupPresion,
             groupOxigeno, groupEcg, groupAzucar, groupAcidoUrico, groupColesterol)
@@ -1043,29 +1135,20 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         group?.visibility = View.VISIBLE
 
-        // Cargar últimos resultados para esta pestaña
         loadLastResults(key)
 
         waveformView.visibility = if (key == "oxigeno") View.VISIBLE else View.GONE
 
-        // --- CAMBIO: Actualizar título central ---
         tvMeasurementTitle.text = title
         tvMeasurementTitle.visibility = View.VISIBLE
         tvCountdownMessage.visibility = View.GONE
-        // -----------------------------------------
 
-        // Los tipos con su propia secuencia de guía (altura/peso, composición,
-        // presión, temperatura, oxígeno) la ponen justo después de esta llamada;
-        // si aquí también se pusiera la imagen genérica "instruccion_$key", se
-        // vería un parpadeo: la genérica aparece un instante y luego se
-        // reemplaza por la guía real específica.
         if (!skipGenericGuide) {
             setGuideImage("instruccion_$key")
         }
         tvGuideStep.visibility = if (key == "altura_peso") View.VISIBLE else View.GONE
         updateButtonVisibility()
 
-        // Solo reproducir audio "start" si esta medición AÚN NO ha sido completada
         if (!completedMeasurements.contains(currentMeasurementType)) {
             getAudioName(currentMeasurementType, "start")?.let { playAudio(it) }
         }
@@ -1073,17 +1156,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         actualizarTabSeleccionado()
     }
 
-    /**
-     * La guía (izquierda) y los resultados (derecha) permanecen visibles todo el
-     * tiempo, en paralelo; lo que cubre/descubre los datos reales mientras se
-     * espera es únicamente el overlay de [mostrarAnimacionMidiendo], no estos
-     * paneles. `showResults` ya no oculta ningún panel.
-     */
     private fun setHeightWeightPresentation(showResults: Boolean) {
     }
 
     private fun loadLastResults(key: String) {
-        // 1. Resetear visibilidad de grupos históricos
         lastGroupAlturaPeso.visibility = View.GONE
         lastGroupPresion.visibility = View.GONE
         lastGroupOxigeno.visibility = View.GONE
@@ -1091,7 +1167,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         lastGroupEcg.visibility = View.GONE
         tvLastTemperature.visibility = View.GONE
 
-        // 2. Mostrar placeholders inmediatamente según la pestaña
         when (key) {
             "altura_peso" -> {
                 tvLastHeight.text = "Altura\n--"
@@ -1129,7 +1204,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             }
         }
 
-        // 3. Si hay paciente, buscar resultados reales en la DB
         if (pacienteIdLocal == 0L) return
 
         Thread {
@@ -1185,7 +1259,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             imgGuide.setImageResource(resId)
             return
         }
-        // Crossfade suave en vez de un cambio brusco al pasar de una guía a otra.
         imgGuide.animate().alpha(0f).setDuration(150).withEndAction {
             imgGuide.setImageResource(resId)
             imgGuide.animate().alpha(1f).setDuration(200).start()
@@ -1309,7 +1382,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         tvGuideStep.visibility = View.VISIBLE
     }
 
-    /** Pulso lento de escala en la imagen guía, para que no se sienta una foto estática e inerte. */
     private fun startGuideBreathing() {
         if (guideBreathingAnimator != null) return
         val scaleX = android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.035f)
@@ -1340,10 +1412,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         tvStatusMessage.setTextColor(Color.parseColor(color))
         tvStatusMessage.visibility = View.VISIBLE
 
-        // "Dispositivo listo para medición" (verde) también cuenta como "esperando": es el
-        // hueco de ~5s antes de que arranque el "Esperando resultados..." (naranja) donde,
-        // sin esto, se veían los campos de resultado en blanco. Este mensaje nunca se usa
-        // para Oxígeno ni ECG, así que no afecta sus propios flujos.
         val isWaiting = color == "#FF9800" || msg == "Dispositivo listo para medición"
         val isSuccess = color == "#4CAF50" && msg.contains("completada")
 
@@ -1355,8 +1423,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         showSuccessCheck(isSuccess)
     }
 
-    /** Mientras se esperan resultados: un barrido de color recorre la píldora del mensaje de
-     *  estado, y las píldoras de resultado de la vista activa "pulsan" con el color del tema. */
     private fun startStatusShimmer() {
         statusSweep.visibility = View.VISIBLE
         statusSweep.start()
@@ -1371,26 +1437,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         mostrarAnimacionMidiendo(false)
     }
 
-    /**
-     * Mitad derecha de la pantalla: mientras se espera el resultado del sensor,
-     * cubre el panel de resultados con una animación grande ("midiendo"). Al
-     * terminar (con éxito o error) se descubre y aparecen los datos reales. La
-     * guía de postura (mitad izquierda) permanece visible todo el tiempo, sin
-     * animaciones de "esperando" mezcladas en las tarjetas de resultado.
-     */
     private fun mostrarAnimacionMidiendo(midiendo: Boolean) {
-        // Oxígeno (gráfica de pulsaciones en tiempo real) y Composición (barra de
-        // porcentaje) ya muestran su propio indicador de progreso específico —
-        // taparlos con el loader genérico ocultaría información más útil que la
-        // propia animación genérica. ECG tampoco lo usa: la medición la realiza
-        // la app externa, así que aquí solo se necesita ver el botón "Comenzar
-        // medición" (u, obtenido el resultado, la imagen del trazo).
         val tieneIndicadorPropio = currentMeasurementType == "OXIGENO" || currentMeasurementType == "COMPOSICION" ||
-            currentMeasurementType == "ECG"
+                currentMeasurementType == "ECG"
         measuringAnimationHost.visibility = if (midiendo && !tieneIndicadorPropio) View.VISIBLE else View.GONE
     }
 
-    /** Muestra (con una animación de aparición) o esconde el check verde de medición completada. */
     private fun showSuccessCheck(show: Boolean) {
         if (show) {
             tvStatusProgress.visibility = View.GONE
@@ -1413,7 +1465,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             "ECG" -> {
                 btnStarECG.visibility = if (state.ecgResults == null && !ecgEsperandoResultado) View.VISIBLE else View.GONE
                 ecgLoadingView.visibility = if (ecgEsperandoResultado) View.VISIBLE else View.GONE
-                btnRepeat.visibility = if (state.ecgResults != null) View.VISIBLE else View.GONE
+                btnRepeat.visibility = if (state.ecgResults != null || erroredMeasurements.contains("ECG")) View.VISIBLE else View.GONE
             }
             "ALTURA_PESO" -> {
                 btnStarECG.visibility = View.GONE
@@ -1457,7 +1509,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun checkLastMeasurement() {
         val prefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
 
-        // Dispositivos/mediciones activas según DevicePrefs
         val activeKeys = listOf(
             "device_altura_peso" to "ALTURA_PESO",
             "device_composicion" to "COMPOSICION",
@@ -1467,16 +1518,14 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             "device_ecg" to "ECG"
         ).filter { (prefKey, _) -> prefs.getBoolean(prefKey, true) }
 
-        // Verificar si todas las mediciones activas fueron intentadas (completadas o con error)
         val allAttempted = activeKeys.isNotEmpty() && activeKeys.all { (_, type) ->
             completedMeasurements.contains(type) || erroredMeasurements.contains(type)
         }
 
-        // O si la última medición activa configurada ya finalizó (éxito o error)
         val lastActiveType = activeKeys.lastOrNull()?.second
         val lastFinished = lastActiveType != null && (
-            completedMeasurements.contains(lastActiveType) || erroredMeasurements.contains(lastActiveType)
-        )
+                completedMeasurements.contains(lastActiveType) || erroredMeasurements.contains(lastActiveType)
+                )
 
         if (allAttempted || lastFinished) {
             btnConfirmMeasurements.visibility = View.VISIBLE
@@ -1550,7 +1599,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         editor.apply()
 
         state.ecgResults?.let {
-            // ✅ saveToPrefs corre en el hilo del botón, no en UI
             ecgManager.saveToPrefs(this, it, state.ecgImage)
         }
     }
@@ -1566,7 +1614,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             EcgStorage.copyToInternal(this, src) ?: ""
         } ?: ""
 
-        // ✅ Leer el paciente DIRECTO de Room para obtener el id_usuario_web real
         val pacienteActual = runBlocking {
             if (pacienteIdLocal != 0L) {
                 db.pacienteDao().obtenerPacientePorIdLocal(pacienteIdLocal)
@@ -1578,7 +1625,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
         val r = Resultado(
             id_local = pacienteIdLocal,
-            id_usuario_web = idUsuarioWebFinal,   // ✅ Este es el valor correcto
+            id_usuario_web = idUsuarioWebFinal,
             altura = if (state.height > 0) "%.1f".format(java.util.Locale.US, state.height) else "",
             peso = if (state.weight > 0) "%.3f".format(java.util.Locale.US, state.weight) else "",
             imc = if (state.imc > 0) "%.1f".format(java.util.Locale.US, state.imc) else "",
@@ -1617,9 +1664,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             fecha_medicion = fecha
         )
 
-        // Insert síncrono: esta función siempre corre dentro de un Thread de fondo (al
-        // confirmar y al salir con informe), así garantizamos que el registro ya esté en BD
-        // antes de abrir la pantalla siguiente (el informe lo lee de la BD).
         runBlocking { dao.insertarResultado(r) }
     }
 
@@ -1627,8 +1671,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     override fun onStatusMessage(message: String, color: String) {
         showStatusMessage(message, color)
-        // El controlador reporta los fallos ("no se encuentra el dispositivo", "Error de medición...")
-        // solo como mensaje en rojo: en ese caso también se ofrece "Reintentar" arriba.
         if (color.equals(ERROR_COLOR, ignoreCase = true)) {
             DailyReportManager.recordSessionError(this, pacienteIdLocal, message)
             runOnUiThread {
@@ -1641,15 +1683,14 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         runOnUiThread {
             if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
 
-            // ✅ Log detallado de confirmación y resultados de cada medición
             Log.d(TAG, "✅ [MEDICIÓN COMPLETADA] Tipo: $currentMeasurementType")
             when (currentMeasurementType) {
                 "ALTURA_PESO" -> Log.d(TAG, "   📏 Altura y Peso -> Altura: ${state.height} cm, Peso: ${state.weight} kg, IMC: ${state.imc}")
-                "COMPOSICION" -> Log.d(TAG, "   🧬 Composición Corporal -> Grasa: ${state.fatRate}% (${state.fatKg} kg), Agua: ${state.waterRate}% (${state.waterKg} kg), Músculo: ${state.muscle} kg, Metabolismo: ${state.metabolism} kcal, Grasa Visceral: ${state.visceralFat}, Peso Ideal: ${state.idealWeight} kg, Proteína: ${state.protein}%, Minerales: ${state.mineral} kg, Masa Libre de Grasa: ${state.notFat} kg, Tipo Grasa: ${state.fatType}")
-                "PRESION" -> Log.d(TAG, "   🩺 Presión Arterial -> Sistólica: ${state.systolic} mmHg, Diastólica: ${state.diastolic} mmHg, Pulso: ${state.pulse} bpm")
-                "TEMPERATURA" -> Log.d(TAG, "   🌡️ Temperatura -> ${state.temperature} °C (${state.temperatureF} °F), Modo: ${state.bodyMode}")
-                "OXIGENO" -> Log.d(TAG, "   🫁 Oxígeno -> SpO2: ${state.spo2}%, Frecuencia de Pulso: ${state.pulseRate} bpm, Índice de Perfusión (PI): ${state.pi}")
-                "ECG" -> Log.d(TAG, "   ⚡ ECG -> Frecuencia Cardíaca: ${state.ecgResults?.heartRate} bpm, Eje P: ${state.ecgResults?.pAxis}, Eje QRS: ${state.ecgResults?.qrsAxis}, Eje T: ${state.ecgResults?.tAxis}, PR: ${state.ecgResults?.prInterval} ms, QRS: ${state.ecgResults?.qrsDuration} ms, QT: ${state.ecgResults?.qtd} ms, QTc: ${state.ecgResults?.qtc} ms, Resultado: ${state.ecgResults?.resCode}")
+                "COMPOSICION" -> Log.d(TAG, "   🧬 Composición -> Grasa: ${state.fatRate}%, Agua: ${state.waterRate}%, Músculo: ${state.muscle} kg")
+                "PRESION" -> Log.d(TAG, "   🩺 Presión -> ${state.systolic}/${state.diastolic}, Pulso: ${state.pulse}")
+                "TEMPERATURA" -> Log.d(TAG, "   🌡️ Temperatura -> ${state.temperature} °C")
+                "OXIGENO" -> Log.d(TAG, "   🫁 Oxígeno -> SpO2: ${state.spo2}%, PR: ${state.pulseRate}, PI: ${state.pi}")
+                "ECG" -> Log.d(TAG, "   ⚡ ECG -> HR: ${state.ecgResults?.heartRate}, ResCode: ${state.ecgResults?.resCode}")
             }
 
             controller.cancelStatusDelayed()
@@ -1674,10 +1715,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }
     }
 
-    /**
-     * El botón superior derecho es "Repetir" cuando ya hay resultado y "Reintentar" cuando la
-     * medición falló (sin resultado no había forma de volver a intentarla desde la barra superior).
-     */
     private fun setRepeatMode(error: Boolean) {
         val textRetry = if (error) getString(R.string.measurement_retry) else "Repetir"
         findViewById<TextView>(R.id.tvRepeatReadingText)?.text = textRetry
@@ -1685,30 +1722,35 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     }
 
     override fun onMeasurementError() {
+        if (currentMeasurementType == "ECG") {
+            ecgEsperandoResultado = false
+            ecgMeasurementStartTime = 0L
+            // ═══ FIX: cancelar watchdog y polling ═══
+            ecgWatchdogHandler.removeCallbacksAndMessages(null)
+            ecgManager.cancel()
+        }
+        if (currentMeasurementType.isNotEmpty() && !completedMeasurements.contains(currentMeasurementType)) {
+            erroredMeasurements.add(currentMeasurementType)
+        }
+
         runOnUiThread {
-            if (!isActivityResumed || isFinishing || isDestroyed) return@runOnUiThread
+            if (isFinishing || isDestroyed) return@runOnUiThread
             controller.cancelStatusDelayed()
             cancelCountdownTimer()
             tvStatusProgress.visibility = View.GONE
             if (currentMeasurementType == "ECG") {
-                ecgEsperandoResultado = false
-                ecgMeasurementStartTime = 0L
                 ecgLoadingView.visibility = View.GONE
+                btnStarECG.visibility = View.VISIBLE  // ═══ FIX: restaurar botón ═══
             }
             if (currentMeasurementType in setOf("ALTURA_PESO", "COMPOSICION", "PRESION", "TEMPERATURA", "OXIGENO")) {
                 guideSequenceToken++
                 setHeightWeightPresentation(showResults = true)
-                // No dejamos ocho tarjetas con loaders activos detrás de un error.
-                // El estado y Reintentar permanecen visibles en una superficie limpia.
                 if (currentMeasurementType == "COMPOSICION") groupComposicion.visibility = View.GONE
             }
             layoutResultadosEcg.visibility = View.GONE
-            showStatusMessage(getString(R.string.measurement_error), "#F44336")
+            showStatusMessage(getString(R.string.measurement_error), ERROR_COLOR)
             updateButtonVisibility()
             setRepeatMode(true)
-            if (!completedMeasurements.contains(currentMeasurementType)) {
-                erroredMeasurements.add(currentMeasurementType)
-            }
             checkLastMeasurement()
             getAudioName(currentMeasurementType, "error")?.let { playAudio(it, forceRestart = true) }
             startCountdownToNextTab()
@@ -1733,14 +1775,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     }
 
     private fun resolveAudioResId(soundName: String): Int {
-        // Android resuelve automáticamente desde app/src/main/res/raw-en/ cuando el idioma es inglés,
-        // o desde app/src/main/res/raw/ por defecto (español).
         return resources.getIdentifier(soundName, "raw", packageName)
     }
 
     private fun playAudio(soundName: String, forceRestart: Boolean = false) {
         if (!isActivityResumed || isFinishing || isDestroyed) {
-            Log.d(TAG, "🔇 Ignorando reproducción de audio $soundName porque la actividad no está en primer plano")
+            Log.d(TAG, "🔇 Ignorando audio $soundName porque la actividad no está en primer plano")
             return
         }
         if (!forceRestart && mediaPlayer?.isPlaying == true && currentPlayingAudioName == soundName) {
@@ -1770,9 +1810,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         try {
             currentPlayingAudioName = null
             mediaPlayer?.let {
-                if (it.isPlaying) {
-                    it.stop()
-                }
+                if (it.isPlaying) it.stop()
                 it.release()
             }
         } catch (e: Exception) {
@@ -1797,11 +1835,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }
     }
 
-    /**
-     * Resalta en la barra inferior la pestaña de [currentMeasurementType]: desliza la "lupa"
-     * rectangular (tabSelectorIndicator) hasta esa pestaña y aclara el tono de su ícono;
-     * las demás pestañas quedan con su ícono en blanco normal.
-     */
     private fun actualizarTabSeleccionado(animar: Boolean = true) {
         val boton = allButtons.firstOrNull { isButtonForCurrentType(it, currentMeasurementType) } ?: return
         allButtons.forEach { btn ->
@@ -1817,14 +1850,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun moverSelectorTab(target: View, animar: Boolean) {
         val fila = target.parent as? View
         if (target.width == 0 || fila == null || fila.height == 0) {
-            // Aún no se ha hecho layout (p. ej. primera pestaña al abrir la pantalla).
             target.post { moverSelectorTab(target, animar) }
             return
         }
         val margenH = dp(6)
         val destX = (target.left + margenH).toFloat()
         val destW = target.width - margenH * 2
-        // Alto completo de la barra de color inferior
         val destY = fila.top.toFloat()
         val destH = fila.height
 
@@ -1839,8 +1870,7 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         }
 
         tabSelectorIndicator.animate()
-            .x(destX)
-            .y(destY)
+            .x(destX).y(destY)
             .setDuration(260)
             .setInterpolator(OvershootInterpolator(1.1f))
             .start()
@@ -1872,14 +1902,9 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun startCountdownToNextTab() {
         cancelCountdownTimer()
-
         val nextButton = getNextVisibleButton() ?: return
-
-        // --- CAMBIO: Ocultar título y mostrar cuenta regresiva ---
         tvMeasurementTitle.visibility = View.GONE
         tvCountdownMessage.visibility = View.VISIBLE
-        // ---------------------------------------------------------
-
         tvCountdownMessage.text = "Siguiente medición en 5 segundos"
 
         countdownTimer = object : CountDownTimer(5000, 1000) {
@@ -1890,7 +1915,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                     tvCountdownMessage.text = "Siguiente medición en $secondsLeft $unitText"
                 }
             }
-
             override fun onFinish() {
                 cancelCountdownTimer()
                 nextButton.performClick()
@@ -1932,8 +1956,11 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         ecgManager.onResume()
         updateButtonVisibility()
         checkLastMeasurement()
+        // ═══ FIX: reanudar watchdog si había un ECG pendiente ═══
+        if (ecgEsperandoResultado) {
+            arrancarEcgWatchdog()
+        }
         if (VideoLoopRemote.isMeasurementMuteEnabled(this)) {
-            // Solo se silencia si el usuario tenía VideoLoop con sonido; si lo silenció, se respeta
             val appContext = applicationContext
             CoroutineScope(Dispatchers.IO).launch {
                 VideoLoopRemote.silenciarMientras(appContext, TAG)
@@ -1964,10 +1991,10 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         isActivityResumed = false
         cancelCountdownTimer()
         stopAudio()
+        // ═══ FIX: cancelar watchdog y ecgManager ═══
+        ecgWatchdogHandler.removeCallbacksAndMessages(null)
         ecgManager.cancel()
         controller.destroy()
-        // Si se sale a mitad de una composición, detenerla: si no, la báscula quedaba en modo
-        // composición y las siguientes mediciones de altura/peso no llegaban a la pantalla.
         if (currentMeasurementType == "COMPOSICION" && !completedMeasurements.contains("COMPOSICION")) {
             LocalBroadcastManager.getInstance(this)
                 .sendBroadcast(Intent("SEND_STOP_COMMAND").putExtra("command_type", "COMPOSICION"))
@@ -1978,7 +2005,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         try { LocalBroadcastManager.getInstance(this).unregisterReceiver(colorReceiver) } catch (_: Exception) {}
         if (VideoLoopRemote.isMeasurementMuteEnabled(this)) {
             val appContext = applicationContext
-            // Devuelve el audio solo si lo silenció la app; si el usuario lo había silenciado, sigue así
             CoroutineScope(Dispatchers.IO).launch {
                 VideoLoopRemote.restaurarSilencio(appContext, TAG)
             }
