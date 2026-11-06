@@ -1,6 +1,8 @@
 package com.sybi.mosi.network
 
 import android.util.Log
+import com.sybi.mosi.MosiApp
+import com.sybi.mosi.integration.MosiSecureStore
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -13,7 +15,6 @@ object RetrofitClient {
 
     private const val BASE_URL = "https://www.sybiml.com/APIRest/Usuario_mosi/public/"
     //private const val BASE_URL = "https://desarrollo.sybiml3.com/APIRest/Usuario_mosi/public/"
-    private const val API_KEY = "dc5cdc3d48c15c6f1130e72e68ffdec3b0b127000fd0d46584b556cce62f86ba"
     private val dnsExecutor: ExecutorService by lazy {
         Executors.newCachedThreadPool { runnable ->
             Thread(runnable, "mosi-dns").apply { isDaemon = true }
@@ -28,14 +29,14 @@ object RetrofitClient {
             level = HttpLoggingInterceptor.Level.HEADERS
         }
 
-        // DNS con timeout manual de 10 segundos
+        // DNS con timeout de 30 segundos para redes lentas
         val timeoutDns = object : Dns {
             override fun lookup(hostname: String): List<InetAddress> {
                 val future = dnsExecutor.submit(Callable {
                     Dns.SYSTEM.lookup(hostname)
                 })
                 return try {
-                    future.get(10, TimeUnit.SECONDS)
+                    future.get(30, TimeUnit.SECONDS)
                 } catch (e: Exception) {
                     future.cancel(true)
                     throw java.net.UnknownHostException("DNS lookup timeout for $hostname")
@@ -46,17 +47,18 @@ object RetrofitClient {
         val client = OkHttpClient.Builder()
             .dns(timeoutDns)
             .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .addHeader("X-Api-Key", API_KEY)
-                    .build()
+                val token = MosiSecureStore.token(MosiApp.instance)
+                val requestBuilder = chain.request().newBuilder()
+                if (token.isNotBlank()) requestBuilder.addHeader("Authorization", "Bearer $token")
+                val request = requestBuilder.build()
                 chain.proceed(request)
             }
             .addInterceptor(logging)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)     // ✅ Ampliado a 30s para cargas de ~1MB (ECG)
-            .callTimeout(60, TimeUnit.SECONDS)      // ✅ Ampliado a 60s el timeout total
-            .retryOnConnectionFailure(true)         // ✅ reintentar en fallos transitorios
+            .connectTimeout(60, TimeUnit.SECONDS)   // ✅ Adaptado para conexiones lentas
+            .readTimeout(180, TimeUnit.SECONDS)    // ✅ 3 min de lectura sin corte prematuro
+            .writeTimeout(180, TimeUnit.SECONDS)   // ✅ 3 min de escritura para subidas lentas
+            .callTimeout(0, TimeUnit.SECONDS)      // ✅ Sin límite de tiempo global estricto
+            .retryOnConnectionFailure(true)        // ✅ Reintentar automáticamente en fallos
             .build()
 
         Retrofit.Builder()
