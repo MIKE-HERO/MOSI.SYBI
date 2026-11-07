@@ -16,6 +16,8 @@ import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
+/** NO SE ... */
+
 class MosiTelemetryWorker(appContext: Context, params: WorkerParameters) :
     CoroutineWorker(appContext, params) {
 

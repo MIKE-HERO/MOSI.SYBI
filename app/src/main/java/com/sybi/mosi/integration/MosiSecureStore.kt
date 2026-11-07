@@ -7,7 +7,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import java.util.UUID
 
-/** Almacén cifrado para la identidad y el token individual de la cabina. */
+/** Almacén cifrado para la identidad y el token individual de la cabina... */
 object MosiSecureStore {
     private const val TAG = "MosiSecureStore"
     private const val FILE_NAME = "MosiIntegrationSecure"

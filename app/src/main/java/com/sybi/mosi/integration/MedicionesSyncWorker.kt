@@ -16,7 +16,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-/** Reintenta únicamente mediciones clínicas ya guardadas localmente. */
+/** Reintenta únicamente mediciones clínicas ya guardadas localmente... */
 class MedicionesSyncWorker(appContext: Context, params: WorkerParameters) :
     CoroutineWorker(appContext, params) {
 

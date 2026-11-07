@@ -40,7 +40,7 @@ data class MosiCliente(val id: String, val nombre: String)
 
 class MosiApiException(message: String, val statusCode: Int? = null) : Exception(message)
 
-/** Cliente del canal administrativo MOSI. Nunca registra tokens ni cuerpos clínicos. */
+/** Cliente del canal administrativo MOSI. Nunca registra tokens ni cuerpos clínicos... */
 class MosiApiClient(private val context: Context) {
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()

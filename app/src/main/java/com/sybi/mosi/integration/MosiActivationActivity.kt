@@ -20,6 +20,7 @@ import com.sybi.mosi.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+/** NO SE... */
 
 class MosiActivationActivity : BaseActivity() {
     private lateinit var api: MosiApiClient
