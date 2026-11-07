@@ -304,23 +304,11 @@ class ResultTableActivity : BaseActivity() {
 
             for (r in paraEnviar) {
                 try {
-                    val envio = runBlocking {
+                    val exito = runBlocking {
                         val request = sender.buildFromResultado(r)
                         sender.enviar(request)
                     }
-                    val now = java.text.SimpleDateFormat(
-                        "yyyy-MM-dd'T'HH:mm:ssXXX",
-                        java.util.Locale.US
-                    ).format(java.util.Date())
-                    runBlocking {
-                        val resultDao = AppDatabase.getInstance(this@ResultTableActivity).resultadoDao()
-                        if (envio.success) {
-                            resultDao.marcarSincronizado(r.id_resultado, envio.remoteId, now)
-                        } else {
-                            resultDao.marcarErrorSincronizacion(r.id_resultado, envio.error.take(500), now)
-                        }
-                    }
-                    if (envio.success) exitosos++ else fallidos++
+                    if (exito) exitosos++ else fallidos++
                 } catch (e: Exception) {
                     Log.e(TAG, "❌ Error reenviando id=${r.id_resultado}: ${e.message}", e)
                     fallidos++

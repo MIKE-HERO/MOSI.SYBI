@@ -25,10 +25,6 @@ object ErrorLogHelper {
     /** BLOQUEANTE (ejecuta logcat y lee archivos): llamar desde un hilo de fondo. */
     fun generarLogDeErrores(context: Context): File? {
         return try {
-            // ✅ Generar entrada en logcat con el diagnóstico de velocidad de internet actual
-            val diagnosticoRed = com.sybi.mosi.network.NetworkSpeedHelper.obtenerDiagnosticoRedCompleto(context)
-            Log.i(TAG, "🌐 [DIAGNÓSTICO AL GENERAR LOG]\n$diagnosticoRed")
-
             val pid = Process.myPid()
             // Sin filtro de nivel "*:E" → incluye TODOS los niveles del proceso
             val proceso = ProcessBuilder("logcat", "-d", "-v", "threadtime", "--pid=$pid", "*:V")
@@ -48,7 +44,6 @@ object ErrorLogHelper {
                 appendLine("Generado: ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}")
                 appendLine("Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL} (Android ${Build.VERSION.RELEASE})")
                 appendLine("Versión de la app: ${obtenerVersionApp(context)}")
-                appendLine(diagnosticoRed)
                 appendLine("=======================================")
                 appendLine()
             }

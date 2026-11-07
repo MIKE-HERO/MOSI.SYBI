@@ -8,7 +8,7 @@ import androidx.room.Query
 interface ResultadoDao {
 
     @Insert
-    suspend fun insertarResultado(resultado: Resultado): Long
+    suspend fun insertarResultado(resultado: Resultado)
 
     @Query("SELECT * FROM resultados WHERE id_usuario_web = :idUsuarioWeb ORDER BY id_resultado DESC")
     suspend fun obtenerResultadosPorUsuarioWeb(idUsuarioWeb: Int): List<Resultado>
@@ -37,16 +37,4 @@ interface ResultadoDao {
     // paciente que ya no existe).
     @Query("DELETE FROM resultados WHERE id_local = :idLocal")
     suspend fun eliminarResultadosPorIdLocal(idLocal: Long)
-
-    @Query("SELECT * FROM resultados WHERE sincronizado_remoto = 0 AND id_usuario_web > 0 ORDER BY id_resultado ASC LIMIT :limit")
-    suspend fun obtenerPendientesSincronizacion(limit: Int = 20): List<Resultado>
-
-    @Query("SELECT COUNT(*) FROM resultados WHERE sincronizado_remoto = 0")
-    suspend fun contarPendientesSincronizacion(): Int
-
-    @Query("UPDATE resultados SET sincronizado_remoto = 1, id_medicion_remota = :idRemoto, ultimo_error_sincronizacion = '', fecha_ultimo_intento = :fecha WHERE id_resultado = :idResultado")
-    suspend fun marcarSincronizado(idResultado: Long, idRemoto: Int?, fecha: String)
-
-    @Query("UPDATE resultados SET intentos_sincronizacion = intentos_sincronizacion + 1, ultimo_error_sincronizacion = :error, fecha_ultimo_intento = :fecha WHERE id_resultado = :idResultado")
-    suspend fun marcarErrorSincronizacion(idResultado: Long, error: String, fecha: String)
 }

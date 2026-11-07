@@ -18,7 +18,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.sybi.mosi.updater.MosiRelease
+import com.sybi.mosi.updater.GitHubRelease
 import com.sybi.mosi.updater.UpdateActivity
 import com.sybi.mosi.updater.UpdateManager
 import kotlinx.coroutines.launch
@@ -73,11 +73,9 @@ class DeviceInfoActivity : BaseActivity() {
     private lateinit var btnCheckUpdates: Button
     private lateinit var spnVersions: Spinner
     private lateinit var btnInstallSelected: Button
-    private lateinit var tvMosiIntegrationStatus: TextView
-    private lateinit var btnMosiActivation: Button
 
     private lateinit var updateManager: UpdateManager
-    private var fetchedReleases: List<MosiRelease> = emptyList()
+    private var fetchedReleases: List<GitHubRelease> = emptyList()
 
     // ✅ Versión realmente instalada (leída de packageManager)
     private var installedVersionName: String = ""
@@ -100,12 +98,6 @@ class DeviceInfoActivity : BaseActivity() {
         btnCheckUpdates = findViewById(R.id.btnCheckUpdates)
         spnVersions = findViewById(R.id.spnVersions)
         btnInstallSelected = findViewById(R.id.btnInstallSelected)
-        tvMosiIntegrationStatus = findViewById(R.id.tvMosiIntegrationStatus)
-        btnMosiActivation = findViewById(R.id.btnMosiActivation)
-        refreshMosiStatus()
-        btnMosiActivation.setOnClickListener {
-            startActivity(Intent(this, com.sybi.mosi.integration.MosiActivationActivity::class.java))
-        }
 
         // ── Receptor de cambio de color ──
         val colorReceiver = object : BroadcastReceiver() {
@@ -165,7 +157,7 @@ class DeviceInfoActivity : BaseActivity() {
                     )
                     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                     spnVersions.adapter = adapter
-                    tvSoftwareVersion.text = "Versión disponible en MOSI: ${fetchedReleases[0].tagName}"
+                    tvSoftwareVersion.text = "Versión en repositorio: ${fetchedReleases[0].tagName}"
 
                     val latestRelease = releases[0]
                     val latestTag = latestRelease.tagName
@@ -185,15 +177,12 @@ class DeviceInfoActivity : BaseActivity() {
                         this@DeviceInfoActivity,
                         latestRelease.downloadUrl,
                         latestTag,
-                        forceReinstall = false,
-                        sha256 = latestRelease.sha256,
-                        updateId = latestRelease.updateId,
-                        requestId = latestRelease.requestId
+                        forceReinstall = false
                     )
                 } else {
                     Toast.makeText(
                         this@DeviceInfoActivity,
-                        "No se pudo consultar el canal de actualizaciones MOSI",
+                        "No se pudieron consultar las versiones en GitHub",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -229,31 +218,12 @@ class DeviceInfoActivity : BaseActivity() {
                     this@DeviceInfoActivity,
                     selected.downloadUrl,
                     selected.tagName,
-                    forceReinstall = true,
-                    sha256 = selected.sha256,
-                    updateId = selected.updateId,
-                    requestId = selected.requestId
+                    forceReinstall = true
                 )
             } else {
                 Toast.makeText(this, "Por favor seleccione una versión válida", Toast.LENGTH_SHORT).show()
             }
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (::tvMosiIntegrationStatus.isInitialized) refreshMosiStatus()
-    }
-
-    private fun refreshMosiStatus() {
-        val activated = com.sybi.mosi.integration.MosiSecureStore.estaActivado(this)
-        val owner = com.sybi.mosi.admin.PermisosAdmin.esPropietario(this)
-        tvMosiIntegrationStatus.text = buildString {
-            append(if (activated) "Administrador MOSI: activado" else "Administrador MOSI: sin activar")
-            append(" · Instalación silenciosa: ")
-            append(if (owner) "disponible" else "NO disponible (falta Device Owner)")
-        }
-        btnMosiActivation.text = if (activated) "Reactivar" else "Activar"
     }
 
     /**
@@ -283,7 +253,7 @@ class DeviceInfoActivity : BaseActivity() {
     }
 
     /**
-     * Carga la actualización asignada a esta cabina en el canal MOSI.
+     * Carga las releases del repositorio de GitHub y las muestra en el Spinner.
      * NO modifica tvInstalledVersion.
      */
     private fun loadRepositoryReleases() {
@@ -303,14 +273,14 @@ class DeviceInfoActivity : BaseActivity() {
                     override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                         if (position in fetchedReleases.indices) {
                             val selected = fetchedReleases[position]
-                            tvSoftwareVersion.text = "Versión disponible en MOSI: ${selected.tagName}"
+                            tvSoftwareVersion.text = "Versión en repositorio: ${selected.tagName}"
                         }
                     }
 
                     override fun onNothingSelected(parent: AdapterView<*>?) {}
                 }
 
-                tvSoftwareVersion.text = "Versión disponible en MOSI: ${fetchedReleases[0].tagName}"
+                tvSoftwareVersion.text = "Versión en repositorio: ${fetchedReleases[0].tagName}"
             } else {
                 val defaultList = listOf("Sin conexión / No disponible")
                 val adapter = ArrayAdapter(
@@ -320,7 +290,7 @@ class DeviceInfoActivity : BaseActivity() {
                 )
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 spnVersions.adapter = adapter
-                tvSoftwareVersion.text = "Versión disponible en MOSI: —"
+                tvSoftwareVersion.text = "Versión en repositorio: —"
             }
         }
     }

@@ -26,6 +26,7 @@ class CalibTestActivity : BaseActivity() {
     private lateinit var btnTestMic: Button
     private lateinit var btnTestCamera: Button
     private lateinit var btnCalibrate: Button
+    private lateinit var btnTestPrinterQr: Button
     private lateinit var btnSendLog: Button
     private lateinit var switchAutoLog: android.widget.Switch
     private lateinit var etCardResult: android.widget.EditText
@@ -50,6 +51,7 @@ class CalibTestActivity : BaseActivity() {
         btnTestMic = findViewById(R.id.btnTestMic)
         btnTestCamera = findViewById(R.id.btnTestCamera)
         btnCalibrate = findViewById(R.id.btnCalibrate)
+        btnTestPrinterQr = findViewById(R.id.btnTestPrinterQr)
         btnSendLog = findViewById(R.id.btnSendLog)
         switchAutoLog = findViewById(R.id.switchAutoLog)
         etCardResult = findViewById(R.id.etCardResult)
@@ -108,6 +110,22 @@ class CalibTestActivity : BaseActivity() {
             startActivity(Intent(this, CalibrateActivity::class.java))
         }
 
+        btnTestPrinterQr.setOnClickListener {
+            btnTestPrinterQr.isEnabled = false
+            Toast.makeText(this, "Imprimiendo QR de prueba...", Toast.LENGTH_SHORT).show()
+            Thread {
+                val exito = ThermalPrinterHelper.imprimirTestQr(this, "Impresión de QR de prueba")
+                runOnUiThread {
+                    btnTestPrinterQr.isEnabled = true
+                    if (exito) {
+                        Toast.makeText(this, "QR impreso correctamente", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this, "Error al imprimir QR. Verifica la conexión de la impresora.", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }.start()
+        }
+
         btnSendLog.setOnClickListener { mostrarDialogoEnviarLog() }
     }
 
@@ -119,6 +137,7 @@ class CalibTestActivity : BaseActivity() {
             btnTestMic.backgroundTintList = colorStateList
             btnTestCamera.backgroundTintList = colorStateList
             btnCalibrate.backgroundTintList = colorStateList
+            btnTestPrinterQr.backgroundTintList = colorStateList
             btnSendLog.backgroundTintList = colorStateList
 
             val switchColor = ColorStateList(
@@ -213,21 +232,12 @@ class CalibTestActivity : BaseActivity() {
 
         Thread {
             val archivo = ErrorLogHelper.generarLogDeErrores(this)
-            val diagRed = com.sybi.mosi.network.NetworkSpeedHelper.obtenerDiagnosticoRedCompleto(this)
-
             val resultado = if (archivo != null) {
                 EmailSender.enviar(
                     config = config,
                     destino = destino,
                     asunto = "Log de errores — Quiosco MOSI",
-                    cuerpoHtml = """
-                        <h3>Log de errores del quiosco MOSI</h3>
-                        <div style="background-color: #f4f4f4; padding: 10px; border-radius: 5px; font-family: monospace;">
-                            <b>Diagnóstico de Red y Velocidad de Internet:</b><br/>
-                            <pre>$diagRed</pre>
-                        </div>
-                        <p>Se adjunta el archivo con el registro de errores del quiosco.</p>
-                    """.trimIndent(),
+                    cuerpoHtml = "<p>Se adjunta el log con los errores registrados por el quiosco.</p>",
                     adjunto = archivo,
                     nombreAdjunto = "mosi_errores.log"
                 )

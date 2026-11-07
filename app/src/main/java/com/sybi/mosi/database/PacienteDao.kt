@@ -62,7 +62,4 @@ interface PacienteDao {
 
     @Query("DELETE FROM pacientes")
     suspend fun eliminarTodosLosPacientes()
-
-    @Query("SELECT COUNT(*) FROM pacientes WHERE sincronizado = 0")
-    suspend fun contarPendientesSincronizacion(): Int
 }

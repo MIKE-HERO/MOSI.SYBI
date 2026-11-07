@@ -38,8 +38,7 @@ class MedicionesSender(private val context: Context) {
         val cabina = devicePrefs.getString("cabina_number", "1")?.toIntOrNull() ?: 1
 
         val ecgFromPrefs = prefs.getString("ecg_image", null)
-        val ecgOptimizado = obtenerEcgBase64Optimizado(null, ecgFromPrefs)
-        Log.d(TAG, "📷 ECG optimizado desde prefs/fallback: ${ecgOptimizado?.length ?: 0} chars (~${(ecgOptimizado?.length ?: 0) / 1024} KB)")
+        Log.d(TAG, "📷 ECG desde prefs: ${ecgFromPrefs?.length ?: 0} chars (~${(ecgFromPrefs?.length ?: 0) / 1024} KB)")
 
         // ✅ Obtener y comprimir la foto del paciente
         val fotoComprimida = if (idLocal != 0L) {
@@ -125,7 +124,7 @@ class MedicionesSender(private val context: Context) {
             rv5 = prefs.getString("ecg_rv5", "0") ?: "0",
             sv1 = prefs.getString("ecg_sv1", "0") ?: "0",
             resCode = prefs.getString("ecg_res_code", "Sinus rhythm") ?: "Sinus rhythm",
-            ecgImg = ecgOptimizado,
+            ecgImg = ecgFromPrefs,
             foto = fotoComprimida,
             lipidsChol = "0",
             lipidsTg = "0",
@@ -139,10 +138,9 @@ class MedicionesSender(private val context: Context) {
 
     /**
      * Construye un MedicionesRequest desde un Resultado de Room (reenvío).
-     * Obtiene el ECG de disco o fallback en ResultsPrefs y lo optimiza.
+     * Lee el JPG original y lo pasa a Base64 SIN recomprimir.
      */
     suspend fun buildFromResultado(r: Resultado, overrideIdUsuarioWeb: Int = 0): MedicionesRequest {
-        val prefs = context.getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE)
         val devicePrefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         val modelo = devicePrefs.getString("device_model_custom", "") ?: ""
         val serie = devicePrefs.getString("device_serial_custom", "") ?: ""
@@ -150,9 +148,10 @@ class MedicionesSender(private val context: Context) {
 
         val targetUserId = if (overrideIdUsuarioWeb > 0) overrideIdUsuarioWeb else r.id_usuario_web
 
-        // ✅ Obtener ECG desde la ruta de Room o con fallback a ResultsPrefs
-        val ecgFromPrefs = prefs.getString("ecg_image", null)
-        val ecgOptimizado = obtenerEcgBase64Optimizado(r.ruta_ecg, ecgFromPrefs)
+        // ✅ Leer el JPG original tal cual y pasarlo a Base64 sin recomprimir
+        val ecgBase64 = if (r.ruta_ecg.isNotEmpty() && File(r.ruta_ecg).exists()) {
+            archivoABase64SinComprimir(r.ruta_ecg)
+        } else null
 
         // ✅ Obtener y comprimir la foto del paciente
         val fotoComprimida = if (r.id_local != 0L) {
@@ -163,7 +162,7 @@ class MedicionesSender(private val context: Context) {
         return MedicionesRequest(
             idUsuarioWeb = targetUserId,
             idVendingMachine = cabina,
-            recordID = "MOSI-${serie.ifBlank { "SIN-SERIE" }}-${r.id_resultado}",
+            recordID = "0",
             memberID = "0",
             measureData = "0",
             deviceId = serie,
@@ -238,7 +237,7 @@ class MedicionesSender(private val context: Context) {
             rv5 = r.onda_rv5,
             sv1 = r.onda_sv1,
             resCode = r.resultado_ecg.ifEmpty { "Sinus rhythm" },
-            ecgImg = ecgOptimizado,
+            ecgImg = ecgBase64,
             foto = fotoComprimida,
             lipidsChol = "0",
             lipidsTg = "0",
@@ -250,80 +249,29 @@ class MedicionesSender(private val context: Context) {
         )
     }
 
-    suspend fun enviar(request: MedicionesRequest): PacienteRemoteRepository.EnvioMedicionResult {
+    suspend fun enviar(request: MedicionesRequest): Boolean {
         val repo = PacienteRemoteRepository(context)
         return repo.enviarMediciones(request)
     }
 
     /**
-     * Obtiene y optimiza la imagen de ECG desde archivo o SharedPreferences.
-     * Si la imagen excede los 400 KB, la recomprime a JPEG 85% para garantizar
-     * un envío veloz incluso con conexiones muy lentas.
+     * Lee un archivo JPG/PNG y lo convierte a Base64 SIN recomprimir ni redimensionar.
+     * La imagen se envía tal cual está en disco.
      */
-    private fun obtenerEcgBase64Optimizado(
-        rutaArchivo: String?,
-        ecgPrefs: String?
-    ): String? {
-        // 1. Intentar desde archivo si existe
-        if (!rutaArchivo.isNullOrBlank()) {
-            val file = File(rutaArchivo)
-            if (file.exists() && file.length() > 0) {
-                try {
-                    val bytes = file.readBytes()
-                    if (bytes.size <= 400 * 1024) {
-                        Log.d(TAG, "📷 ECG desde archivo: ${bytes.size / 1024} KB")
-                        return Base64.encodeToString(bytes, Base64.NO_WRAP)
-                    }
-                    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    val opt = bmp?.let { comprimirBitmapEcg(it) }
-                    if (opt != null) return opt
-                } catch (e: Exception) {
-                    Log.e(TAG, "❌ Error procesando archivo ECG $rutaArchivo: ${e.message}")
-                }
-            }
-        }
-
-        // 2. Fallback a SharedPreferences (ecg_image)
-        if (!ecgPrefs.isNullOrBlank()) {
-            try {
-                val bytes = Base64.decode(ecgPrefs, Base64.NO_WRAP)
-                if (bytes.size <= 400 * 1024) {
-                    Log.d(TAG, "📷 ECG desde prefs: ${bytes.size / 1024} KB")
-                    return ecgPrefs
-                }
-                val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                val opt = bmp?.let { comprimirBitmapEcg(it) }
-                if (opt != null) return opt
-                return ecgPrefs
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Error procesando ECG desde prefs: ${e.message}")
-                return ecgPrefs
-            }
-        }
-
-        Log.w(TAG, "⚠️ No se encontró imagen de ECG para el envío")
-        return null
-    }
-
-    private fun comprimirBitmapEcg(bitmap: Bitmap): String? {
+    private fun archivoABase64SinComprimir(ruta: String): String? {
         return try {
-            val maxDim = 1600
-            val scaled = if (bitmap.width > maxDim || bitmap.height > maxDim) {
-                val scale = minOf(maxDim.toFloat() / bitmap.width, maxDim.toFloat() / bitmap.height)
-                val newW = (bitmap.width * scale).toInt()
-                val newH = (bitmap.height * scale).toInt()
-                Bitmap.createScaledBitmap(bitmap, newW, newH, true)
-            } else {
-                bitmap
+            val file = File(ruta)
+            if (!file.exists()) {
+                Log.w(TAG, "⚠️ No existe el archivo ECG: $ruta")
+                return null
             }
 
-            val baos = ByteArrayOutputStream()
-            scaled.compress(Bitmap.CompressFormat.JPEG, 85, baos)
-            val bytes = baos.toByteArray()
-            Log.d(TAG, "⚡ ECG recomprimido y optimizado: ${bytes.size / 1024} KB (${scaled.width}x${scaled.height})")
+            val bytes = file.readBytes()
+            Log.d(TAG, "📷 ECG desde archivo (sin comprimir): ${bytes.size / 1024} KB")
+
             Base64.encodeToString(bytes, Base64.NO_WRAP)
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error al comprimir bitmap ECG: ${e.message}")
+            Log.e(TAG, "❌ Error leyendo ECG: ${e.message}", e)
             null
         }
     }

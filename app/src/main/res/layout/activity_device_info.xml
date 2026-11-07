@@ -201,36 +201,16 @@
                             android:textSize="14sp"
                             android:textStyle="bold" />
 
-                        <!-- Actualización asignada por el administrador MOSI -->
+                        <!-- Versión del repositorio (cambia con el spinner) -->
                         <TextView
                             android:id="@+id/tvSoftwareVersion"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="Versión disponible en MOSI: —"
+                            android:text="Versión en repositorio: —"
                             android:textColor="#555555"
                             android:textSize="13sp" />
-
-                        <TextView
-                            android:id="@+id/tvMosiIntegrationStatus"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="Administrador MOSI: comprobando..."
-                            android:textColor="#455A64"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
                     </LinearLayout>
-
-                    <Button
-                        android:id="@+id/btnMosiActivation"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        android:backgroundTint="#546E7A"
-                        android:text="Activar"
-                        android:textColor="#FFFFFF"
-                        android:textSize="12sp" />
 
                     <!-- Botón Buscar Actualizaciones a la derecha -->
                     <Button

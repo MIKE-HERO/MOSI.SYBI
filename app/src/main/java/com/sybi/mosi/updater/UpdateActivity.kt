@@ -11,12 +11,10 @@ import android.view.WindowManager
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.sybi.mosi.R
-import com.sybi.mosi.integration.MosiApiClient
-import com.sybi.mosi.integration.MosiSecureStore
 import kotlinx.coroutines.Dispatchers
-import com.sybi.mosi.BaseActivity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,16 +24,13 @@ import kotlinx.coroutines.withContext
  * Muestra el progreso de descarga de la versión y la barra/anillo de carga.
  * Bloquea la salida o retroceso hasta que la actualización finaliza.
  */
-class UpdateActivity : BaseActivity() {
+class UpdateActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "UpdateActivity"
         const val EXTRA_DOWNLOAD_URL = "extra_download_url"
         const val EXTRA_VERSION_TAG = "extra_version_tag"
         const val EXTRA_FORCE_REINSTALL = "extra_force_reinstall"
-        const val EXTRA_SHA256 = "extra_sha256"
-        const val EXTRA_UPDATE_ID = "extra_update_id"
-        const val EXTRA_REQUEST_ID = "extra_request_id"
 
         /**
          * @param forceReinstall si es true, permite reinstalar la MISMA versión
@@ -46,18 +41,12 @@ class UpdateActivity : BaseActivity() {
             context: Context,
             downloadUrl: String,
             versionTag: String,
-            forceReinstall: Boolean = false,
-            sha256: String = "",
-            updateId: String = "",
-            requestId: String = ""
+            forceReinstall: Boolean = false
         ) {
             val intent = Intent(context, UpdateActivity::class.java).apply {
                 putExtra(EXTRA_DOWNLOAD_URL, downloadUrl)
                 putExtra(EXTRA_VERSION_TAG, versionTag)
                 putExtra(EXTRA_FORCE_REINSTALL, forceReinstall)
-                putExtra(EXTRA_SHA256, sha256)
-                putExtra(EXTRA_UPDATE_ID, updateId)
-                putExtra(EXTRA_REQUEST_ID, requestId)
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                             Intent.FLAG_ACTIVITY_CLEAR_TOP or
@@ -78,9 +67,6 @@ class UpdateActivity : BaseActivity() {
     private var downloadUrl: String = ""
     private var versionTag: String = ""
     private var forceReinstall: Boolean = false
-    private var sha256: String = ""
-    private var updateId: String = ""
-    private var requestId: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -98,9 +84,6 @@ class UpdateActivity : BaseActivity() {
         downloadUrl = intent.getStringExtra(EXTRA_DOWNLOAD_URL) ?: ""
         versionTag = intent.getStringExtra(EXTRA_VERSION_TAG) ?: "v1.0"
         forceReinstall = intent.getBooleanExtra(EXTRA_FORCE_REINSTALL, false)
-        sha256 = intent.getStringExtra(EXTRA_SHA256).orEmpty()
-        updateId = intent.getStringExtra(EXTRA_UPDATE_ID).orEmpty()
-        requestId = intent.getStringExtra(EXTRA_REQUEST_ID).orEmpty()
 
         tvPercent = findViewById(R.id.tvUpdatePercent)
         tvStatus = findViewById(R.id.tvUpdateStatus)
@@ -148,21 +131,18 @@ class UpdateActivity : BaseActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             if (downloadUrl.isBlank()) {
                 withContext(Dispatchers.Main) {
-                    tvStatus.text = "Consultando canal de actualizaciones MOSI..."
+                    tvStatus.text = "Consultando última versión en GitHub..."
                 }
                 val releases = updateManager.fetchReleases()
                 if (releases.isNotEmpty()) {
                     downloadUrl = releases[0].downloadUrl
                     versionTag = releases[0].tagName
-                    sha256 = releases[0].sha256
-                    updateId = releases[0].updateId
-                    requestId = releases[0].requestId
                     withContext(Dispatchers.Main) {
                         tvVersion.text = "Versión $versionTag"
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        tvStatus.text = "No hay actualización asignada o no hay conexión"
+                        tvStatus.text = "❌ Sin conexión a GitHub"
                         tvWarning.text = "No se pudo conectar con el servidor. Reintentando en breve..."
                     }
                     delay(5000)
@@ -176,7 +156,7 @@ class UpdateActivity : BaseActivity() {
                 tvWarning.text = "⚠️ Descargando archivos. Por favor no cierre la app ni apague el equipo."
             }
 
-            val downloadedFile = updateManager.downloadApk(downloadUrl, sha256) { percent, _, _ ->
+            val downloadedFile = updateManager.downloadApk(downloadUrl) { percent, _, _ ->
                 runOnUiThread {
                     if (percent >= 0) {
                         tvPercent.visibility = View.VISIBLE
@@ -188,7 +168,6 @@ class UpdateActivity : BaseActivity() {
             }
 
             if (downloadedFile != null && downloadedFile.exists()) {
-                reportEvent("descarga")
                 withContext(Dispatchers.Main) {
                     tvPercent.visibility = View.GONE
                     tvStatus.text = "Instalando actualización..."
@@ -198,18 +177,11 @@ class UpdateActivity : BaseActivity() {
                 delay(1000)
 
                 // ✅ Se pasa forceReinstall para permitir reinstalar misma versión y downgrade
-                MosiSecureStore.guardarActualizacionPendiente(this@UpdateActivity, updateId, versionTag, requestId)
                 val exito = updateManager.installApkAuto(downloadedFile, forceReinstall)
                 if (!exito) {
-                    reportEvent(
-                        "error",
-                        updateManager.lastInstallError
-                            ?: "No se pudo iniciar PackageInstaller; device_owner=${com.sybi.mosi.admin.PermisosAdmin.esPropietario(this@UpdateActivity)}"
-                    )
                     Log.e(TAG, "Error al iniciar el proceso de instalación")
                 }
             } else {
-                reportEvent("error", "La descarga falló o el SHA-256 no coincide")
                 withContext(Dispatchers.Main) {
                     tvStatus.text = "❌ Error al descargar el archivo"
                     tvWarning.text = "Falló la descarga. Reintentando en 5 segundos..."
@@ -218,18 +190,5 @@ class UpdateActivity : BaseActivity() {
                 iniciarProcesoActualizacion()
             }
         }
-    }
-
-    private fun reportEvent(event: String, detail: String? = null) {
-        if (updateId.isBlank() || !MosiSecureStore.estaActivado(this)) return
-        runCatching {
-            MosiApiClient(this).reportarEventoActualizacion(
-                event = event,
-                updateId = updateId,
-                version = versionTag,
-                requestId = requestId,
-                detail = detail
-            )
-        }.onFailure { Log.w(TAG, "No se pudo reportar evento '$event': ${it.message}") }
     }
 }

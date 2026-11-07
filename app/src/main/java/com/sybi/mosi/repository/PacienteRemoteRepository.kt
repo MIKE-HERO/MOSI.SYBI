@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.sybi.mosi.DeviceInfoActivity
 import com.sybi.mosi.database.Paciente
+import com.sybi.mosi.network.ConnectivityStatusProvider
 import com.sybi.mosi.network.MedicionesRequest
 import com.sybi.mosi.network.RetrofitClient
 import com.sybi.mosi.network.UsuarioWeb
@@ -23,12 +24,6 @@ class PacienteRemoteRepository(private val context: Context) {
         val usuarios: List<UsuarioWeb>,
         val primerUsuario: UsuarioWeb? = usuarios.firstOrNull(),
         val idPaciente: Int? = primerUsuario?.idUsuarioWeb?.toIntOrNull()
-    )
-
-    data class EnvioMedicionResult(
-        val success: Boolean,
-        val remoteId: Int? = null,
-        val error: String = ""
     )
 
     /**
@@ -252,45 +247,122 @@ class PacienteRemoteRepository(private val context: Context) {
     // ==========================================
     // REGISTRAR MEDICIÓN
     // ==========================================
-    suspend fun enviarMediciones(mediciones: MedicionesRequest): EnvioMedicionResult {
+    suspend fun enviarMediciones(mediciones: MedicionesRequest): Boolean {
+        val startTime = System.currentTimeMillis()
         return try {
-            Log.d(TAG, "📤 Enviando medición al servidor:")
+            Log.d(TAG, "📤 [API REST] Iniciando envío de resultados de medición al servidor...")
             Log.d(TAG, "   id_UsuarioWeb: ${mediciones.idUsuarioWeb}")
             Log.d(TAG, "   id_VendingMachine: ${mediciones.idVendingMachine}")
             Log.d(TAG, "   recordID: ${mediciones.recordID}")
             Log.d(TAG, "   device_id: ${mediciones.deviceId}")
-            Log.d(TAG, "   ECG Base64 length: ${mediciones.ecgImg?.length ?: 0} chars (~${(mediciones.ecgImg?.length ?: 0) / 1024} KB)")
+            Log.d(TAG, "   device_model: ${mediciones.deviceModel}")
+            Log.d(TAG, "   Fecha Registro: ${mediciones.fechaRegistro}")
 
-            val jsonSize = com.google.gson.Gson().toJson(mediciones).length
-            Log.d(TAG, "   JSON total: ~${jsonSize / 1024} KB")
+            // ✅ Diagnóstico de conectividad de red y velocidad/estado antes de enviar
+            val conn = ConnectivityStatusProvider.get(context)
+            Log.d(TAG, "🌐 [DIAGNÓSTICO RED] Transporte: ${conn.transport}, WiFi Conectado: ${conn.wifiConnected}, Ethernet Conectado: ${conn.ethernetConnected}, Internet Accesible: ${conn.internetAvailable}, SSID: ${conn.ssid ?: "N/A"}")
 
-            if (jsonSize > 5 * 1024 * 1024) {
-                Log.e(TAG, "❌ JSON demasiado grande (>5 MB), abortando envío")
-                return EnvioMedicionResult(false, error = "Payload mayor a 5 MB")
+            // Desglose del payload
+            val ecgSizeKb = (mediciones.ecgImg?.length ?: 0) / 1024
+            val fotoSizeKb = (mediciones.foto?.length ?: 0) / 1024
+            val jsonString = com.google.gson.Gson().toJson(mediciones)
+            val jsonSizeKb = jsonString.length / 1024
+            val jsonSizeMb = jsonSizeKb / 1024.0
+
+            Log.d(TAG, "📦 [DIAGNÓSTICO PAYLOAD] Tamaño Total JSON: ~%.2f MB (%d KB) [ECG: %d KB, Foto: %d KB]".format(jsonSizeMb, jsonSizeKb, ecgSizeKb, fotoSizeKb))
+
+            // ✅ Log de diagnóstico del JSON final (sin base64 pesados) para validar todos los campos de antropometría, composición, etc.
+            val medicionesParaLog = mediciones.copy(
+                ecgImg = if (mediciones.ecgImg != null) "[REDACTADO_${mediciones.ecgImg.length}_CHARS]" else null,
+                foto = if (mediciones.foto != null) "[REDACTADO_FOTO]" else null
+            )
+            val jsonLog = com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(medicionesParaLog)
+            Log.d(TAG, "📋 [DIAGNÓSTICO PAYLOAD JSON] Campos enviados a la API:\n$jsonLog")
+
+            if (jsonSizeKb > 5 * 1024) {
+                Log.e(TAG, "❌ [DIAGNÓSTICO APP] JSON demasiado grande (>5 MB), abortando envío. Posible exceso de datos o imágenes no optimizadas.")
+                return false
             }
 
+            // ✅ 1. ANÁLISIS PRE-ENVÍO (Antes de transmitir el payload pesado)
+            val preSendStartTime = System.currentTimeMillis()
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+            val activeNetwork = cm?.activeNetwork
+            val capabilities = activeNetwork?.let { cm.getNetworkCapabilities(it) }
+
+            val downlinkKbps = capabilities?.linkDownstreamBandwidthKbps ?: -1
+            val upstreamKbps = capabilities?.linkUpstreamBandwidthKbps ?: -1
+
+            var preSendLatencyMs = -1L
+            try {
+                val client = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+                val headReq = okhttp3.Request.Builder().url("https://www.sybiml.com/APIRest/Usuario_mosi/public/").head().build()
+                val headStart = System.currentTimeMillis()
+                client.newCall(headReq).execute().use {
+                    preSendLatencyMs = System.currentTimeMillis() - headStart
+                }
+            } catch (e: Exception) {
+                preSendLatencyMs = System.currentTimeMillis() - preSendStartTime
+                Log.w(TAG, "⚠️ [ANÁLISIS PRE-ENVÍO] Error en test de latencia previo: ${e.message}")
+            }
+
+            Log.d(TAG, "📊 [ANÁLISIS PRE-ENVÍO DE RED]")
+            Log.d(TAG, "   • Ancho de banda estimado por OS (Descarga): ${if (downlinkKbps > 0) "%.2f Mbps".format(downlinkKbps / 1000.0) else "No disponible"}")
+            Log.d(TAG, "   • Ancho de banda estimado por OS (Subida): ${if (upstreamKbps > 0) "%.2f Mbps".format(upstreamKbps / 1000.0) else "No disponible"}")
+            Log.d(TAG, "   • Latencia / RTT Pre-envío (Servidor): ${preSendLatencyMs} ms")
+            if (preSendLatencyMs > 1500) {
+                Log.w(TAG, "⚠️ [ANÁLISIS PRE-ENVÍO] Latencia inicial alta (${preSendLatencyMs} ms). Posible congestión en la red antes de transmitir.")
+            }
+
+            val callStartTime = System.currentTimeMillis()
             val response = RetrofitClient.apiService.registrarMedicion(mediciones)
+            val callDuration = System.currentTimeMillis() - callStartTime
+
+            // ✅ Cálculo preciso de la velocidad de subida (throughput) de internet durante el envío
+            val payloadBytes = jsonString.length.toLong()
+            val uploadSpeedMbps = if (callDuration > 0) {
+                (payloadBytes * 8.0) / (callDuration / 1000.0) / 1_000_000.0
+            } else 0.0
+            val uploadSpeedKbps = uploadSpeedMbps * 1000.0
+
+            Log.d(TAG, "📊 [DIAGNÓSTICO DE VELOCIDAD DE INTERNET]")
+            Log.d(TAG, "   • Datos enviados: ~%.2f MB (%d bytes)".format(payloadBytes / 1024.0 / 1024.0, payloadBytes))
+            Log.d(TAG, "   • Tiempo de transferencia: %d ms (%.2f s)".format(callDuration, callDuration / 1000.0))
+            Log.d(TAG, "   • Velocidad de subida estimada: %.2f Mbps (%.1f kbps)".format(uploadSpeedMbps, uploadSpeedKbps))
+
+            when {
+                uploadSpeedMbps < 0.5 -> Log.e(TAG, "❌ [DIAGNÓSTICO RED] ⚠️ INTERNET MUY LENTO (< 0.5 Mbps). La lentitud del envío es DEFINITIVAMENTE por la red de internet del quiosco.")
+                uploadSpeedMbps < 2.0 -> Log.w(TAG, "⚠️ [DIAGNÓSTICO RED] ⚠️ INTERNET LENTO (0.5 - 2.0 Mbps). Puede causar timeouts al enviar paquetes pesados con ECG.")
+                else -> Log.d(TAG, "✅ [DIAGNÓSTICO RED] 🚀 Velocidad de internet adecuada (> 2.0 Mbps).")
+            }
+
+            Log.d(TAG, "⏱️ [DIAGNÓSTICO API] Tiempo de respuesta HTTP (latencia/duración): ${callDuration} ms")
 
             if (response.isSuccessful) {
                 val body = response.body()
-                val accepted = body?.codigo == "0" && body.id != null
-                if (accepted) {
-                    Log.d(TAG, "Medición registrada: id=${body.id}")
-                    EnvioMedicionResult(true, remoteId = body.id)
-                } else {
-                    val reason = body?.mensaje?.takeIf { it.isNotBlank() }
-                        ?: "Respuesta sin confirmación de insert (codigo=${body?.codigo}, id=${body?.id})"
-                    Log.e(TAG, "El servidor no confirmó el insert: $reason")
-                    EnvioMedicionResult(false, error = reason)
+                Log.d(TAG, "✅ [API REST EXITO] Medición registrada correctamente. id=${body?.id}, Código HTTP: ${response.code()}, Duración: ${callDuration}ms")
+                if (callDuration > 3000) {
+                    Log.w(TAG, "⚠️ [DIAGNÓSTICO ADVERTENCIA] El envío tardó mucho (${callDuration} ms). Posible lentitud en la red del quiosco o congestión en la API.")
                 }
+                true
             } else {
                 val errorBody = response.errorBody()?.string()
-                Log.e(TAG, "❌ HTTP ${response.code()} → $errorBody")
-                EnvioMedicionResult(false, error = "HTTP ${response.code()}")
+                Log.e(TAG, "❌ [API REST ERROR] HTTP ${response.code()} en registrarMedicion. Duración: ${callDuration}ms. ErrorBody: $errorBody")
+                Log.e(TAG, "🔍 [DIAGNÓSTICO] Error proveniente de la API (Servidor remoto) o datos incompletos/rechazados por el backend.")
+                false
             }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Excepción enviando medición: ${e.message}", e)
-            EnvioMedicionResult(false, error = e.message ?: e.javaClass.simpleName)
+            val totalDuration = System.currentTimeMillis() - startTime
+            Log.e(TAG, "🔥 [API REST EXCEPCIÓN] Error enviando medición tras ${totalDuration}ms: ${e.javaClass.simpleName}: ${e.message}", e)
+            when (e) {
+                is java.net.SocketTimeoutException -> Log.e(TAG, "🔍 [DIAGNÓSTICO RED] Timeout de red (Conexión/Lectura/Escritura superada). Internet muy lento o API no respondió a tiempo.")
+                is java.net.UnknownHostException -> Log.e(TAG, "🔍 [DIAGNÓSTICO RED] Error de DNS / Sin internet. Imposible resolver dominio del servidor.")
+                else -> Log.e(TAG, "🔍 [DIAGNÓSTICO RED/APP] Excepción de red o procesamiento durante el envío.")
+            }
+            false
         }
     }
 }

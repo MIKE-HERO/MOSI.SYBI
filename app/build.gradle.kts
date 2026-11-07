@@ -12,8 +12,8 @@ android {
         applicationId = "com.sybi.mosi"
         minSdk = 25
         targetSdk = 34
-        versionCode = 33
-        versionName = "1.0.28"
+        versionCode = 36
+        versionName = "1.0.31"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -118,6 +118,9 @@ dependencies {
     implementation("io.coil-kt:coil:2.6.0")
     implementation("io.coil-kt:coil-svg:2.6.0")
 
+    // ZXing para generación de códigos QR en impresoras térmicas
+    implementation("com.google.zxing:core:3.5.3")
+
     // Palette para extraer colores dominantes del logo (modo multicolor)
     implementation("androidx.palette:palette-ktx:1.0.0")
 
@@ -127,7 +130,6 @@ dependencies {
 
     // Cifrado en reposo de la contraseña SMTP (llave en el Android Keystore del equipo)
     implementation("androidx.security:security-crypto:1.0.0")
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     implementation("com.google.mediapipe:tasks-vision:0.10.18")
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
