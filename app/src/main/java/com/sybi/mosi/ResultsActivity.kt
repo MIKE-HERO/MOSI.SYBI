@@ -28,6 +28,7 @@ import com.sybi.mosi.database.AppDatabase
 import com.sybi.mosi.database.Paciente
 import com.sybi.mosi.repository.MedicionesSender
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.FileOutputStream
 
@@ -47,6 +48,7 @@ class ResultsActivity : BaseActivity() {
     private lateinit var btnPrintResults: LinearLayout
     private lateinit var btnPrintTicket: LinearLayout
     private lateinit var btnEmailResults: LinearLayout
+    private lateinit var btnRetryUpload: View
     private lateinit var btnExitResults: View
 
     private var LinearLayout.text: CharSequence?
@@ -109,7 +111,24 @@ class ResultsActivity : BaseActivity() {
         btnPrintResults = findViewById(R.id.btnPrintResults)
         btnPrintTicket = findViewById(R.id.btnPrintTicket)
         btnEmailResults = findViewById(R.id.btnEmailResults)
+        btnRetryUpload = findViewById(R.id.btnRetryUpload)
         btnExitResults = findViewById(R.id.btnExitResults)
+
+        btnRetryUpload.setOnClickListener {
+            val targetId = when {
+                modoInvitado -> ID_USUARIO_WEB_INVITADO
+                idUsuarioWebCargado > 0 -> idUsuarioWebCargado
+                (paciente?.id_usuario_web ?: 0) > 0 -> paciente!!.id_usuario_web!!
+                (resultadoActual?.id_usuario_web ?: 0) > 0 -> resultadoActual!!.id_usuario_web
+                else -> intent.getIntExtra("id_usuario_web", 0).takeIf { it > 0 } ?: 0
+            }
+            if (targetId > 0) {
+                btnRetryUpload.visibility = View.GONE
+                enviarMedicionesAlDoctor(targetId)
+            } else {
+                Toast.makeText(this, "ID de usuario web no válido", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         idLocal = intent.getLongExtra("id_local", 0L)
         Log.d(TAG, "📥 id_local recibido: $idLocal")
@@ -159,6 +178,7 @@ class ResultsActivity : BaseActivity() {
 
         if (telemedicineEnabled) {
             btnStartConsultation.visibility = View.VISIBLE
+            btnStartConsultation.isEnabled = false // 👈 Deshabilitado hasta que se envíen los resultados con éxito
             btnStartConsultation.setOnClickListener {
                 if (!envioExitoso) {
                     Toast.makeText(
@@ -169,7 +189,13 @@ class ResultsActivity : BaseActivity() {
                     return@setOnClickListener
                 }
 
-                val targetId = if (modoInvitado) ID_USUARIO_WEB_INVITADO else idUsuarioWebCargado
+                val targetId = when {
+                    modoInvitado -> ID_USUARIO_WEB_INVITADO
+                    idUsuarioWebCargado > 0 -> idUsuarioWebCargado
+                    (paciente?.id_usuario_web ?: 0) > 0 -> paciente!!.id_usuario_web!!
+                    (resultadoActual?.id_usuario_web ?: 0) > 0 -> resultadoActual!!.id_usuario_web
+                    else -> intent.getIntExtra("id_usuario_web", 0).takeIf { it > 0 } ?: 0
+                }
                 if (targetId <= 0) {
                     Toast.makeText(
                         this,
@@ -217,7 +243,6 @@ class ResultsActivity : BaseActivity() {
                 Toast.makeText(this, "Espera a que termine la impresión", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            AutoLogHelper.enviarLogFinConsulta(this)
             limpiarModoInvitado()   // ✅ CAMBIO
             clearResults()
             val intent = Intent(this, MainActivity::class.java)
@@ -317,13 +342,20 @@ class ResultsActivity : BaseActivity() {
                 htmlReporte = buildResultsHtml()
             }
 
-            val targetId = if (modoInvitado) ID_USUARIO_WEB_INVITADO else (p?.id_usuario_web ?: 0)
+            val targetId = when {
+                modoInvitado -> ID_USUARIO_WEB_INVITADO
+                (p?.id_usuario_web ?: 0) > 0 -> p!!.id_usuario_web!!
+                (resultadoActual?.id_usuario_web ?: 0) > 0 -> resultadoActual!!.id_usuario_web
+                else -> intent.getIntExtra("id_usuario_web", 0).takeIf { it > 0 } ?: 0
+            }
             if (targetId > 0) {
                 idUsuarioWebCargado = targetId
                 if (!medicionesEnviadas) {
                     medicionesEnviadas = true
                     enviarMedicionesAlDoctor(targetId)
                 }
+            } else {
+                Log.w(TAG, "⚠️ No se pudo determinar id_usuario_web para envío automático (p=${p?.id_usuario_web}, resultadoActual=${resultadoActual?.id_usuario_web}, intent=${intent.getIntExtra("id_usuario_web", 0)})")
             }
         }.start()
     }
@@ -335,6 +367,7 @@ class ResultsActivity : BaseActivity() {
         uiHandler.post {
             btnStartConsultation.isEnabled = false
             btnStartConsultation.text = "Enviando resultados..."
+            btnRetryUpload.visibility = View.GONE
 
             enviandoMediciones = true
             contadorMensajesEnvio = 0
@@ -342,74 +375,82 @@ class ResultsActivity : BaseActivity() {
         }
 
         Thread {
-            try {
-                val sender = MedicionesSender(this@ResultsActivity)
+            val sender = MedicionesSender(this@ResultsActivity)
 
-                if (idUsuarioWeb <= 0) {
-                    Log.w(TAG, "⚠️ Paciente sin id_usuario_web")
-                    uiHandler.post {
-                        detenerMensajesEnvio()
-                        btnStartConsultation.isEnabled = true
-                        btnStartConsultation.text = "Iniciar consulta"
-                    }
-                    return@Thread
+            if (idUsuarioWeb <= 0) {
+                Log.w(TAG, "⚠️ Paciente sin id_usuario_web")
+                uiHandler.post {
+                    detenerMensajesEnvio()
+                    btnStartConsultation.isEnabled = true
+                    btnStartConsultation.text = "Iniciar consulta"
                 }
+                return@Thread
+            }
 
-                val requestData = runBlocking {
-                    val actual = resultadoActual
-                    if (actual != null) {
-                        sender.buildFromResultado(actual, idUsuarioWeb)
-                    } else {
-                        sender.buildFromPrefs(
-                            idUsuarioWeb = idUsuarioWeb,
-                            idLocal = idLocal
-                        )
-                    }
+            val requestData = runBlocking {
+                val actual = resultadoActual
+                if (actual != null) {
+                    sender.buildFromResultado(actual, idUsuarioWeb)
+                } else {
+                    sender.buildFromPrefs(
+                        idUsuarioWeb = idUsuarioWeb,
+                        idLocal = idLocal
+                    )
                 }
+            }
 
-                Log.d(TAG, "📤 Enviando mediciones...")
-                Log.d(TAG, "   id_UsuarioWeb: $idUsuarioWeb")
+            val maxIntentos = 3
+            var exito = false
 
-                val envio = runBlocking { sender.enviar(requestData) }
-                val resultadoId = resultadoActual?.id_resultado ?: 0L
-                val fechaIntento = java.text.SimpleDateFormat(
-                    "yyyy-MM-dd'T'HH:mm:ssXXX",
-                    java.util.Locale.US
-                ).format(java.util.Date())
-                if (resultadoId > 0L) {
-                    runBlocking {
-                        val dao = AppDatabase.getInstance(this@ResultsActivity).resultadoDao()
-                        if (envio.success) {
-                            dao.marcarSincronizado(resultadoId, envio.remoteId, fechaIntento)
-                        } else {
-                            dao.marcarErrorSincronizacion(resultadoId, envio.error.take(500), fechaIntento)
+            for (intento in 1..maxIntentos) {
+                try {
+                    Log.d(TAG, "📤 Enviando mediciones (Intento $intento/$maxIntentos)...")
+                    Log.d(TAG, "   id_UsuarioWeb: $idUsuarioWeb")
+
+                    // ✅ Timeout de 30 segundos por intento (para cargas de ~1MB con ECG)
+                    val resultadoEnvio = runBlocking {
+                        withTimeoutOrNull(30_000L) {
+                            sender.enviar(requestData)
                         }
                     }
+
+                    if (resultadoEnvio?.success == true) {
+                        exito = true
+                        Log.d(TAG, "✅ Envío exitoso en el intento $intento")
+                        break
+                    } else {
+                        Log.w(TAG, "⚠️ Intento $intento falló o tardó más de 10s sin confirmación.")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Excepción en intento $intento: ${e.message}", e)
                 }
 
-                uiHandler.post {
-                    detenerMensajesEnvio()
-                    envioExitoso = envio.success
-                    btnStartConsultation.isEnabled = true
-                    btnStartConsultation.text = "Iniciar consulta"
+                if (intento < maxIntentos) {
+                    Thread.sleep(2000L) // Pausa de 2s antes de reintentar
+                }
+            }
 
+            uiHandler.post {
+                detenerMensajesEnvio()
+                envioExitoso = exito
+                btnStartConsultation.isEnabled = exito // 👈 Solo se habilita si el envío fue exitoso
+                btnStartConsultation.text = "Iniciar consulta"
+                btnRetryUpload.visibility = if (exito) View.GONE else View.VISIBLE
+
+                if (exito) {
+                    Log.d(TAG, "🚀 [LOG AUTOMÁTICO] Envío exitoso de resultados; disparando log automático de fin de mediciones...")
+                    AutoLogHelper.enviarLogFinConsulta(this@ResultsActivity)
                     Toast.makeText(
                         this@ResultsActivity,
-                        if (envio.success) "✅ Resultados confirmados por el servidor"
-                        else "⚠️ Pendiente de sincronizar; se reintentará automáticamente",
+                        "✅ Resultados enviados al doctor",
                         Toast.LENGTH_SHORT
                     ).show()
-                }
-                if (!envio.success) {
-                    com.sybi.mosi.integration.MedicionesSyncWorker.schedule(this@ResultsActivity, 30L)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ Error enviando: ${e.message}", e)
-                uiHandler.post {
-                    detenerMensajesEnvio()
-                    btnStartConsultation.isEnabled = true
-                    btnStartConsultation.text = "Iniciar consulta"
-                    Toast.makeText(this@ResultsActivity, "❌ Error: ${e.message}", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(
+                        this@ResultsActivity,
+                        "⚠️ No se pudieron enviar los resultados tras varios intentos",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }.start()
@@ -440,7 +481,6 @@ class ResultsActivity : BaseActivity() {
             return
         }
 
-        AutoLogHelper.enviarLogFinConsulta(this)
         limpiarModoInvitado()   // ✅ CAMBIO
         clearResults()
         val intent = Intent(this, MainActivity::class.java)

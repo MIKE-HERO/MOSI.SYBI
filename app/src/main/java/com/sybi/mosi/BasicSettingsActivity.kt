@@ -300,16 +300,15 @@ class BasicSettingsActivity : BaseActivity() {
     }
 
     // ============================================================
-    // SWITCH DE BOTÓN DE IDIOMA EN INICIO
+    // SWITCH MOSTRAR/OCULTAR BOTÓN DE IDIOMA EN MAINACTIVITY
     // ============================================================
     private fun setupShowLanguageButtonSwitch() {
         val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-        val isVisible = prefs.getBoolean("ShowLanguageButton", true)
-        swShowLanguageButton.isChecked = isVisible
-        swShowLanguageButton.setOnCheckedChangeListener { _, checked ->
-            prefs.edit().putBoolean("ShowLanguageButton", checked).apply()
+        swShowLanguageButton.isChecked = prefs.getBoolean("ShowLanguageButton", true)
+        swShowLanguageButton.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("ShowLanguageButton", isChecked).apply()
             LocalBroadcastManager.getInstance(this)
-                .sendBroadcast(Intent("ACTION_UPDATE_LANGUAGE_BUTTON"))
+                .sendBroadcast(Intent("ACTION_UPDATE_LANGUAGE_BUTTON_VISIBILITY"))
         }
     }
 
@@ -595,15 +594,15 @@ class BasicSettingsActivity : BaseActivity() {
             imgVolumeIcon.setColorFilter(colorInt)
             imgVolume2Icon.setColorFilter(colorInt)
 
-            // El switch de medición y el switch de idioma también toman el color del tema
-            val trackColorList = ColorStateList.valueOf(
+            // El switch de medición y el de idioma también toman el color del tema
+            swVideoMeasurementMute.thumbTintList = colorStateList
+            swVideoMeasurementMute.trackTintList = ColorStateList.valueOf(
                 Color.argb(80, Color.red(colorInt), Color.green(colorInt), Color.blue(colorInt))
             )
-            swVideoMeasurementMute.thumbTintList = colorStateList
-            swVideoMeasurementMute.trackTintList = trackColorList
-
             swShowLanguageButton.thumbTintList = colorStateList
-            swShowLanguageButton.trackTintList = trackColorList
+            swShowLanguageButton.trackTintList = ColorStateList.valueOf(
+                Color.argb(80, Color.red(colorInt), Color.green(colorInt), Color.blue(colorInt))
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Error aplicando color de tema: ${e.message}")
         }
