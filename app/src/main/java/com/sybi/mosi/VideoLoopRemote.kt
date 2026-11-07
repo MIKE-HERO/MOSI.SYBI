@@ -23,6 +23,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import com.sybi.mosi.integration.MosiSecureStore
 
 /**
  * Control remoto de VideoLoop (pantalla secundaria) por la red local.
@@ -124,7 +125,14 @@ object VideoLoopRemote {
 
     fun getSavedKey(context: Context): String {
         val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
-        return prefs.getString(PREF_VIDEOLOOP_KEY, "") ?: ""
+        val encrypted = MosiSecureStore.claveVideoLoop(context)
+        if (encrypted.isNotBlank()) return encrypted
+        val legacy = prefs.getString(PREF_VIDEOLOOP_KEY, "").orEmpty()
+        if (legacy.isNotBlank()) {
+            MosiSecureStore.guardarClaveVideoLoop(context, legacy)
+            prefs.edit().remove(PREF_VIDEOLOOP_KEY).apply()
+        }
+        return legacy
     }
 
     /** Si está desactivado, la pantalla de medición no envía órdenes a VideoLoop. */
@@ -141,10 +149,9 @@ object VideoLoopRemote {
     }
 
     fun saveKey(context: Context, key: String) {
-        context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
-            .edit()
-            .putString(PREF_VIDEOLOOP_KEY, key.trim())
-            .apply()
+        MosiSecureStore.guardarClaveVideoLoop(context, key)
+        context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE).edit()
+            .remove(PREF_VIDEOLOOP_KEY).apply()
     }
 
     // ==========================================

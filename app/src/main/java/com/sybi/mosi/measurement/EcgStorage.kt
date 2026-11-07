@@ -15,26 +15,6 @@ object EcgStorage {
     private const val ECG_DIR = "ecg"
 
     /**
-     * Guarda directamente un Bitmap en la carpeta interna de la app.
-     * Devuelve la ruta absoluta del archivo guardado, o null si falla.
-     */
-    fun saveBitmapToInternal(context: Context, bitmap: android.graphics.Bitmap): String? {
-        return try {
-            val dir = File(context.filesDir, ECG_DIR).apply { if (!exists()) mkdirs() }
-            val fileName = "ecg_${System.currentTimeMillis()}.jpg"
-            val dest = File(dir, fileName)
-            java.io.FileOutputStream(dest).use { out ->
-                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, out)
-            }
-            Log.d(TAG, "✅ ECG guardado en almacenamiento interno: ${dest.absolutePath} (${dest.length() / 1024} KB)")
-            dest.absolutePath
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error guardando Bitmap de ECG: ${e.message}", e)
-            null
-        }
-    }
-
-    /**
      * Copia el JPG origen a la carpeta interna de la app.
      * Devuelve la ruta absoluta del archivo copiado, o null si falla.
      */

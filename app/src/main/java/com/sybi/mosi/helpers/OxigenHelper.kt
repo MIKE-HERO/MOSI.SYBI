@@ -11,7 +11,7 @@ class OxigenHelper(private val context: Context) {
         private const val TAG = "OxigenHelper"
 
         /** Nº de resultados válidos y estables necesarios para confirmar la medición. */
-        private const val MIN_RESULTS_TO_CONFIRM = 5
+        private const val MIN_RESULTS_TO_CONFIRM = 6
 
         /** Tamaño máximo del buffer de bytes pendientes. */
         private const val MAX_BUFFER_SIZE = 512
@@ -150,7 +150,6 @@ class OxigenHelper(private val context: Context) {
         lastPulseRate = null
         lastPI = null
         hasFingerDetected = false
-        lastNotifiedMessage = null
         measurementStartTime = System.currentTimeMillis()
         dataBuffer.clear()
         resetWindow()
@@ -178,6 +177,7 @@ class OxigenHelper(private val context: Context) {
 
         // Validar CRC (byte 6) sobre bytes 0..5
         if (!validateCrc(packet, dataEnd = 5, crcIndex = 6)) {
+            Log.w(TAG, "⚠️ 0x51 CRC inválido, descartado")
             return
         }
 
@@ -221,6 +221,7 @@ class OxigenHelper(private val context: Context) {
 
         // 1) CRC8 sobre bytes 0..9, comparado con byte 10
         if (!validateCrc(packet, dataEnd = 9, crcIndex = 10)) {
+            Log.w(TAG, "⚠️ 0x53 CRC inválido, descartado")
             return
         }
 
@@ -230,8 +231,7 @@ class OxigenHelper(private val context: Context) {
         if (state != 0x00) {
             hasFingerDetected = false
             if (elapsed >= 3000) {
-                Log.d(TAG, "❌ Trama rechazada (estado sensor 0x${state.toString(16)})")
-                notifyOximeterStatus("Coloque el dedo dentro del oxímetro", "#FF9800")
+                Log.d(TAG, "⚠️ 0x53 descartado por estado del sensor: 0x${state.toString(16)}")
                 resetWindow()
             }
             return
@@ -241,26 +241,24 @@ class OxigenHelper(private val context: Context) {
         val pulseRate = (packet[6].toInt() and 0xFF) or ((packet[7].toInt() and 0xFF) shl 8)
         val pi = packet[8].toInt() and 0xFF
 
+        Log.d(TAG, "📥 Paquete de resultado: SpO2=$spO2, Pulse=$pulseRate, PI=$pi")
+
         // 3) Rango absoluto (descarta 0/0/0 y valores absurdos)
         if (spO2 !in 35..100 || pulseRate !in 25..300) {
-            Log.d(TAG, "❌ Trama rechazada (fuera de rango): SpO2=$spO2%, PR=$pulseRate bpm, PI=${pi / 10.0}")
+            Log.d(TAG, "⚠️ Fuera de rango, se resetea ventana")
             hasFingerDetected = false
             resetWindow()
             return
         }
 
         hasFingerDetected = true
-        notifyOximeterStatus("Midiendo oxígeno, permanezca inmóvil...", "#FF9800")
 
         // 4) Filtro de estabilidad (max-min dentro de la ventana)
         if (resultList.isNotEmpty()) {
             if (spO2 > maxSpO2 + MAX_SPO2_SPREAD || spO2 < minSpO2 - MAX_SPO2_SPREAD ||
                 pulseRate > maxPR + MAX_PR_SPREAD || pulseRate < minPR - MAX_PR_SPREAD
             ) {
-                Log.d(
-                    TAG,
-                    "❌ Trama rechazada (salto brusco): SpO2=$spO2%, PR=$pulseRate bpm (ventana SpO2=[$minSpO2..$maxSpO2], PR=[$minPR..$maxPR])"
-                )
+                Log.d(TAG, "⚠️ Salto brusco (SpO2=$spO2, PR=$pulseRate), se resetea ventana")
                 resetWindow()
                 // Reintroducimos este dato como primera muestra de la nueva ventana
             }
@@ -274,17 +272,17 @@ class OxigenHelper(private val context: Context) {
 
         resultList.add(intArrayOf(spO2, pulseRate, pi))
 
-        val piValue = pi / 10.0
-        Log.d(
-            TAG,
-            "✓ Trama aceptada (${resultList.size}/$MIN_RESULTS_TO_CONFIRM): SpO2=$spO2%, PR=$pulseRate bpm, PI=$piValue"
-        )
-
         val spreadSpO2 = maxSpO2 - minSpO2
         val spreadPR = maxPR - minPR
+        Log.d(
+            TAG,
+            "📊 Resultados acumulados: ${resultList.size}/$MIN_RESULTS_TO_CONFIRM " +
+                    "(spread SpO2=$spreadSpO2, PR=$spreadPR)"
+        )
 
         // Tope de seguridad
         if (resultList.size > MAX_RESULTS_HARD_LIMIT) {
+            Log.w(TAG, "⚠️ Lista de resultados excedida, reseteando ventana")
             resetWindow()
             return
         }
@@ -292,6 +290,7 @@ class OxigenHelper(private val context: Context) {
         // 5) Confirmar si hay suficientes muestras y son estables
         if (resultList.size >= MIN_RESULTS_TO_CONFIRM) {
             if (spreadSpO2 > MAX_SPO2_SPREAD || spreadPR > MAX_PR_SPREAD) {
+                Log.d(TAG, "⚠️ Ventana inestable, se resetea")
                 resetWindow()
                 return
             }
@@ -356,18 +355,5 @@ class OxigenHelper(private val context: Context) {
         minSpO2 = Int.MAX_VALUE
         maxPR = 0
         minPR = Int.MAX_VALUE
-    }
-
-    private var lastNotifiedMessage: String? = null
-
-    private fun notifyOximeterStatus(msg: String, color: String) {
-        if (lastNotifiedMessage == msg) return
-        lastNotifiedMessage = msg
-        val intent = Intent("DEVICE_DATA_RECEIVED").apply {
-            putExtra("type", "STATUS")
-            putExtra("data", msg)
-            putExtra("color", color)
-        }
-        LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
     }
 }
