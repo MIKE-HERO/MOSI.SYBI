@@ -20,3 +20,4 @@ local.properties
 app/release/app-release.apk
 app/release/baselineProfiles/1/app-release.dm
 app/release/app-release.apk
+*.apk
