@@ -17,10 +17,11 @@ import androidx.lifecycle.lifecycleScope
 import com.sybi.mosi.BaseActivity
 import com.sybi.mosi.DeviceInfoActivity
 import com.sybi.mosi.R
+
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-/** NO SE... */
 
 class MosiActivationActivity : BaseActivity() {
     private lateinit var api: MosiApiClient
@@ -114,6 +115,12 @@ class MosiActivationActivity : BaseActivity() {
         busy(button, "Validando instalador...") {
             val token = api.iniciarSesionInstalador(email, password)
             val loadedClients = api.listarClientes(token)
+
+
+
+
+
+
             if (loadedClients.isEmpty()) throw MosiApiException("No hay clientes disponibles")
             withContext(Dispatchers.Main) {
                 installerToken = token
@@ -150,6 +157,14 @@ class MosiActivationActivity : BaseActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
                 api.listarSucursales(installerToken, clientId)
+
+
+
+
+
+
+
+
             }
             withContext(Dispatchers.Main) {
                 result.onSuccess { loaded ->
@@ -217,14 +232,15 @@ class MosiActivationActivity : BaseActivity() {
 
     private fun clientLabel(client: MosiCliente) = "${client.nombre} (${client.id})"
 
+
     private fun branchLabel(branch: MosiSucursal) = "${branch.nombre} (${branch.id})"
 
     private fun validateCabin() {
         val client = selectedClient
         val branch = selectedBranch
         val validSelection = client != null && branch != null &&
-            clientField.text.toString() == clientLabel(client) &&
-            branchField.text.toString() == branchLabel(branch)
+                clientField.text.toString() == clientLabel(client) &&
+                branchField.text.toString() == branchLabel(branch)
         if (serial.text.toString().trim().isBlank() || !validSelection) {
             showError("Capture el número de serie y seleccione un cliente y una sucursal de las listas.")
             return
@@ -261,11 +277,11 @@ class MosiActivationActivity : BaseActivity() {
         val branch = selectedBranch ?: return
         findViewById<TextView>(R.id.tvInstallSummary).text =
             "Serie: ${serial.text.toString().trim()}\n" +
-                "Cliente: ${client.nombre}\n" +
-                "Sucursal: ${branch.nombre}\n" +
-                "Pantalla: ${value(R.id.etVideoLoopHost)}:${value(R.id.etVideoLoopPort)}\n" +
-                "Impresora: $printerHost:$printerPort\n\n" +
-                "Al confirmar se revocará cualquier token anterior de esta MOSI."
+                    "Cliente: ${client.nombre}\n" +
+                    "Sucursal: ${branch.nombre}\n" +
+                    "Pantalla: ${value(R.id.etVideoLoopHost)}:${value(R.id.etVideoLoopPort)}\n" +
+                    "Impresora: $printerHost:$printerPort\n\n" +
+                    "Al confirmar se revocará cualquier token anterior de esta MOSI."
         showStep(5)
     }
 

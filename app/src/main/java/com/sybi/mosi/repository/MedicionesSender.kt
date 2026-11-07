@@ -162,7 +162,7 @@ class MedicionesSender(private val context: Context) {
         return MedicionesRequest(
             idUsuarioWeb = targetUserId,
             idVendingMachine = cabina,
-            recordID = "0",
+            recordID = "MOSI-${serie.ifBlank { "SIN-SERIE" }}-${r.id_resultado}",
             memberID = "0",
             measureData = "0",
             deviceId = serie,
@@ -249,11 +249,6 @@ class MedicionesSender(private val context: Context) {
         )
     }
 
-    /**
-     * ✅ FIX COMPILACIÓN: ahora devuelve EnvioMedicionResult (con .success),
-     *    igual que PacienteRemoteRepository.enviarMediciones().
-     *    ResultsActivity usa `resultadoEnvio?.success == true` sin más cambios.
-     */
     suspend fun enviar(request: MedicionesRequest): PacienteRemoteRepository.EnvioMedicionResult {
         val repo = PacienteRemoteRepository(context)
         return repo.enviarMediciones(request)

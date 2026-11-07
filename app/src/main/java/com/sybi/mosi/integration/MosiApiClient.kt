@@ -40,7 +40,7 @@ data class MosiCliente(val id: String, val nombre: String)
 
 class MosiApiException(message: String, val statusCode: Int? = null) : Exception(message)
 
-/** Cliente del canal administrativo MOSI. Nunca registra tokens ni cuerpos clínicos... */
+/** Cliente del canal administrativo MOSI. Nunca registra tokens ni cuerpos clínicos. */
 class MosiApiClient(private val context: Context) {
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
@@ -109,7 +109,7 @@ class MosiApiClient(private val context: Context) {
             // El endpoint responde 422 a un POST vacío: eso confirma que existe,
             // procesa JSON y está listo para recibir las credenciales reales.
             val healthy = (response.isSuccessful && json?.optBoolean("ok") == true) ||
-                (response.code == 422 && json?.has("error") == true)
+                    (response.code == 422 && json?.has("error") == true)
             if (!healthy) {
                 val detail = json?.optString("error")?.takeIf { it.isNotBlank() }
                 throw MosiApiException(detail ?: "Administrador no disponible (HTTP ${response.code})", response.code)
