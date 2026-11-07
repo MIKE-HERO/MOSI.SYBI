@@ -12,8 +12,8 @@ android {
         applicationId = "com.sybi.mosi"
         minSdk = 25
         targetSdk = 34
-        versionCode = 36
-        versionName = "1.0.31"
+        versionCode = 37
+        versionName = "1.0.32"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -113,6 +113,9 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
+
+    // WorkManager para tareas en segundo plano (telemetría y sync)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     // Coil para cargar imágenes PNG, JPG, WEBP y SVG
     implementation("io.coil-kt:coil:2.6.0")

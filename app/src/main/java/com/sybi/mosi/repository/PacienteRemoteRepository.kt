@@ -26,6 +26,12 @@ class PacienteRemoteRepository(private val context: Context) {
         val idPaciente: Int? = primerUsuario?.idUsuarioWeb?.toIntOrNull()
     )
 
+    data class EnvioMedicionResult(
+        val success: Boolean,
+        val remoteId: Int = 0,
+        val error: String = ""
+    )
+
     /**
      * ✅ Obtiene el id_cliente configurado en el dispositivo.
      */
@@ -247,7 +253,7 @@ class PacienteRemoteRepository(private val context: Context) {
     // ==========================================
     // REGISTRAR MEDICIÓN
     // ==========================================
-    suspend fun enviarMediciones(mediciones: MedicionesRequest): Boolean {
+    suspend fun enviarMediciones(mediciones: MedicionesRequest): EnvioMedicionResult {
         val startTime = System.currentTimeMillis()
         return try {
             Log.d(TAG, "📤 [API REST] Iniciando envío de resultados de medición al servidor...")
@@ -281,7 +287,7 @@ class PacienteRemoteRepository(private val context: Context) {
 
             if (jsonSizeKb > 5 * 1024) {
                 Log.e(TAG, "❌ [DIAGNÓSTICO APP] JSON demasiado grande (>5 MB), abortando envío. Posible exceso de datos o imágenes no optimizadas.")
-                return false
+                return EnvioMedicionResult(success = false, error = "JSON demasiado grande (>5 MB)")
             }
 
             // ✅ 1. ANÁLISIS PRE-ENVÍO (Antes de transmitir el payload pesado)
@@ -347,12 +353,12 @@ class PacienteRemoteRepository(private val context: Context) {
                 if (callDuration > 3000) {
                     Log.w(TAG, "⚠️ [DIAGNÓSTICO ADVERTENCIA] El envío tardó mucho (${callDuration} ms). Posible lentitud en la red del quiosco o congestión en la API.")
                 }
-                true
+                EnvioMedicionResult(success = true, remoteId = body?.id ?: 0)
             } else {
                 val errorBody = response.errorBody()?.string()
                 Log.e(TAG, "❌ [API REST ERROR] HTTP ${response.code()} en registrarMedicion. Duración: ${callDuration}ms. ErrorBody: $errorBody")
                 Log.e(TAG, "🔍 [DIAGNÓSTICO] Error proveniente de la API (Servidor remoto) o datos incompletos/rechazados por el backend.")
-                false
+                EnvioMedicionResult(success = false, error = errorBody ?: "HTTP ${response.code()}")
             }
         } catch (e: Exception) {
             val totalDuration = System.currentTimeMillis() - startTime
@@ -362,7 +368,7 @@ class PacienteRemoteRepository(private val context: Context) {
                 is java.net.UnknownHostException -> Log.e(TAG, "🔍 [DIAGNÓSTICO RED] Error de DNS / Sin internet. Imposible resolver dominio del servidor.")
                 else -> Log.e(TAG, "🔍 [DIAGNÓSTICO RED/APP] Excepción de red o procesamiento durante el envío.")
             }
-            false
+            EnvioMedicionResult(success = false, error = e.message ?: e.javaClass.simpleName)
         }
     }
 }

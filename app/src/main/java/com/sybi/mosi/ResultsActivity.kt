@@ -411,10 +411,10 @@ class ResultsActivity : BaseActivity() {
                     val resultadoEnvio = runBlocking {
                         withTimeoutOrNull(30_000L) {
                             sender.enviar(requestData)
-                        } ?: false
+                        }
                     }
 
-                    if (resultadoEnvio) {
+                    if (resultadoEnvio?.success == true) {
                         exito = true
                         Log.d(TAG, "✅ Envío exitoso en el intento $intento")
                         break
