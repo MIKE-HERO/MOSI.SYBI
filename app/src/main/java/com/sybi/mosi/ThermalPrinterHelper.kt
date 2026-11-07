@@ -29,14 +29,13 @@ object ThermalPrinterHelper {
     // ============================================
     // CONFIGURACIÓN DEL QR PARA SP-RMD8CS1H
     // ============================================
-    // 120x120 px es ideal para el ancho de 384 puntos de la SP-RMD8.
-    // Cabe perfectamente y es escaneable.
-    private const val QR_WIDTH = 120
-    private const val QR_HEIGHT = 120
+    // 96x96 px es el tamaño ideal para evitar desbordar el búfer de la SP-RMD8.
+    private const val QR_WIDTH = 96
+    private const val QR_HEIGHT = 96
 
     /**
      * Imprime el ticket de resultados en la impresora térmica.
-     * (Esta firma NO cambia, tu ResultsActivity sigue funcionando igual).
+     * (TU LÓGICA ORIGINAL INTACTA).
      */
     fun imprimirTicket(
         context: Context,
@@ -307,8 +306,7 @@ object ThermalPrinterHelper {
     }
 
     // =====================================================================
-    // QR: Funciones para imprimir un QR de prueba (NO usadas por ResultsActivity,
-    // pero las dejo por si ocupas el botón de prueba en Ajustes).
+    // PRUEBA DE IMPRESIÓN QR (CORREGIDO PARA SP-RMD8CS1H USANDO ESC K)
     // =====================================================================
 
     fun imprimirTestQr(context: Context, qrText: String): Boolean {
@@ -383,16 +381,28 @@ object ThermalPrinterHelper {
 
             try { Thread.sleep(300) } catch (_: InterruptedException) {}
 
-            val rasterBytes = generarRasterQrConZxing(qrText, QR_WIDTH, QR_HEIGHT)
-            if (rasterBytes != null) {
+            // ✅ Usar el nuevo generador ESC K
+            val escKbytes = generarEscKQrConZxing(qrText, QR_WIDTH, QR_HEIGHT)
+            if (escKbytes != null) {
                 outputStream.write(ALIGN_CENTER)
                 outputStream.flush()
-                outputStream.writeThrottled(rasterBytes, chunkSize = 64, delayMs = 25)
+
+                // ✅ Enviar en trozos muy pequeños (32 bytes) para no saturar el búfer
+                var offset = 0
+                val chunkSize = 32
+                while (offset < escKbytes.size) {
+                    val count = Math.min(chunkSize, escKbytes.size - offset)
+                    outputStream.write(escKbytes, offset, count)
+                    outputStream.flush()
+                    offset += count
+                    try { Thread.sleep(30) } catch (_: InterruptedException) {} // Pausa crítica
+                }
+
                 outputStream.write("\n".toByteArray(charset))
                 outputStream.flush()
                 try { Thread.sleep(500) } catch (_: InterruptedException) {}
             } else {
-                Log.e(TAG, "❌ No se pudo generar la imagen raster QR")
+                Log.e(TAG, "❌ No se pudo generar la imagen ESC K del QR")
             }
 
             writeLine("")
@@ -434,21 +444,11 @@ object ThermalPrinterHelper {
         }
     }
 
-    /**
-     * Envía los datos en trozos pequeños para no saturar el búfer de la impresora.
-     * CRÍTICO para la SP-RMD8CS1H (3K de búfer).
-     */
-    private fun OutputStream.writeThrottled(bytes: ByteArray, chunkSize: Int = 64, delayMs: Long = 25) {
-        var offset = 0
-        while (offset < bytes.size) {
-            val count = Math.min(chunkSize, bytes.size - offset)
-            this.write(bytes, offset, count)
-            this.flush()
-            offset += count
-            if (delayMs > 0 && offset < bytes.size) {
-                try { Thread.sleep(delayMs) } catch (_: InterruptedException) {}
-            }
-        }
+    // --- NUEVAS FUNCIONES PARA GENERAR EL QR EN ESC K ---
+
+    private fun generarEscKQrConZxing(text: String, width: Int, height: Int): ByteArray? {
+        val bitmap = generarBitmapQr(text, width, height) ?: return null
+        return bitmapToEscK(bitmap)
     }
 
     private fun generarBitmapQr(text: String, width: Int, height: Int): Bitmap? {
@@ -476,51 +476,49 @@ object ThermalPrinterHelper {
         }
     }
 
-    private fun generarRasterQrConZxing(text: String, width: Int, height: Int): ByteArray? {
-        val bitmap = generarBitmapQr(text, width, height) ?: return null
-        return bitmapToEscPosRaster(bitmap)
-    }
-
     /**
-     * Convierte un Bitmap al comando GS v 0 (Raster Bit Image).
-     * La SP-RMD8CS1H lo soporta bien, siempre que se envíe en trozos (writeThrottled).
+     * Convierte el Bitmap al comando ESC K (Bit Image de 8 puntos de alto).
+     * Este comando es el que la SP-RMD8CS1H maneja nativamente sin corromper los datos.
      */
-    private fun bitmapToEscPosRaster(bitmap: Bitmap): ByteArray {
+    private fun bitmapToEscK(bitmap: Bitmap): ByteArray {
         val width = bitmap.width
         val height = bitmap.height
-        val widthInBytes = (width + 7) / 8
-
         val stream = ByteArrayOutputStream()
-        // Comando GS v 0 m xL xH yL yH
-        stream.write(0x1D)
-        stream.write(0x76)
-        stream.write(0x30)
-        stream.write(0x00)
-        stream.write(widthInBytes % 256)
-        stream.write(widthInBytes / 256)
-        stream.write(height % 256)
-        stream.write(height / 256)
 
-        for (y in 0 until height) {
-            for (xByte in 0 until widthInBytes) {
-                var byteVal = 0
+        // Ajustar espaciado de línea para que las tiras de 8 bits se unan sin espacios blancos
+        stream.write(byteArrayOf(0x1B, 0x33, 0x00)) // ESC 3 0
+
+        var y = 0
+        while (y < height) {
+            // Comando ESC K n1 n2 (ancho en puntos)
+            val n1 = (width % 256).toByte()
+            val n2 = (width / 256).toByte()
+            stream.write(byteArrayOf(0x1B, 0x4B, n1, n2))
+
+            // Datos de la tira (8 filas de alto)
+            for (x in 0 until width) {
+                var b = 0
                 for (bit in 0 until 8) {
-                    val x = xByte * 8 + bit
-                    if (x < width) {
-                        val pixel = bitmap.getPixel(x, y)
-                        val alpha = (pixel shr 24) and 0xFF
-                        val r = (pixel shr 16) and 0xFF
-                        val g = (pixel shr 8) and 0xFF
-                        val b = pixel and 0xFF
-                        val luminance = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
-                        if (alpha > 128 && luminance < 128) {
-                            byteVal = byteVal or (0x80 shr bit)
+                    val pixelY = y + bit
+                    if (pixelY < height) {
+                        val pixel = bitmap.getPixel(x, pixelY)
+                        val r = Color.red(pixel)
+                        val g = Color.green(pixel)
+                        val bCol = Color.blue(pixel)
+                        val alpha = Color.alpha(pixel)
+                        if (alpha > 128 && (r + g + bCol) / 3 < 128) {
+                            b = b or (1 shl (7 - bit))
                         }
                     }
                 }
-                stream.write(byteVal)
+                stream.write(b)
             }
+            stream.write(0x0A) // Salto de línea
+            y += 8
         }
+
+        // Restaurar espaciado normal
+        stream.write(byteArrayOf(0x1B, 0x32))
         return stream.toByteArray()
     }
 }
