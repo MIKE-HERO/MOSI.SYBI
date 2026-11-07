@@ -208,6 +208,39 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- BOTÓN 5: Reintentar Envío -->
+        <LinearLayout
+            android:id="@+id/btnRetryUpload"
+            android:layout_width="220dp"
+            android:layout_height="58dp"
+            android:background="@drawable/bg_settings_card"
+            android:clickable="true"
+            android:elevation="3dp"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_restart"
+                app:tint="#31536A" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Reintentar envío de resultados"
+                android:textColor="#31536A"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+>>>>>>> Respaldo2
     </LinearLayout>
 
 </LinearLayout>
