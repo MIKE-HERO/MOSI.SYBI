@@ -304,11 +304,11 @@ class ResultTableActivity : BaseActivity() {
 
             for (r in paraEnviar) {
                 try {
-                    val exito = runBlocking {
+                    val resultadoEnvio = runBlocking {
                         val request = sender.buildFromResultado(r)
                         sender.enviar(request)
                     }
-                    if (exito) exitosos++ else fallidos++
+                    if (resultadoEnvio.success) exitosos++ else fallidos++
                 } catch (e: Exception) {
                     Log.e(TAG, "❌ Error reenviando id=${r.id_resultado}: ${e.message}", e)
                     fallidos++

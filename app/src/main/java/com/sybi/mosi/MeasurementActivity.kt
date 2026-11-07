@@ -389,17 +389,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
                 btnStarECG.visibility = View.GONE
                 btnRepeat.visibility = View.VISIBLE
                 onMeasurementComplete()
-
-                // ═══ FIX: SOLO traer la Activity al frente. NUNCA force-stop. ═══
-                // La app externa de ECG se cierra sola al terminar; forzarla a
-                // cerrarse con `su am force-stop` puede matarla ANTES de que
-                // termine de escribir los archivos XML/JPG o de entregar el
-                // resultado, y es exactamente lo que causaba que al volver a la
-                // pantalla de medición se quedara "esperando resultados".
-                val bringToFrontIntent = Intent(this, MeasurementActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                }
-                startActivity(bringToFrontIntent)
+                // ✅ Ya no hace falta startActivity aquí: ECGHelper.traerActivityAlFrente()
+                //    se encarga de traer MeasurementActivity al frente ANTES de este callback.
             },
             onError = {
                 Toast.makeText(this, "Error en la medición de ECG", Toast.LENGTH_LONG).show()
@@ -1979,6 +1970,13 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     }
 
     // ── Lifecycle ─────────────────────────────────────────
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        Log.d(TAG, "🔄 onNewIntent: MeasurementActivity traída al frente")
+        // No hace falta nada más: onResume() ya relanza la búsqueda si hay ECG pendiente.
+    }
+
     override fun onResume() {
         super.onResume()
         isActivityResumed = true

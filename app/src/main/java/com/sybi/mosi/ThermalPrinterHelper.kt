@@ -22,17 +22,22 @@ object ThermalPrinterHelper {
     // ============================================
     // CONFIGURACIÓN DE PÁGINA DE CÓDIGOS
     // ============================================
-    // Opciones:
-    //   0  -> CP437 (US, sin acentos)
-    //   2  -> CP850 (Latin-1, con acentos pero sin ¿¡)
-    //   16 -> CP1252 (Windows Latin-1, con acentos + ¿¡)  ← RECOMENDADO
-    //   19 -> CP858 (Latin-1 + €)
-    //
-    // Cambia estos valores si tu impresora no soporta CP1252.
     private const val CODEPAGE_NUM = 16
     private const val CODEPAGE_CHARSET = "windows-1252"
     private const val USAR_ACENTOS = true
 
+    // ============================================
+    // CONFIGURACIÓN DEL QR PARA SP-RMD8CS1H
+    // ============================================
+    // 120x120 px es ideal para el ancho de 384 puntos de la SP-RMD8.
+    // Cabe perfectamente y es escaneable.
+    private const val QR_WIDTH = 120
+    private const val QR_HEIGHT = 120
+
+    /**
+     * Imprime el ticket de resultados en la impresora térmica.
+     * (Esta firma NO cambia, tu ResultsActivity sigue funcionando igual).
+     */
     fun imprimirTicket(
         context: Context,
         paciente: Paciente?,
@@ -47,7 +52,6 @@ object ThermalPrinterHelper {
             return false
         }
 
-        // ✅ DEFENSIVO: usar SOLO el primer resultado
         val r = resultados.firstOrNull()
         if (r == null) {
             Log.w(TAG, "⚠️ Lista de resultados vacía, no se imprime nada")
@@ -82,7 +86,6 @@ object ThermalPrinterHelper {
                 return false
             }
 
-            // ✅ Charset según la página de códigos elegida
             val charset = Charset.forName(CODEPAGE_CHARSET)
 
             // ============================================
@@ -95,14 +98,11 @@ object ThermalPrinterHelper {
             val BOLD_OFF = byteArrayOf(0x1B, 0x45, 0x00)
             val REVERSE_OFF = byteArrayOf(0x1D, 0x42, 0x00)
             val UPSIDE_DOWN_OFF = byteArrayOf(0x1B, 0x7B, 0x00)
-            // ✅ Seleccionar página de códigos: ESC t n
             val SELECT_CODEPAGE = byteArrayOf(0x1B, 0x74, CODEPAGE_NUM.toByte())
             val FEED_LINES = byteArrayOf(0x1B, 0x64, 0x05)
             val CUT = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
 
-            // ============================================
             // INICIALIZACIÓN ROBUSTA
-            // ============================================
             outputStream.write(INIT)
             outputStream.write(REVERSE_OFF)
             outputStream.write(UPSIDE_DOWN_OFF)
@@ -117,7 +117,6 @@ object ThermalPrinterHelper {
             outputStream.flush()
             try { Thread.sleep(300) } catch (_: InterruptedException) {}
 
-            // ✅ Función auxiliar: sanitizar si no se usan acentos
             fun String.prepararParaImpresora(): String {
                 return if (USAR_ACENTOS) this else this.sanitizarParaImpresora()
             }
@@ -139,7 +138,7 @@ object ThermalPrinterHelper {
             val title = customTitle?.takeIf { it.isNotBlank() } ?: appPrefs.getString("PdfTitle", defaultTitle) ?: defaultTitle
             val subtitle = customSubtitle?.takeIf { it.isNotBlank() } ?: appPrefs.getString("PdfSubtitle", "") ?: ""
 
-            writeLine("")   // ✅ Espacio antes de la sección
+            writeLine("")
             writeLine(title, bold = true, alignCenter = true)
             if (subtitle.isNotBlank()) {
                 writeLine(subtitle, bold = false, alignCenter = true)
@@ -180,7 +179,7 @@ object ThermalPrinterHelper {
             writeLine("RESULTADOS DE MEDICIÓN", bold = true, alignCenter = true)
 
             if (showAlturaPeso && (r.altura.isNotBlank() || r.peso.isNotBlank())) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- ALTURA Y PESO ---", bold = true, alignCenter = true)
                 if (r.altura.isNotBlank()) writeLine("Altura: ${r.altura} cm")
                 if (r.peso.isNotBlank()) writeLine("Peso: ${r.peso} kg")
@@ -188,7 +187,7 @@ object ThermalPrinterHelper {
             }
 
             if (showComposicion && (r.grasa_corporal.isNotBlank() || r.agua_corporal.isNotBlank() || r.masa_muscular.isNotBlank() || r.metabolismo_basal.isNotBlank())) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- COMPOSICIÓN CORPORAL ---", bold = true, alignCenter = true)
                 if (r.grasa_corporal.isNotBlank()) writeLine("Grasa Corporal: ${r.grasa_corporal}% (${r.grasa_corporal_kg} kg)")
                 if (r.agua_corporal.isNotBlank()) writeLine("Agua Corporal: ${r.agua_corporal}% (${r.agua_corporal_kg} kg)")
@@ -203,14 +202,14 @@ object ThermalPrinterHelper {
             }
 
             if (showPresion && r.sistolica.isNotBlank() && r.diastolica.isNotBlank()) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- PRESIÓN ARTERIAL ---", bold = true, alignCenter = true)
                 writeLine("Presión: ${r.sistolica}/${r.diastolica} mmHg")
                 if (r.pulso.isNotBlank()) writeLine("Pulso: ${r.pulso} bpm")
             }
 
             if (showOxigeno && r.spo2.isNotBlank()) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- OXÍGENO EN SANGRE ---", bold = true, alignCenter = true)
                 writeLine("SpO2: ${r.spo2}%")
                 if (r.frecuencia_pulso.isNotBlank()) writeLine("Pulso: ${r.frecuencia_pulso} bpm")
@@ -218,13 +217,13 @@ object ThermalPrinterHelper {
             }
 
             if (showTemperatura && r.temperatura.isNotBlank()) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- TEMPERATURA CORPORAL ---", bold = true, alignCenter = true)
                 writeLine("Temperatura: ${r.temperatura} °C / ${r.temperatura_f} °F")
             }
 
             if (showEcg && (r.frecuencia_cardiaca.isNotBlank() || r.resultado_ecg.isNotBlank())) {
-                writeLine("")   // ✅ Espacio antes de la sección
+                writeLine("")
                 writeLine("--- ELECTROCARDIOGRAMA ---", bold = true, alignCenter = true)
                 writeLine("Frec. Cardíaca: ${r.frecuencia_cardiaca} bpm")
                 if (r.eje_p.isNotBlank()) writeLine("Eje P/QRS/T: ${r.eje_p}/${r.eje_qrs}/${r.eje_t}")
@@ -247,7 +246,6 @@ object ThermalPrinterHelper {
             outputStream.flush()
             try { Thread.sleep(150) } catch (_: InterruptedException) {}
 
-            // ✅ RESET FINAL
             outputStream.write(INIT)
             outputStream.flush()
 
@@ -294,10 +292,6 @@ object ThermalPrinterHelper {
         }
     }
 
-    /**
-     * Reemplaza caracteres no soportados por equivalentes ASCII.
-     * Se usa como plan B si la impresora no soporta la página de códigos elegida.
-     */
     private fun String.sanitizarParaImpresora(): String {
         return this
             .replace("á", "a").replace("é", "e").replace("í", "i")
@@ -311,6 +305,11 @@ object ThermalPrinterHelper {
             .replace("“", "\"").replace("”", "\"")
             .replace("‘", "'").replace("’", "'")
     }
+
+    // =====================================================================
+    // QR: Funciones para imprimir un QR de prueba (NO usadas por ResultsActivity,
+    // pero las dejo por si ocupas el botón de prueba en Ajustes).
+    // =====================================================================
 
     fun imprimirTestQr(context: Context, qrText: String): Boolean {
         val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
@@ -365,12 +364,13 @@ object ThermalPrinterHelper {
             outputStream.write(UPSIDE_DOWN_OFF)
             outputStream.write(SELECT_CODEPAGE)
             outputStream.flush()
-            try { Thread.sleep(200) } catch (_: InterruptedException) {}
+            try { Thread.sleep(300) } catch (_: InterruptedException) {}
 
             fun writeLine(text: String, bold: Boolean = false, alignCenter: Boolean = false) {
                 if (alignCenter) outputStream.write(ALIGN_CENTER) else outputStream.write(ALIGN_LEFT)
                 if (bold) outputStream.write(BOLD_ON) else outputStream.write(BOLD_OFF)
-                outputStream.write((text + "\n").toByteArray(charset))
+                val textToPrint = if (USAR_ACENTOS) text else text.sanitizarParaImpresora()
+                outputStream.write((textToPrint + "\n").toByteArray(charset))
                 outputStream.flush()
             }
 
@@ -381,12 +381,16 @@ object ThermalPrinterHelper {
             writeLine(qrText, bold = false, alignCenter = true)
             writeLine("")
 
-            val rasterBytes = generarRasterQrConZxing(qrText, 256, 256)
+            try { Thread.sleep(300) } catch (_: InterruptedException) {}
+
+            val rasterBytes = generarRasterQrConZxing(qrText, QR_WIDTH, QR_HEIGHT)
             if (rasterBytes != null) {
                 outputStream.write(ALIGN_CENTER)
-                outputStream.write(rasterBytes)
+                outputStream.flush()
+                outputStream.writeThrottled(rasterBytes, chunkSize = 64, delayMs = 25)
                 outputStream.write("\n".toByteArray(charset))
                 outputStream.flush()
+                try { Thread.sleep(500) } catch (_: InterruptedException) {}
             } else {
                 Log.e(TAG, "❌ No se pudo generar la imagen raster QR")
             }
@@ -396,11 +400,11 @@ object ThermalPrinterHelper {
 
             outputStream.write(FEED_LINES)
             outputStream.flush()
-            try { Thread.sleep(150) } catch (_: InterruptedException) {}
+            try { Thread.sleep(200) } catch (_: InterruptedException) {}
 
             outputStream.write(CUT)
             outputStream.flush()
-            try { Thread.sleep(150) } catch (_: InterruptedException) {}
+            try { Thread.sleep(200) } catch (_: InterruptedException) {}
 
             outputStream.write(INIT)
             outputStream.flush()
@@ -430,9 +434,29 @@ object ThermalPrinterHelper {
         }
     }
 
+    /**
+     * Envía los datos en trozos pequeños para no saturar el búfer de la impresora.
+     * CRÍTICO para la SP-RMD8CS1H (3K de búfer).
+     */
+    private fun OutputStream.writeThrottled(bytes: ByteArray, chunkSize: Int = 64, delayMs: Long = 25) {
+        var offset = 0
+        while (offset < bytes.size) {
+            val count = Math.min(chunkSize, bytes.size - offset)
+            this.write(bytes, offset, count)
+            this.flush()
+            offset += count
+            if (delayMs > 0 && offset < bytes.size) {
+                try { Thread.sleep(delayMs) } catch (_: InterruptedException) {}
+            }
+        }
+    }
+
     private fun generarBitmapQr(text: String, width: Int, height: Int): Bitmap? {
         return try {
-            val hints = mapOf(EncodeHintType.MARGIN to 1)
+            val hints = mapOf(
+                EncodeHintType.CHARACTER_SET to "UTF-8",
+                EncodeHintType.MARGIN to 1
+            )
             val bitMatrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, width, height, hints)
             val w = bitMatrix.width
             val h = bitMatrix.height
@@ -457,17 +481,21 @@ object ThermalPrinterHelper {
         return bitmapToEscPosRaster(bitmap)
     }
 
+    /**
+     * Convierte un Bitmap al comando GS v 0 (Raster Bit Image).
+     * La SP-RMD8CS1H lo soporta bien, siempre que se envíe en trozos (writeThrottled).
+     */
     private fun bitmapToEscPosRaster(bitmap: Bitmap): ByteArray {
         val width = bitmap.width
         val height = bitmap.height
         val widthInBytes = (width + 7) / 8
 
         val stream = ByteArrayOutputStream()
+        // Comando GS v 0 m xL xH yL yH
         stream.write(0x1D)
         stream.write(0x76)
         stream.write(0x30)
         stream.write(0x00)
-
         stream.write(widthInBytes % 256)
         stream.write(widthInBytes / 256)
         stream.write(height % 256)

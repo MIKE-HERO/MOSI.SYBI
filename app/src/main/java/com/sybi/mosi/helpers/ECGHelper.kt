@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import java.io.File
+import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -27,6 +28,10 @@ class ECGHelper(private val callback: ECGCallback) {
     private var currentFileName: String? = null
     private var currentPatientId: String? = null
     private var measurementStartTime: Long = 0
+
+    // ✅ Referencia débil a la Activity para poder traerla al frente
+    //    cuando se detecten los archivos de resultado en ECGDATA/RETURN/.
+    private var activityRef: WeakReference<Activity>? = null
 
     var lastJpgPath: String? = null
         private set
@@ -97,6 +102,10 @@ class ECGHelper(private val callback: ECGCallback) {
             return false
         }
 
+        // ✅ Guardar referencia débil a la activity para poder traerla al frente
+        //    cuando se detecten los archivos de resultado.
+        activityRef = WeakReference(activity)
+
         val bundle = Bundle().apply {
             putInt("ECG_MODE", mode)
             putString("Patient_Name", name)
@@ -123,13 +132,14 @@ class ECGHelper(private val callback: ECGCallback) {
 
     /**
      * ✅ Se llama desde Activity.onResume() cuando la app vuelve al frente.
-     *    Es el momento en que la app externa ya terminó la medición
-     *    y escribió los archivos. Iniciamos la búsqueda con reintentos.
+     *    Ya NO depende de isRead: mientras haya una medición en curso
+     *    (isMeasure && currentPatientId != null), siempre relanza la búsqueda.
+     *    Esto es clave: si la app externa NO cierra sola y el usuario vuelve
+     *    manualmente a MeasurementActivity, la búsqueda se reanuda igual.
      */
     fun onResume() {
-        if (isRead && isMeasure) {
-            isRead = false
-            Log.d(TAG, "onResume: esperando archivos nuevos para paciente=$currentPatientId")
+        if (isMeasure && currentPatientId != null) {
+            Log.d(TAG, "onResume: buscando archivos para paciente=$currentPatientId")
             handler.postDelayed({ readFileData() }, 2000)
         }
     }
@@ -263,6 +273,12 @@ class ECGHelper(private val callback: ECGCallback) {
 
                 currentFileName = actualFileName
 
+                // ✅ NUEVO: los archivos ya existen y están completos.
+                //    Traer MeasurementActivity al frente AHORA, antes de entregar
+                //    el resultado, para que el usuario vea la pantalla de medición
+                //    en la pestaña ECG y la imagen se pinte en cuanto llegue el callback.
+                traerActivityAlFrente()
+
                 handleResult(
                     heartRate, pAxis, qrsAxis, tAxis, prInterval,
                     qrsDuration, qtd, qtc, rv5, sv1, resCode, ecgImage
@@ -331,6 +347,27 @@ class ECGHelper(private val callback: ECGCallback) {
         isMeasure = false
         currentPatientId = null
         measurementStartTime = 0
+    }
+
+    /**
+     * ✅ Trae MeasurementActivity al frente cuando los archivos de resultado
+     *    ya están completos en ECGDATA/RETURN/. Funciona aunque la app externa
+     *    de ECG no haya llamado finish() todavía.
+     */
+    private fun traerActivityAlFrente() {
+        val act = activityRef?.get() ?: run {
+            Log.w(TAG, "⚠️ activityRef nula, no se puede traer MeasurementActivity al frente")
+            return
+        }
+        try {
+            val intent = Intent(act, act.javaClass).apply {
+                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            act.startActivity(intent)
+            Log.d(TAG, "✅ MeasurementActivity traída al frente desde ECGHelper")
+        } catch (e: Exception) {
+            Log.e(TAG, "⚠️ No se pudo traer MeasurementActivity al frente: ${e.message}", e)
+        }
     }
 
     private fun getECGDirectory(): File? {

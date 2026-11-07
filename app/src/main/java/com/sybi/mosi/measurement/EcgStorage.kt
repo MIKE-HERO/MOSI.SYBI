@@ -1,6 +1,7 @@
 package com.sybi.mosi.measurement
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.util.Log
 import java.io.File
 
@@ -47,6 +48,29 @@ object EcgStorage {
             Log.d(TAG, "🧹 Carpeta de ECGs limpiada")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error limpiando ECGs: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Guarda un Bitmap como archivo JPG en la carpeta interna de la app.
+     * Devuelve la ruta absoluta del archivo guardado, o null si falla.
+     */
+    fun saveBitmapToInternal(context: Context, bitmap: Bitmap): String? {
+        return try {
+            val dir = File(context.filesDir, ECG_DIR).apply { if (!exists()) mkdirs() }
+            val fileName = "ecg_${System.currentTimeMillis()}.jpg"
+            val dest = File(dir, fileName)
+
+            val out = java.io.FileOutputStream(dest)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            out.flush()
+            out.close()
+
+            Log.d(TAG, "✅ Bitmap ECG guardado: ${dest.absolutePath} (${dest.length() / 1024} KB)")
+            dest.absolutePath
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error guardando Bitmap ECG: ${e.message}", e)
+            null
         }
     }
 }

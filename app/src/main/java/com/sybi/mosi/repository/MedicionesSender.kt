@@ -249,7 +249,12 @@ class MedicionesSender(private val context: Context) {
         )
     }
 
-    suspend fun enviar(request: MedicionesRequest): Boolean {
+    /**
+     * ✅ FIX COMPILACIÓN: ahora devuelve EnvioMedicionResult (con .success),
+     *    igual que PacienteRemoteRepository.enviarMediciones().
+     *    ResultsActivity usa `resultadoEnvio?.success == true` sin más cambios.
+     */
+    suspend fun enviar(request: MedicionesRequest): PacienteRemoteRepository.EnvioMedicionResult {
         val repo = PacienteRemoteRepository(context)
         return repo.enviarMediciones(request)
     }
@@ -289,18 +294,18 @@ class MedicionesSender(private val context: Context) {
             val maxW = 120
             val maxH = 160
             val scale = minOf(maxW.toFloat() / bitmap.width, maxH.toFloat() / bitmap.height)
-            
+
             val finalW = (bitmap.width * scale).toInt()
             val finalH = (bitmap.height * scale).toInt()
-            
+
             val resized = Bitmap.createScaledBitmap(bitmap, finalW, finalH, true)
 
             val out = ByteArrayOutputStream()
             resized.compress(Bitmap.CompressFormat.JPEG, 70, out) // 70% calidad
-            
+
             val resultBytes = out.toByteArray()
             Log.d(TAG, "🖼️ Foto paciente comprimida: ${resultBytes.size / 1024} KB")
-            
+
             Base64.encodeToString(resultBytes, Base64.NO_WRAP)
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error comprimiendo foto: ${e.message}")

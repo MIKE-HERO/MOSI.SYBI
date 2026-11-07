@@ -96,7 +96,10 @@
         <activity android:name=".PhoneLoginActivity" android:exported="false" />
         <activity android:name=".IcCardLoginActivity" android:exported="false" />
         <activity android:name=".ProfileActivity" android:exported="false" />
-        <activity android:name=".MeasurementActivity" android:exported="false" />
+        <activity
+            android:name=".MeasurementActivity"
+            android:exported="false"
+            android:launchMode="singleTop" />
         <activity android:name=".ResultsActivity" android:exported="false" />
         <activity android:name=".PdfViewerActivity" android:exported="false" />
 
