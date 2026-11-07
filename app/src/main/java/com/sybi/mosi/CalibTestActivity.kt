@@ -27,6 +27,7 @@ class CalibTestActivity : BaseActivity() {
     private lateinit var btnTestCamera: Button
     private lateinit var btnCalibrate: Button
     private lateinit var btnTestPrinterQr: Button
+    private lateinit var etQrText: android.widget.EditText
     private lateinit var btnSendLog: Button
     private lateinit var switchAutoLog: android.widget.Switch
     private lateinit var etCardResult: android.widget.EditText
@@ -52,6 +53,7 @@ class CalibTestActivity : BaseActivity() {
         btnTestCamera = findViewById(R.id.btnTestCamera)
         btnCalibrate = findViewById(R.id.btnCalibrate)
         btnTestPrinterQr = findViewById(R.id.btnTestPrinterQr)
+        etQrText = findViewById(R.id.etQrText)
         btnSendLog = findViewById(R.id.btnSendLog)
         switchAutoLog = findViewById(R.id.switchAutoLog)
         etCardResult = findViewById(R.id.etCardResult)
@@ -111,10 +113,11 @@ class CalibTestActivity : BaseActivity() {
         }
 
         btnTestPrinterQr.setOnClickListener {
+            val textoQr = etQrText.text.toString().trim().ifEmpty { "Impresión de QR de prueba" }
             btnTestPrinterQr.isEnabled = false
             Toast.makeText(this, "Imprimiendo QR de prueba...", Toast.LENGTH_SHORT).show()
             Thread {
-                val exito = ThermalPrinterHelper.imprimirTestQr(this, "Impresión de QR de prueba")
+                val exito = ThermalPrinterHelper.imprimirTestQr(this, textoQr)
                 runOnUiThread {
                     btnTestPrinterQr.isEnabled = true
                     if (exito) {
