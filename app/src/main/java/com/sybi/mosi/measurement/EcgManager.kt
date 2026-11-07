@@ -3,8 +3,6 @@ package com.sybi.mosi.measurement
 import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
-import android.os.Handler
-import android.os.Looper
 import android.util.Base64
 import android.util.Log
 import com.sybi.mosi.helpers.ECGCallback
@@ -14,6 +12,7 @@ import java.io.ByteArrayOutputStream
 
 /**
  * Resultado de una medición de ECG.
+ * Vive aquí porque solo lo produce EcgManager.
  */
 data class EcgResults(
     val heartRate: Int,
@@ -34,19 +33,9 @@ class EcgManager(
     private val onResult: (EcgResults, Bitmap) -> Unit,
     private val onError: () -> Unit
 ) {
-    companion object {
-        private const val TAG = "EcgManager"
-        // ═══ FIX: watchdog de 90s (el ECGHelper agota a los 80s, así que éste
-        //           solo dispara si el helper se quedó colgado) ═══
-        private const val WATCHDOG_TIMEOUT_MS = 90_000L
-    }
+    companion object { private const val TAG = "EcgManager" }
 
     private var helper: ECGHelper? = null
-    private var savedInternalPath: String? = null
-
-    // ═══ FIX: watchdog para garantizar que onError() SIEMPRE se dispare ═══
-    private val watchdogHandler = Handler(Looper.getMainLooper())
-    private var watchdogRunnable: Runnable? = null
 
     fun init() {
         helper = ECGHelper(object : ECGCallback {
@@ -55,11 +44,6 @@ class EcgManager(
                 prInterval: String, qrsDuration: String, qtd: String, qtc: String,
                 rv5: String, sv1: String, resCode: String, ecgImage: Bitmap
             ) {
-                // ═══ FIX: cancelar watchdog al recibir resultado exitoso ═══
-                cancelWatchdog()
-                // ═══ FIX: Guardar inmediatamente el Bitmap en almacenamiento interno ═══
-                savedInternalPath = EcgStorage.saveBitmapToInternal(activity, ecgImage)
-
                 val results = EcgResults(
                     heartRate, pAxis, qrsAxis, tAxis, prInterval,
                     qrsDuration, qtd, qtc, rv5, sv1, resCode
@@ -68,25 +52,44 @@ class EcgManager(
             }
 
             override fun onMeasureError() {
-                // ═══ FIX: cancelar watchdog al recibir error del helper ═══
-                cancelWatchdog()
                 activity.runOnUiThread { onError() }
             }
         })
     }
 
+    /**
+     * ✅ Se llama desde Activity.onResume() cuando la app vuelve al frente.
+     *    Delega al ECGHelper para que busque los archivos de la medición.
+     */
     fun onResume() {
         helper?.onResume()
     }
 
+    /**
+     * ✅ Cancela reintentos de búsqueda de ECG.
+     */
     fun cancel() {
-        cancelWatchdog()
         helper?.cancel()
     }
 
+    /**
+     * Reengancha la búsqueda del resultado de una medición que ya se había
+     * iniciado antes de que el proceso se recreara (Android mató la app en
+     * segundo plano mientras la app externa de ECG estaba al frente — típico
+     * en equipos de poca RAM). [helper] es una instancia nueva recién creada
+     * por [init], así que no sabe que hay una medición pendiente hasta que se
+     * lo decimos aquí.
+     */
     fun resumePendingMeasurement(patientId: String, startTime: Long) {
-        armarWatchdog(patientId, startTime)
         helper?.resumePolling(patientId, startTime)
+    }
+
+    /**
+     * Método legacy. Ya no se usa.
+     */
+    @Deprecated("Usar onResume() en su lugar")
+    fun handleActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        if (requestCode == 1) helper?.handleActivityResult(requestCode, resultCode, data)
     }
 
     fun startMeasurement(
@@ -107,17 +110,11 @@ class EcgManager(
         val name = patientName.ifEmpty { "Paciente" }
         val id = patientId.ifEmpty { "0000" }
 
-        val ok = if (derivaciones == 12) {
+        return if (derivaciones == 12) {
             helper?.openECG12(activity, name, id, patientGender, age, year, month, day) ?: false
         } else {
             helper?.openECG6(activity, name, id, patientGender, age, year, month, day) ?: false
         }
-
-        // ═══ FIX: armar watchdog si el helper arrancó correctamente ═══
-        if (ok) {
-            armarWatchdog(id, System.currentTimeMillis())
-        }
-        return ok
     }
 
     fun saveToPrefs(context: Context, results: EcgResults, image: Bitmap?) {
@@ -135,42 +132,39 @@ class EcgManager(
         editor.putString("ecg_res_code", results.resCode)
 
         image?.let {
-            val base64 = bitmapToBase64Original(it)
+            // ✅ Comprimir y optimizar la imagen del ECG (JPEG 85%, máx. 1600px)
+            //    Mantiene máxima nitidez visual pero reduce el tamaño de ~4.5 MB a ~200 KB
+            //    impidiendo timeouts en conexiones lentas.
+            val base64 = bitmapToBase64Optimizado(it)
             editor.putString("ecg_image", base64)
-            Log.d(TAG, "📷 ECG Base64 (original PNG): ${base64.length / 1024} KB")
+            Log.d(TAG, "📷 ECG Base64 (optimizado JPEG): ${base64.length / 1024} KB")
         }
         editor.apply()
     }
 
-    fun getLastJpgPath(): String? = savedInternalPath ?: helper?.lastJpgPath
+    fun getLastJpgPath(): String? = helper?.lastJpgPath
 
-    // ═══ FIX: watchdog propio del EcgManager ═══
-    private fun armarWatchdog(patientId: String, startTime: Long) {
-        cancelWatchdog()
-        val restante = (WATCHDOG_TIMEOUT_MS - (System.currentTimeMillis() - startTime))
-            .coerceAtLeast(5_000L)
-        Log.d(TAG, "⏰ Watchdog ECG armado para paciente=$patientId en ${restante}ms")
-        watchdogRunnable = Runnable {
-            Log.w(TAG, "⏰ Watchdog ECG DISPARADO: sin resultado en ${WATCHDOG_TIMEOUT_MS}ms, forzando onError()")
-            helper?.cancel()
-            activity.runOnUiThread { onError() }
+    /**
+     * Convierte el Bitmap a Base64 optimizado para un envío rápido por internet.
+     * Escala a máximo 1600px y comprime a JPEG 85% preservando excelente nitidez.
+     */
+    private fun bitmapToBase64Optimizado(bitmap: Bitmap): String {
+        val maxDim = 1600
+        val width = bitmap.width
+        val height = bitmap.height
+        val scaledBitmap = if (width > maxDim || height > maxDim) {
+            val scale = minOf(maxDim.toFloat() / width, maxDim.toFloat() / height)
+            val newW = (width * scale).toInt()
+            val newH = (height * scale).toInt()
+            Bitmap.createScaledBitmap(bitmap, newW, newH, true)
+        } else {
+            bitmap
         }
-        watchdogHandler.postDelayed(watchdogRunnable!!, restante)
-    }
 
-    private fun cancelWatchdog() {
-        watchdogRunnable?.let {
-            watchdogHandler.removeCallbacks(it)
-            Log.d(TAG, "⏰ Watchdog ECG cancelado")
-        }
-        watchdogRunnable = null
-    }
-
-    private fun bitmapToBase64Original(bitmap: Bitmap): String {
         val baos = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos)
         val bytes = baos.toByteArray()
-        Log.d(TAG, "📷 ECG original (PNG): ${bytes.size / 1024} KB (${bitmap.width}x${bitmap.height})")
+        Log.d(TAG, "📷 ECG optimizado (JPEG 85%): ${bytes.size / 1024} KB (${scaledBitmap.width}x${scaledBitmap.height})")
         return Base64.encodeToString(bytes, Base64.NO_WRAP)
     }
 }

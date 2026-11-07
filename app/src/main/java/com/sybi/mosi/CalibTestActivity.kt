@@ -26,7 +26,6 @@ class CalibTestActivity : BaseActivity() {
     private lateinit var btnTestMic: Button
     private lateinit var btnTestCamera: Button
     private lateinit var btnCalibrate: Button
-    private lateinit var btnTestPrinterQr: Button
     private lateinit var btnSendLog: Button
     private lateinit var switchAutoLog: android.widget.Switch
     private lateinit var etCardResult: android.widget.EditText
@@ -51,7 +50,6 @@ class CalibTestActivity : BaseActivity() {
         btnTestMic = findViewById(R.id.btnTestMic)
         btnTestCamera = findViewById(R.id.btnTestCamera)
         btnCalibrate = findViewById(R.id.btnCalibrate)
-        btnTestPrinterQr = findViewById(R.id.btnTestPrinterQr)
         btnSendLog = findViewById(R.id.btnSendLog)
         switchAutoLog = findViewById(R.id.switchAutoLog)
         etCardResult = findViewById(R.id.etCardResult)
@@ -110,22 +108,6 @@ class CalibTestActivity : BaseActivity() {
             startActivity(Intent(this, CalibrateActivity::class.java))
         }
 
-        btnTestPrinterQr.setOnClickListener {
-            btnTestPrinterQr.isEnabled = false
-            Toast.makeText(this, "Imprimiendo QR de prueba...", Toast.LENGTH_SHORT).show()
-            Thread {
-                val exito = ThermalPrinterHelper.imprimirTestQr(this, "Impresión de QR de prueba")
-                runOnUiThread {
-                    btnTestPrinterQr.isEnabled = true
-                    if (exito) {
-                        Toast.makeText(this, "QR impreso correctamente", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this, "Error al imprimir QR. Verifica la conexión de la impresora.", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }.start()
-        }
-
         btnSendLog.setOnClickListener { mostrarDialogoEnviarLog() }
     }
 
@@ -137,7 +119,6 @@ class CalibTestActivity : BaseActivity() {
             btnTestMic.backgroundTintList = colorStateList
             btnTestCamera.backgroundTintList = colorStateList
             btnCalibrate.backgroundTintList = colorStateList
-            btnTestPrinterQr.backgroundTintList = colorStateList
             btnSendLog.backgroundTintList = colorStateList
 
             val switchColor = ColorStateList(

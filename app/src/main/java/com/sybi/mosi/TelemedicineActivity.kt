@@ -13,13 +13,11 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import com.sybi.mosi.network.ConnectivityStatusProvider
+import com.sybi.mosi.integration.MosiTelemedicineSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.concurrent.TimeUnit
+import java.util.UUID
 
 /**
  * Lanzador de la consulta de telemedicina.
@@ -37,15 +35,25 @@ class TelemedicineActivity : BaseActivity() {
         private const val TAG = "TelemedicineActivity"
         const val EXTRA_ID_USUARIO_WEB = "id_usuario_web"
         private const val REQUEST_PERMISSIONS_CODE = 200
+        private const val STATE_SESSION_ID = "mosi_telemedicine_session_id"
+        private const val STATE_REPORTED_START = "mosi_telemedicine_reported_start"
+        private const val STATE_REPORTED_END = "mosi_telemedicine_reported_end"
     }
 
     private var idUsuarioWeb: Int = 0
     private lateinit var tvEstado: TextView
     private var onPermissionsGrantedAction: (() -> Unit)? = null
+    private var sessionId: String = UUID.randomUUID().toString()
+    private var reportedStart = false
+    private var reportedEnd = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_telemedicine)
+
+        sessionId = savedInstanceState?.getString(STATE_SESSION_ID).orEmpty().ifBlank { UUID.randomUUID().toString() }
+        reportedStart = savedInstanceState?.getBoolean(STATE_REPORTED_START) ?: false
+        reportedEnd = savedInstanceState?.getBoolean(STATE_REPORTED_END) ?: false
 
         idUsuarioWeb = intent.getIntExtra(EXTRA_ID_USUARIO_WEB, 0)
         Log.d(TAG, "📥 id_usuario_web recibido: $idUsuarioWeb")
@@ -87,18 +95,13 @@ class TelemedicineActivity : BaseActivity() {
         // reabre todos los puertos solo con que se vuelva a arrancar el servicio, así que es
         // seguro parar/reiniciar en cada entrada/salida de esta pantalla.
         stopService(Intent(this, SerialService::class.java))
-
-        // ✅ Iniciar registro de red y latencia cada segundo durante la llamada de telemedicina
-        iniciarLogeoRedTelemedicina()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        detenerLogeoRedTelemedicina()
     }
 
     override fun onDestroy() {
-        detenerLogeoRedTelemedicina()
+        if (isFinishing && !isChangingConfigurations && reportedStart && !reportedEnd) {
+            reportedEnd = true
+            MosiTelemedicineSession.cancel(this, "La pantalla de telemedicina se cerró sin usar el botón Salir")
+        }
         val appContext = applicationContext
         CoroutineScope(Dispatchers.IO).launch {
             VideoLoopRemote.restaurarSilencio(appContext, TAG)
@@ -107,49 +110,11 @@ class TelemedicineActivity : BaseActivity() {
         super.onDestroy()
     }
 
-    private var networkLoggingJob: kotlinx.coroutines.Job? = null
-
-    private fun iniciarLogeoRedTelemedicina() {
-        networkLoggingJob?.cancel()
-        networkLoggingJob = CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient.Builder()
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(5, TimeUnit.SECONDS)
-                .build()
-
-            val baseUrl = runCatching { TelemedicineSettingsActivity.getBaseUrl(this@TelemedicineActivity) }.getOrNull() ?: "https://www.sybiml.com"
-
-            while (true) {
-                try {
-                    val startTime = System.currentTimeMillis()
-                    val conn = ConnectivityStatusProvider.get(applicationContext)
-
-                    var latencyMs = -1L
-                    var httpStatus = -1
-                    try {
-                        val request = Request.Builder().url(baseUrl).head().build()
-                        client.newCall(request).execute().use { resp ->
-                            httpStatus = resp.code
-                            latencyMs = System.currentTimeMillis() - startTime
-                        }
-                    } catch (e: Exception) {
-                        latencyMs = System.currentTimeMillis() - startTime
-                        httpStatus = -999
-                        Log.w(TAG, "⚠️ [TELEMEDICINA RED] Ping error: ${e.message}")
-                    }
-
-                    Log.d(TAG, "⏱️ [TELEMEDICINA RED 1s] Transporte: ${conn.transport} | Internet: ${conn.internetAvailable} | WiFi: ${conn.wifiConnected} | Ethernet: ${conn.ethernetConnected} | SSID: ${conn.ssid ?: "N/A"} | Latencia/RTT: ${latencyMs}ms | HTTP Status: $httpStatus")
-                } catch (e: Exception) {
-                    Log.w(TAG, "⚠️ [TELEMEDICINA RED] Error en log periódico de red: ${e.message}")
-                }
-                kotlinx.coroutines.delay(1000L)
-            }
-        }
-    }
-
-    private fun detenerLogeoRedTelemedicina() {
-        networkLoggingJob?.cancel()
-        networkLoggingJob = null
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(STATE_SESSION_ID, sessionId)
+        outState.putBoolean(STATE_REPORTED_START, reportedStart)
+        outState.putBoolean(STATE_REPORTED_END, reportedEnd)
+        super.onSaveInstanceState(outState)
     }
 
     private fun urlConsulta(): Uri {
@@ -219,18 +184,30 @@ class TelemedicineActivity : BaseActivity() {
         // efimero=true: cada consulta pide permiso de cámara/mic de nuevo, sin reusar uno
         // guardado de una sesión anterior (ver CustomTabsHelper.openUrl).
         val exito = CustomTabsHelper.openUrl(this, uri, efimero = true)
-        if (!exito) {
+        if (exito) {
+            if (!reportedStart) {
+                reportedStart = true
+                MosiTelemedicineSession.start(this, sessionId)
+            }
+        } else {
+            MosiTelemedicineSession.error(this, sessionId, "No se encontró un navegador compatible")
             tvEstado.text = "No se pudo abrir la consulta en el navegador."
             Toast.makeText(this, "No se encontró un navegador compatible instalado", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun irAInicio() {
+        if (reportedStart && !reportedEnd) {
+            reportedEnd = true
+            MosiTelemedicineSession.finish(this)
+        }
         DailyReportManager.onTelemedicineEnded(this, idUsuarioWeb)
+        AutoLogHelper.enviarLogFinConsulta(this)
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         startActivity(intent)
         finish()
     }
+
 }

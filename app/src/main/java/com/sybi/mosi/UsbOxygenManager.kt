@@ -210,48 +210,39 @@ class UsbOxygenManager(private val context: Context) {
         }
     }
 
-    /**
-     * ═══ FIX: reintentar 2 veces el bulkTransfer (a veces el endpoint no está listo
-     * inmediatamente después de openDevice/claimInterface). ═══
-     */
     private fun initializeDevice() {
+        // ✅ Enviar comando de inicialización
         val initCommand = byteArrayOf(
             0xAA.toByte(), 0x55, 0x50, 0x03, 0x02, 0x01, 0x00
         )
         initCommand[6] = crc8CheckValue(initCommand, 0, 5).toByte()
 
-        if (bulkWriteEndpoint == null) {
-            isDeviceInitialized = false
-            Log.e(TAG, "❌ initializeDevice: bulkWriteEndpoint es null")
-            return
-        }
-
-        var result: Int? = null
-        var exito = false
-        for (intento in 1..2) {
-            result = usbConnection?.bulkTransfer(
+        if (bulkWriteEndpoint != null) {
+            val result = usbConnection?.bulkTransfer(
                 bulkWriteEndpoint,
                 initCommand,
                 initCommand.size,
                 1000
             )
-            Log.d(TAG, "Comando init intento $intento, resultado: $result")
+            Log.d(TAG, "Comando de inicialización enviado, resultado: $result")
+
             if (result != null && result >= 0) {
-                exito = true
-                break
+                isDeviceInitialized = true
+                Log.d(TAG, "✅ Dispositivo inicializado correctamente")
+            } else {
+                Log.e(TAG, "❌ Error al inicializar el dispositivo")
+                isDeviceInitialized = false
             }
-            try { Thread.sleep(300) } catch (_: InterruptedException) {}
         }
 
-        isDeviceInitialized = exito
-        if (exito) {
-            Log.d(TAG, "✅ Dispositivo inicializado correctamente")
-        } else {
-            Log.e(TAG, "❌ Error al inicializar el dispositivo tras 2 intentos")
+        // Esperar a que el dispositivo se estabilice
+        try {
+            Thread.sleep(300)
+        } catch (e: InterruptedException) {
+            // Ignorar
         }
 
-        try { Thread.sleep(300) } catch (_: InterruptedException) {}
-
+        // ✅ Notificar a la app que el estado del dispositivo cambió tras la inicialización
         val intent = Intent("USB_DEVICE_STATUS_CHANGED")
         intent.putExtra("connected", isDeviceInitialized)
         LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
@@ -287,39 +278,32 @@ class UsbOxygenManager(private val context: Context) {
             Thread.currentThread().interrupt()
         }
 
+        // ✅ Ejecutar todo en un hilo de fondo para NO bloquear el main thread
         Thread {
-            // ═══ FIX: si NO está listo, reconectar; si SÍ está listo pero init falla,
-            //          forzar reconexión usando isDeviceInitialized (no isDeviceReady) ═══
             if (!isDeviceReady()) {
                 Log.e(TAG, "❌ Dispositivo NO está listo, intentando conectar...")
                 findAndConnectDevice()
+
+                // ✅ waitForDevice() ahora está en background, no bloquea la UI
                 if (!waitForDevice(5000)) {
                     if (usbConnection != null && bulkWriteEndpoint != null) {
-                        Log.w(TAG, "⚠️ Conexión presente pero no inicializada, reintentando...")
+                        Log.w(TAG, "⚠️ Conexión presente pero no inicializada, reintentando inicialización...")
                         initializeDevice()
                     }
                 }
-            } else {
-                initializeDevice()
-                // ═══ FIX: usar isDeviceInitialized directamente para detectar el fallo ═══
-                if (!isDeviceInitialized) {
-                    Log.w(TAG, "⚠️ initializeDevice() falló, forzando reconexión USB...")
-                    disconnect()
-                    findAndConnectDevice()
-                    waitForDevice(5000)
-                    if (isDeviceReady() || isDeviceInitialized) {
-                        initializeDevice()  // segundo intento tras reconexión
-                    }
-                }
-            }
 
-            if (!isDeviceReady()) {
-                Log.e(TAG, "❌ No se pudo conectar al dispositivo")
-                val failIntent = Intent("USB_DEVICE_STATUS_CHANGED")
-                failIntent.putExtra("connected", false)
-                failIntent.putExtra("error", "no_device")
-                LocalBroadcastManager.getInstance(context).sendBroadcast(failIntent)
-                return@Thread
+                if (!isDeviceReady()) {
+                    Log.e(TAG, "❌ No se pudo conectar al dispositivo")
+                    // ✅ Notificar a la app que falló (sin Toast)
+                    val failIntent = Intent("USB_DEVICE_STATUS_CHANGED")
+                    failIntent.putExtra("connected", false)
+                    failIntent.putExtra("error", "no_device")
+                    LocalBroadcastManager.getInstance(context).sendBroadcast(failIntent)
+                    return@Thread
+                }
+            } else {
+                // Asegurar que al iniciar cada medición se envíe el comando de inicialización y onda
+                initializeDevice()
             }
 
             Log.d(TAG, "✅ Dispositivo listo, iniciando lectura...")
@@ -328,6 +312,7 @@ class UsbOxygenManager(private val context: Context) {
                 isReading = true
                 val thread = Thread {
                     val buffer = ByteArray(64)
+                    var readCount = 0
                     while (isReading) {
                         try {
                             if (bulkReadEndpoint != null) {
@@ -335,7 +320,11 @@ class UsbOxygenManager(private val context: Context) {
                                     bulkReadEndpoint, buffer, buffer.size, 1000
                                 )
                                 if (bytesRead != null && bytesRead > 0) {
+                                    readCount++
                                     val data = buffer.copyOf(bytesRead)
+                                    val hexString = data.joinToString(" ") { "%02X".format(it) }
+                                    Log.d(TAG, "📥 Datos recibidos #$readCount: $hexString")
+
                                     val oxygenIntent = Intent("OXYGEN_RAW_DATA")
                                     oxygenIntent.putExtra("data", data)
                                     LocalBroadcastManager.getInstance(context).sendBroadcast(oxygenIntent)
@@ -352,7 +341,7 @@ class UsbOxygenManager(private val context: Context) {
             }
 
             sendWaveCommandWithRetry()
-        }.start()
+        }.start()  // ✅ Todo en background
     }
 
     private fun sendWaveCommandWithRetry() {
