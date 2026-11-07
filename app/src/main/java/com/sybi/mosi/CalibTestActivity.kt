@@ -232,12 +232,21 @@ class CalibTestActivity : BaseActivity() {
 
         Thread {
             val archivo = ErrorLogHelper.generarLogDeErrores(this)
+            val diagRed = com.sybi.mosi.network.NetworkSpeedHelper.obtenerDiagnosticoRedCompleto(this)
+
             val resultado = if (archivo != null) {
                 EmailSender.enviar(
                     config = config,
                     destino = destino,
                     asunto = "Log de errores — Quiosco MOSI",
-                    cuerpoHtml = "<p>Se adjunta el log con los errores registrados por el quiosco.</p>",
+                    cuerpoHtml = """
+                        <h3>Log de errores del quiosco MOSI</h3>
+                        <div style="background-color: #f4f4f4; padding: 10px; border-radius: 5px; font-family: monospace;">
+                            <b>Diagnóstico de Red y Velocidad de Internet:</b><br/>
+                            <pre>$diagRed</pre>
+                        </div>
+                        <p>Se adjunta el archivo con el registro de errores del quiosco.</p>
+                    """.trimIndent(),
                     adjunto = archivo,
                     nombreAdjunto = "mosi_errores.log"
                 )

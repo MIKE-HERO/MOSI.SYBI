@@ -63,5 +63,12 @@ data class Resultado(
     val ruta_ecg: String = "",
 
     // Fecha
-    val fecha_medicion: String = ""
+    val fecha_medicion: String = "",
+
+    // Cola de sincronización remota. El registro local nunca se pierde si falla la red/API.
+    val sincronizado_remoto: Boolean = false,
+    val id_medicion_remota: Int? = null,
+    val intentos_sincronizacion: Int = 0,
+    val ultimo_error_sincronizacion: String = "",
+    val fecha_ultimo_intento: String = ""
 )
