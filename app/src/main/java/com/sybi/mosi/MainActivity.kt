@@ -94,6 +94,10 @@ class MainActivity : BaseActivity() {
         setContentView(R.layout.activity_main)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
 
+        if (!com.sybi.mosi.integration.MosiSecureStore.estaActivado(this)) {
+            startActivity(Intent(this, com.sybi.mosi.integration.MosiActivationActivity::class.java))
+        }
+
         rootLayout = findViewById(R.id.mainRootLayout)
         settingsSurface = findViewById(R.id.settingsSurface)
         languageSurface = findViewById(R.id.languageSurface)

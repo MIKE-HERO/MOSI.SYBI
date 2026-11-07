@@ -13,6 +13,7 @@ import android.widget.Filter
 import android.widget.Filterable
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
 import com.sybi.mosi.BaseActivity
 import com.sybi.mosi.DeviceInfoActivity
@@ -80,6 +81,15 @@ class MosiActivationActivity : BaseActivity() {
         findViewById<Button>(R.id.btnActivateCabin).setOnClickListener { activateLegacy(it as Button) }
         findViewById<Button>(R.id.btnRetryAdminConnection).setOnClickListener { checkAdminConnection() }
         back.setOnClickListener { if (currentStep > 1) showStep(currentStep - 1) else showStep(1) }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (MosiSecureStore.estaActivado(this@MosiActivationActivity)) {
+                    finish()
+                } else {
+                    showError("La cabina debe activarse antes de usar MOSI.")
+                }
+            }
+        })
         showStep(1)
         checkAdminConnection()
     }

@@ -65,7 +65,7 @@
 
     <application
         android:name=".MosiApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:largeHeap="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -141,6 +141,10 @@
 
         <!-- Info del dispositivo -->
         <activity android:name=".DeviceInfoActivity" android:exported="false" />
+        <activity
+            android:name=".integration.MosiActivationActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
 
         <!-- Pantalla de actualización ininterrumpida -->
         <activity
@@ -190,7 +194,7 @@
         <!-- Receptor de instalación silenciosa de actualizaciones -->
         <receiver
             android:name=".updater.UpdateInstallReceiver"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.sybi.mosi.updater.ACTION_INSTALL_COMPLETE" />
             </intent-filter>
@@ -230,6 +234,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 

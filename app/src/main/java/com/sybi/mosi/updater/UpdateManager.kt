@@ -140,19 +140,24 @@ class UpdateManager(private val context: Context) {
      */
     suspend fun downloadApk(
         downloadUrl: String,
-        expectedSha256: String = "",
+        expectedSha256: String,
         onProgress: (percent: Int, bytesDownloaded: Long, totalBytes: Long) -> Unit
     ): File? = withContext(Dispatchers.IO) {
         try {
+            if (!expectedSha256.matches(Regex("[0-9a-fA-F]{64}"))) {
+                Log.e(TAG, "Descarga rechazada: falta un SHA-256 válido")
+                return@withContext null
+            }
             val requestBuilder = Request.Builder()
                 .url(downloadUrl)
                 .header("User-Agent", "QuioscoApp")
 
             val token = MosiSecureStore.token(context)
-            if (token.isNotBlank()) {
-
-                requestBuilder.header("Authorization", "Bearer $token")
+            if (token.isBlank()) {
+                Log.e(TAG, "Descarga rechazada: la cabina no está activada")
+                return@withContext null
             }
+            requestBuilder.header("Authorization", "Bearer $token")
 
             val response = client.newCall(requestBuilder.build()).execute()
             if (!response.isSuccessful) {
@@ -191,13 +196,11 @@ class UpdateManager(private val context: Context) {
             outputStream.close()
             inputStream.close()
 
-            if (expectedSha256.isNotBlank()) {
-                val actualHash = sha256(apkFile)
-                if (!actualHash.equals(expectedSha256, ignoreCase = true)) {
-                    Log.e(TAG, "SHA-256 del APK no coincide; se descarta la descarga")
-                    apkFile.delete()
-                    return@withContext null
-                }
+            val actualHash = sha256(apkFile)
+            if (!actualHash.equals(expectedSha256, ignoreCase = true)) {
+                Log.e(TAG, "SHA-256 del APK no coincide; se descarta la descarga")
+                apkFile.delete()
+                return@withContext null
             }
 
             Log.d(TAG, "APK descargado exitosamente en: ${apkFile.absolutePath}")

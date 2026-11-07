@@ -1,6 +1,8 @@
 package com.sybi.mosi.network
 
 import android.util.Log
+import com.sybi.mosi.MosiApp
+import com.sybi.mosi.integration.MosiSecureStore
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -13,7 +15,6 @@ object RetrofitClient {
 
     private const val BASE_URL = "https://www.sybiml.com/APIRest/Usuario_mosi/public/"
     //private const val BASE_URL = "https://desarrollo.sybiml3.com/APIRest/Usuario_mosi/public/"
-    private const val API_KEY = "dc5cdc3d48c15c6f1130e72e68ffdec3b0b127000fd0d46584b556cce62f86ba"
     private val dnsExecutor: ExecutorService by lazy {
         Executors.newCachedThreadPool { runnable ->
             Thread(runnable, "mosi-dns").apply { isDaemon = true }
@@ -26,6 +27,7 @@ object RetrofitClient {
             Log.d("OkHttp", message)
         }.apply {
             level = HttpLoggingInterceptor.Level.HEADERS
+            redactHeader("Authorization")
         }
 
         // DNS con timeout manual de 10 segundos
@@ -46,9 +48,12 @@ object RetrofitClient {
         val client = OkHttpClient.Builder()
             .dns(timeoutDns)
             .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .addHeader("X-Api-Key", API_KEY)
-                    .build()
+                val requestBuilder = chain.request().newBuilder()
+                val token = MosiSecureStore.token(MosiApp.instance)
+                if (token.isNotBlank()) {
+                    requestBuilder.header("Authorization", "Bearer $token")
+                }
+                val request = requestBuilder.build()
                 chain.proceed(request)
             }
             .addInterceptor(logging)
