@@ -1,10 +1,16 @@
 package com.sybi.mosi
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.util.Log
 import android.serialport.api.SerialPort
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
 import com.sybi.mosi.database.Paciente
 import com.sybi.mosi.database.Resultado
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
@@ -304,5 +310,189 @@ object ThermalPrinterHelper {
             .replace("–", "-").replace("—", "-")
             .replace("“", "\"").replace("”", "\"")
             .replace("‘", "'").replace("’", "'")
+    }
+
+    fun imprimirTestQr(context: Context, qrText: String): Boolean {
+        val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val enabled = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_THERMAL_PRINTER, true)
+        if (!enabled) {
+            Log.w(TAG, "⚠️ Impresora térmica desactivada en ajustes")
+            return false
+        }
+
+        val portPath = prefs.getString("${TestElementsActivity.PREF_DEVICE_THERMAL_PRINTER}_port", "/dev/ttyS1") ?: "/dev/ttyS1"
+        val baudRate = SerialBaudConfig.get(prefs, TestElementsActivity.PREF_DEVICE_THERMAL_PRINTER)
+
+        val file = File(portPath)
+        if (!file.exists()) {
+            Log.e(TAG, "❌ Puerto de impresora térmica $portPath no existe")
+            return false
+        }
+
+        var outputStream: OutputStream? = null
+        var serialPort: SerialPort? = null
+
+        try {
+            try {
+                serialPort = SerialPort.getSerialPort(portPath, baudRate)
+                outputStream = serialPort.outputStream
+                Log.d(TAG, "✅ Puerto abierto con SerialPort (modo raw)")
+            } catch (e: Throwable) {
+                Log.w(TAG, "⚠️ SerialPort falló (${e.message}), usando FileOutputStream")
+                outputStream = FileOutputStream(file)
+            }
+
+            if (outputStream == null) {
+                Log.e(TAG, "❌ No se pudo obtener OutputStream para $portPath")
+                return false
+            }
+
+            val charset = Charset.forName(CODEPAGE_CHARSET)
+
+            val INIT = byteArrayOf(0x1B, 0x40)
+            val ALIGN_LEFT = byteArrayOf(0x1B, 0x61, 0x00)
+            val ALIGN_CENTER = byteArrayOf(0x1B, 0x61, 0x01)
+            val BOLD_ON = byteArrayOf(0x1B, 0x45, 0x01)
+            val BOLD_OFF = byteArrayOf(0x1B, 0x45, 0x00)
+            val REVERSE_OFF = byteArrayOf(0x1D, 0x42, 0x00)
+            val UPSIDE_DOWN_OFF = byteArrayOf(0x1B, 0x7B, 0x00)
+            val SELECT_CODEPAGE = byteArrayOf(0x1B, 0x74, CODEPAGE_NUM.toByte())
+            val FEED_LINES = byteArrayOf(0x1B, 0x64, 0x05)
+            val CUT = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
+
+            outputStream.write(INIT)
+            outputStream.write(REVERSE_OFF)
+            outputStream.write(UPSIDE_DOWN_OFF)
+            outputStream.write(SELECT_CODEPAGE)
+            outputStream.flush()
+            try { Thread.sleep(200) } catch (_: InterruptedException) {}
+
+            fun writeLine(text: String, bold: Boolean = false, alignCenter: Boolean = false) {
+                if (alignCenter) outputStream.write(ALIGN_CENTER) else outputStream.write(ALIGN_LEFT)
+                if (bold) outputStream.write(BOLD_ON) else outputStream.write(BOLD_OFF)
+                outputStream.write((text + "\n").toByteArray(charset))
+                outputStream.flush()
+            }
+
+            writeLine("")
+            writeLine("PRUEBA DE IMPRESIÓN QR", bold = true, alignCenter = true)
+            writeLine("--------------------------------", alignCenter = true)
+            writeLine("Contenido del QR:", bold = false, alignCenter = true)
+            writeLine(qrText, bold = false, alignCenter = true)
+            writeLine("")
+
+            val rasterBytes = generarRasterQrConZxing(qrText, 256, 256)
+            if (rasterBytes != null) {
+                outputStream.write(ALIGN_CENTER)
+                outputStream.write(rasterBytes)
+                outputStream.write("\n".toByteArray(charset))
+                outputStream.flush()
+            } else {
+                Log.e(TAG, "❌ No se pudo generar la imagen raster QR")
+            }
+
+            writeLine("")
+            writeLine("--------------------------------", alignCenter = true)
+
+            outputStream.write(FEED_LINES)
+            outputStream.flush()
+            try { Thread.sleep(150) } catch (_: InterruptedException) {}
+
+            outputStream.write(CUT)
+            outputStream.flush()
+            try { Thread.sleep(150) } catch (_: InterruptedException) {}
+
+            outputStream.write(INIT)
+            outputStream.flush()
+
+            if (outputStream is FileOutputStream) {
+                try { outputStream.fd.sync() } catch (_: Exception) {}
+            }
+            try { Thread.sleep(300) } catch (_: InterruptedException) {}
+
+            Log.i(TAG, "✅ QR de prueba impreso exitosamente en $portPath")
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al imprimir QR de prueba: ${e.message}", e)
+            return false
+        } finally {
+            try {
+                outputStream?.flush()
+                if (outputStream is FileOutputStream) {
+                    try { outputStream.fd.sync() } catch (_: Exception) {}
+                }
+                outputStream?.close()
+            } catch (_: Exception) {}
+
+            try {
+                serialPort?.close()
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun generarBitmapQr(text: String, width: Int, height: Int): Bitmap? {
+        return try {
+            val hints = mapOf(EncodeHintType.MARGIN to 1)
+            val bitMatrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, width, height, hints)
+            val w = bitMatrix.width
+            val h = bitMatrix.height
+            val pixels = IntArray(w * h)
+            for (y in 0 until h) {
+                val offset = y * w
+                for (x in 0 until w) {
+                    pixels[offset + x] = if (bitMatrix.get(x, y)) Color.BLACK else Color.WHITE
+                }
+            }
+            val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            bitmap.setPixels(pixels, 0, w, 0, 0, w, h)
+            bitmap
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generando QR con ZXing: ${e.message}", e)
+            null
+        }
+    }
+
+    private fun generarRasterQrConZxing(text: String, width: Int, height: Int): ByteArray? {
+        val bitmap = generarBitmapQr(text, width, height) ?: return null
+        return bitmapToEscPosRaster(bitmap)
+    }
+
+    private fun bitmapToEscPosRaster(bitmap: Bitmap): ByteArray {
+        val width = bitmap.width
+        val height = bitmap.height
+        val widthInBytes = (width + 7) / 8
+
+        val stream = ByteArrayOutputStream()
+        stream.write(0x1D)
+        stream.write(0x76)
+        stream.write(0x30)
+        stream.write(0x00)
+
+        stream.write(widthInBytes % 256)
+        stream.write(widthInBytes / 256)
+        stream.write(height % 256)
+        stream.write(height / 256)
+
+        for (y in 0 until height) {
+            for (xByte in 0 until widthInBytes) {
+                var byteVal = 0
+                for (bit in 0 until 8) {
+                    val x = xByte * 8 + bit
+                    if (x < width) {
+                        val pixel = bitmap.getPixel(x, y)
+                        val alpha = (pixel shr 24) and 0xFF
+                        val r = (pixel shr 16) and 0xFF
+                        val g = (pixel shr 8) and 0xFF
+                        val b = pixel and 0xFF
+                        val luminance = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
+                        if (alpha > 128 && luminance < 128) {
+                            byteVal = byteVal or (0x80 shr bit)
+                        }
+                    }
+                }
+                stream.write(byteVal)
+            }
+        }
+        return stream.toByteArray()
     }
 }
