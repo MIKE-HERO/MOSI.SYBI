@@ -6,7 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/** Confirma una instalación al reiniciar, incluso si Android reemplazó el proceso anterior. */
+/** Confirma una instalación al reiniciar, incluso si Android reemplazó el proceso anterior... */
 object MosiStartupReporter {
     private const val TAG = "MosiStartupReporter"
 
