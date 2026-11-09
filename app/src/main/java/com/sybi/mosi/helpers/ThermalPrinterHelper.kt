@@ -35,6 +35,11 @@ object ThermalPrinterHelper {
     private const val BANDA_ALTO_PUNTOS = 24          // ESC * m=33 imprime 24 puntos por banda
     private const val PUNTOS_POR_SEGUNDO = 240        // 30 mm/s x 8 puntos/mm
 
+    // ESC 1 n (1B 31 n) -> espaciado entre líneas, medido en LÍNEAS DE PUNTO.
+    // El manual fija n=0 para gráficos y n=3 como valor por defecto del texto.
+    private val ESPACIADO_GRAFICOS = byteArrayOf(0x1B, 0x31, 0x00)
+    private val ESPACIADO_TEXTO = byteArrayOf(0x1B, 0x31, 0x03)
+
     // ============================================
     // CONFIGURACIÓN DE PÁGINA DE CÓDIGOS
     // ============================================
@@ -505,6 +510,12 @@ object ThermalPrinterHelper {
         // 8N1: cada byte ocupa 10 bits en la linea (1 inicio + 8 datos + 1 paro).
         val baud = if (baudRate > 0) baudRate else 9600
 
+        // ESC 1 0 -> espaciado de 0 lineas de punto. El manual lo indica asi
+        // para graficos ("n=0 for bitmap printing"): cada LF cierra la linea e
+        // imprime sus 24 puntos sin anadir ni uno de papel en blanco.
+        this.write(ESPACIADO_GRAFICOS)
+        this.flush()
+
         for (banda in bandas) {
             this.write(banda)
             this.flush()
@@ -514,6 +525,10 @@ object ThermalPrinterHelper {
                 try { Thread.sleep(espera) } catch (_: InterruptedException) {}
             }
         }
+
+        // Devolver el espaciado de texto antes de seguir escribiendo lineas.
+        this.write(ESPACIADO_TEXTO)
+        this.flush()
     }
 
     /**
@@ -549,15 +564,17 @@ object ThermalPrinterHelper {
      * Convierte un Bitmap monocromático a bandas ESC * 33 (24-dot Double Density
      * Column Bit Image), una banda de 24 puntos de alto por elemento de la lista.
      *
-     * Cada banda termina en ESC J 24 (0x1B 0x4A 0x18) en lugar de un salto de
-     * línea. El manual de la SP-RMD8 define ESC J n como "n Dot Line Feed": el
-     * avance se expresa en PUNTOS y no manda retorno de carro, de modo que el
-     * papel avanza exactamente los 24 puntos que se acaban de imprimir.
+     * Cada banda termina en LF, que es lo que cierra la línea de puntos. El LF
+     * es obligatorio: el QR mide 192 puntos y la línea 384, así que sin él el
+     * siguiente ESC * sigue rellenando la misma línea por la derecha y las
+     * bandas salen apareadas de dos en dos. Intentar sustituirlo por ESC J
+     * (avance en puntos, pero sin retorno de carro) produce justo eso.
      *
-     * Antes se usaba ESC 3 24 + LF, y de ahí venían las franjas blancas: ESC 3
-     * mide en 1/180 de pulgada, así que 24 unidades son 3.39 mm, mientras que
-     * 24 puntos a 203 dpi son 3.00 mm. Sobraban 0.39 mm de papel en blanco en
-     * cada una de las bandas del QR. ESC J, al ir en puntos, no deja hueco.
+     * La separación la controla ESC 1 0, que escribirBandas() emite antes de la
+     * primera banda. Antes se usaba ESC 3 24, y de ahí venían las franjas
+     * blancas: ESC 3 mide en 1/180 de pulgada, así que 24 unidades son 3.39 mm,
+     * mientras que 24 puntos a 203 dpi son 3.00 mm. Sobraban 0.39 mm de papel
+     * en blanco en cada banda.
      *
      * Se devuelve la lista en vez de un solo ByteArray para poder marcar el
      * ritmo banda por banda; ver escribirBandas().
@@ -566,9 +583,6 @@ object ThermalPrinterHelper {
         val width = bitmap.width
         val height = bitmap.height
         val bandas = ArrayList<ByteArray>()
-
-        // ESC J 24 -> avanza 24 puntos, sin retorno de carro ni salto de línea.
-        val FEED_24_DOTS = byteArrayOf(0x1B, 0x4A, BANDA_ALTO_PUNTOS.toByte())
 
         val nL = (width % 256).toByte()
         val nH = (width / 256).toByte()
@@ -599,7 +613,7 @@ object ThermalPrinterHelper {
                     stream.write(b)
                 }
             }
-            stream.write(FEED_24_DOTS)
+            stream.write(0x0A) // Cierra e imprime la línea de 24 puntos.
             bandas.add(stream.toByteArray())
             y += BANDA_ALTO_PUNTOS
         }
