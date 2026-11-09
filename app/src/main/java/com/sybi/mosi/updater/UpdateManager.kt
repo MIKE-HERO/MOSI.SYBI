@@ -303,8 +303,9 @@ class UpdateManager(private val context: Context) {
 
     /**
      * Método unificado de instalación:
-     * Si la app es Device Owner (Administrador del Quiosco), instala silenciosamente sin intervención.
-     * Si no, abre el instalador de Android mediante Intent.
+     * Entrega siempre el APK a PackageInstaller. Android lo instala sin interacción cuando
+     * MOSI es Device Owner o cuando autoriza la autoactualización de la propia aplicación.
+     * Si el sistema exige consentimiento, el receiver abre la confirmación como respaldo.
      *
      * @param forceReinstall si es true, permite reinstalar la MISMA versión y también
      *        instalar versiones ANTERIORES (downgrade). Si es false, solo actualiza.
@@ -315,14 +316,12 @@ class UpdateManager(private val context: Context) {
             Log.e(TAG, "APK rechazado antes de instalar: $lastInstallError")
             return false
         }
-        return if (PermisosAdmin.esPropietario(context)) {
-            Log.i(TAG, "La app es Device Owner: ejecutando instalación silenciosa (forceReinstall=$forceReinstall)...")
-            installApkSilently(apkFile, forceReinstall)
-        } else {
-            lastInstallError = "La app no es Device Owner; Android requiere confirmación manual"
-            Log.w(TAG, "La app no es Device Owner: abriendo instalador con confirmación del usuario...")
-            installApk(apkFile)
-        }
+        Log.i(
+            TAG,
+            "Enviando autoactualización a PackageInstaller " +
+                "(deviceOwner=${PermisosAdmin.esPropietario(context)}, forceReinstall=$forceReinstall)"
+        )
+        return installApkSilently(apkFile, forceReinstall)
     }
 
     private fun validateApk(apkFile: File): String? {

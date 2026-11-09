@@ -218,16 +218,11 @@ class UpdateActivity : AppCompatActivity() {
                 reportEvent("error", "$detail; device_owner=${PermisosAdmin.esPropietario(this@UpdateActivity)}")
                 withContext(Dispatchers.Main) { showFailure(detail) }
                 updateRunning = false
-            } else if (!PermisosAdmin.esPropietario(this@UpdateActivity)) {
-                withContext(Dispatchers.Main) {
-                    tvStatus.text = "Confirme la instalación"
-                    tvDetail.text = "Android necesita confirmación porque esta cabina no es Device Owner."
-                    tvWarning.text = "Complete la ventana del sistema para continuar."
-                }
             } else {
                 withContext(Dispatchers.Main) {
                     tvStatus.text = "Aplicando actualización"
-                    tvDetail.text = "El sistema reiniciará MOSI automáticamente."
+                    tvDetail.text = "Android está validando e instalando la nueva versión."
+                    tvWarning.text = "MOSI se reiniciará automáticamente al finalizar."
                 }
             }
         }
