@@ -27,6 +27,15 @@ object ThermalPrinterHelper {
     private const val TAG = "ThermalPrinterHelper"
 
     // ============================================
+    // MECÁNICA DE LA SP-RMD8 (manual Ver 1.07)
+    // ============================================
+    // 8 puntos/mm (203 dpi), 384 puntos/línea, 30 mm/s de velocidad de impresión
+    // y 3 KB de búfer de recepción. De estos dos valores sale el ritmo al que se
+    // le puede entregar una imagen sin desbordarla; ver escribirBandas().
+    private const val BANDA_ALTO_PUNTOS = 24          // ESC * m=33 imprime 24 puntos por banda
+    private const val PUNTOS_POR_SEGUNDO = 240        // 30 mm/s x 8 puntos/mm
+
+    // ============================================
     // CONFIGURACIÓN DE PÁGINA DE CÓDIGOS
     // ============================================
     // Opciones:
@@ -404,11 +413,9 @@ object ThermalPrinterHelper {
                 // ✅ Corregido: Tamaño 192x192 y SIN rotar
                 val qrBitmap = generarQrBitmap(qrContent, width = 192, height = 192)
                 if (qrBitmap != null) {
-                    val columnBytes = bitmapToEscPosColumnBitImage(qrBitmap)
                     outputStream.write(ALIGN_CENTER)
                     outputStream.flush()
-                    outputStream.writeThrottled(columnBytes, chunkSize = 64, delayMs = 20)
-                    outputStream.flush()
+                    outputStream.escribirBandas(bitmapToEscPosBands(qrBitmap), baudRate)
                     try { Thread.sleep(500) } catch (_: InterruptedException) {}
                 }
 
@@ -428,11 +435,9 @@ object ThermalPrinterHelper {
                 // ✅ Corregido: Tamaño 192x192 y SIN rotar
                 val qrBitmap = generarQrBitmap(qrContent, width = 192, height = 192)
                 if (qrBitmap != null) {
-                    val columnBytes = bitmapToEscPosColumnBitImage(qrBitmap)
                     outputStream.write(ALIGN_CENTER)
                     outputStream.flush()
-                    outputStream.writeThrottled(columnBytes, chunkSize = 64, delayMs = 20)
-                    outputStream.flush()
+                    outputStream.escribirBandas(bitmapToEscPosBands(qrBitmap), baudRate)
                     try { Thread.sleep(500) } catch (_: InterruptedException) {}
                 }
 
@@ -477,18 +482,36 @@ object ThermalPrinterHelper {
     }
 
     /**
-     * Escribe un ByteArray de forma dosificada (throttled) para evitar saturar
-     * el buffer del puerto serie UART/TTL a 9600 baudios.
+     * Envia las bandas de una imagen al ritmo al que el cabezal las consume, no
+     * al ritmo del cable.
+     *
+     * El buffer de recepcion de la SP-RMD8 es de 3 KB y un QR de 192x192 pesa
+     * ~4.6 KB, asi que no cabe entero. A 9600 baudios eso da igual: el cable
+     * entrega 960 B/s y el cabezal consume ~5820 B/s (30 mm/s = 240 lineas de
+     * punto/s = 10 bandas/s x 582 bytes), o sea que vacia seis veces mas rapido
+     * de lo que se llena y desbordar es imposible. Pero la impresora admite
+     * hasta 115200, y ahi entrarian 11520 B/s contra esos mismos 5820 B/s de
+     * consumo: el buffer revienta y se pierden bandas enteras.
+     *
+     * Por eso el freno no es un retardo fijo (que a 9600 solo hace lento algo
+     * que ya era seguro, y a 115200 se queda corto) sino el tiempo real del
+     * cabezal: 100 ms por banda de 24 puntos, descontando lo que el cable ya
+     * tardo en transmitirla. Se autorregula a cualquier velocidad y nunca hay
+     * mas de una banda de ventaja sobre el papel.
      */
-    private fun OutputStream.writeThrottled(bytes: ByteArray, chunkSize: Int = 128, delayMs: Long = 15) {
-        var offset = 0
-        while (offset < bytes.size) {
-            val count = Math.min(chunkSize, bytes.size - offset)
-            this.write(bytes, offset, count)
+    private fun OutputStream.escribirBandas(bandas: List<ByteArray>, baudRate: Int) {
+        // 30 mm/s a 8 puntos/mm = 240 lineas de punto por segundo.
+        val msPorBanda = (BANDA_ALTO_PUNTOS * 1000L) / PUNTOS_POR_SEGUNDO
+        // 8N1: cada byte ocupa 10 bits en la linea (1 inicio + 8 datos + 1 paro).
+        val baud = if (baudRate > 0) baudRate else 9600
+
+        for (banda in bandas) {
+            this.write(banda)
             this.flush()
-            offset += count
-            if (delayMs > 0 && offset < bytes.size) {
-                try { Thread.sleep(delayMs) } catch (_: InterruptedException) {}
+            val msCable = (banda.size * 10L * 1000L) / baud
+            val espera = msPorBanda - msCable
+            if (espera > 0) {
+                try { Thread.sleep(espera) } catch (_: InterruptedException) {}
             }
         }
     }
@@ -523,27 +546,36 @@ object ThermalPrinterHelper {
     }
 
     /**
-     * Convierte un Bitmap monocromático a comandos ESC * 33 (24-dot Double Density Column Bit Image).
-     * Usa espaciado de línea ajustado a 24/180 de pulgada (ESC 3 24) para eliminar las franjas
-     * blancas horizontales y mantener la proporción cuadrada 1:1 del código QR sin estirarlo.
+     * Convierte un Bitmap monocromático a bandas ESC * 33 (24-dot Double Density
+     * Column Bit Image), una banda de 24 puntos de alto por elemento de la lista.
+     *
+     * Cada banda termina en ESC J 24 (0x1B 0x4A 0x18) en lugar de un salto de
+     * línea. El manual de la SP-RMD8 define ESC J n como "n Dot Line Feed": el
+     * avance se expresa en PUNTOS y no manda retorno de carro, de modo que el
+     * papel avanza exactamente los 24 puntos que se acaban de imprimir.
+     *
+     * Antes se usaba ESC 3 24 + LF, y de ahí venían las franjas blancas: ESC 3
+     * mide en 1/180 de pulgada, así que 24 unidades son 3.39 mm, mientras que
+     * 24 puntos a 203 dpi son 3.00 mm. Sobraban 0.39 mm de papel en blanco en
+     * cada una de las bandas del QR. ESC J, al ir en puntos, no deja hueco.
+     *
+     * Se devuelve la lista en vez de un solo ByteArray para poder marcar el
+     * ritmo banda por banda; ver escribirBandas().
      */
-    fun bitmapToEscPosColumnBitImage(bitmap: Bitmap): ByteArray {
+    fun bitmapToEscPosBands(bitmap: Bitmap): List<ByteArray> {
         val width = bitmap.width
         val height = bitmap.height
-        val stream = ByteArrayOutputStream()
+        val bandas = ArrayList<ByteArray>()
 
-        // ESC 3 24 (0x1B 0x33 0x18) -> Ajusta el avance de línea a 24/180 pulgada
-        val SET_LINE_SPACE_24 = byteArrayOf(0x1B, 0x33, 0x18)
-        // ESC 2 (0x1B 0x32) -> Restaura espaciado de línea predeterminado
-        val RESET_LINE_SPACE = byteArrayOf(0x1B, 0x32)
-
-        stream.write(SET_LINE_SPACE_24)
+        // ESC J 24 -> avanza 24 puntos, sin retorno de carro ni salto de línea.
+        val FEED_24_DOTS = byteArrayOf(0x1B, 0x4A, BANDA_ALTO_PUNTOS.toByte())
 
         val nL = (width % 256).toByte()
         val nH = (width / 256).toByte()
 
         var y = 0
         while (y < height) {
+            val stream = ByteArrayOutputStream()
             // Comando ESC * m nL nH (m = 33 / 0x21 para 24-dot double density: 203x203 dpi)
             stream.write(byteArrayOf(0x1B, 0x2A, 0x21, nL, nH))
 
@@ -567,12 +599,12 @@ object ThermalPrinterHelper {
                     stream.write(b)
                 }
             }
-            stream.write(0x0A) // Avance de línea ajustado a 24 puntos
-            y += 24
+            stream.write(FEED_24_DOTS)
+            bandas.add(stream.toByteArray())
+            y += BANDA_ALTO_PUNTOS
         }
 
-        stream.write(RESET_LINE_SPACE)
-        return stream.toByteArray()
+        return bandas
     }
 
     // ✅ Esta función ya no se usa, pero la dejo comentada por si la necesitas en el futuro
