@@ -25,6 +25,8 @@ import java.util.Date
 
 object ThermalPrinterHelper {
     private const val TAG = "ThermalPrinterHelper"
+    private const val PRINTER_DOTS_PER_LINE = 384
+    private const val QR_PRINT_SIZE_DOTS = 288
 
     // ============================================
     // CONFIGURACIÓN DE PÁGINA DE CÓDIGOS
@@ -379,25 +381,28 @@ object ThermalPrinterHelper {
                 outputStream.flush()
             }
 
-            // Función para imprimir el QR nativo
-            fun printNativeQR(data: String) {
-                val dataBytes = data.toByteArray(Charset.forName("UTF-8"))
-                val len = dataBytes.size + 3
-                val pL = (len % 256).toByte()
-                val pH = (len / 256).toByte()
+            // Rasterizar a un ancho fijo evita que un contenido largo rebase el papel.
+            // El margen blanco amplio mejora la lectura y el envío dosificado evita
+            // perder franjas en el búfer UART de 9600 baudios.
+            fun printQrSeguro(data: String): Boolean {
+                var bitmap = generarQrBitmap(data, QR_PRINT_SIZE_DOTS, QR_PRINT_SIZE_DOTS)
+                    ?: return false
+                if (bitmap.width > PRINTER_DOTS_PER_LINE || bitmap.height > PRINTER_DOTS_PER_LINE) {
+                    Log.e(TAG, "QR demasiado grande para el ticket: ${bitmap.width}x${bitmap.height}")
+                    return false
+                }
+                if (invertirOrientacion) {
+                    val matrix = Matrix().apply { postRotate(180f) }
+                    bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, false)
+                }
 
-                // 1. Seleccionar modelo de QR (Modelo 2)
-                outputStream.write(byteArrayOf(0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00))
-                // 2. Establecer tamaño del módulo (6 puntos)
-                outputStream.write(byteArrayOf(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06))
-                // 3. Establecer nivel de corrección de errores (M)
-                outputStream.write(byteArrayOf(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x31))
-                // 4. Almacenar los datos del QR
-                outputStream.write(byteArrayOf(0x1D, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30))
-                outputStream.write(dataBytes)
-                // 5. Imprimir el QR almacenado
-                outputStream.write(byteArrayOf(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30))
+                val leftMargin = ((PRINTER_DOTS_PER_LINE - bitmap.width) / 2).coerceAtLeast(0)
+                outputStream.write(byteArrayOf(0x1D, 0x4C, (leftMargin and 0xFF).toByte(), ((leftMargin shr 8) and 0xFF).toByte()))
                 outputStream.flush()
+                outputStream.writeThrottled(bitmapToEscPosRaster(bitmap), chunkSize = 96, delayMs = 12)
+                outputStream.write(byteArrayOf(0x1D, 0x4C, 0x00, 0x00))
+                outputStream.flush()
+                return true
             }
 
             if (invertirOrientacion) {
@@ -405,8 +410,8 @@ object ThermalPrinterHelper {
                 writeLine("Texto QR: $qrContent", alignCenter = true)
                 writeLine("")
                 outputStream.write(ALIGN_CENTER); outputStream.flush()
-                printNativeQR(qrContent)
-                try { Thread.sleep(200) } catch (_: InterruptedException) {}
+                if (!printQrSeguro(qrContent)) return false
+                try { Thread.sleep(800) } catch (_: InterruptedException) {}
                 writeLine("")
                 writeLine("Escanee el siguiente código:", alignCenter = true)
                 writeLine("--- PRUEBA DE CÓDIGO QR ---", bold = true, alignCenter = true)
@@ -417,8 +422,8 @@ object ThermalPrinterHelper {
                 writeLine("Escanee el siguiente código:", alignCenter = true)
                 writeLine("")
                 outputStream.write(ALIGN_CENTER); outputStream.flush()
-                printNativeQR(qrContent)
-                try { Thread.sleep(200) } catch (_: InterruptedException) {}
+                if (!printQrSeguro(qrContent)) return false
+                try { Thread.sleep(800) } catch (_: InterruptedException) {}
                 writeLine("")
                 writeLine("Texto QR: $qrContent", alignCenter = true)
                 writeLine("--------------------------------", alignCenter = true)
@@ -475,12 +480,12 @@ object ThermalPrinterHelper {
     /**
      * Genera un Bitmap con el código QR deseado usando ZXing.
      */
-    fun generarQrBitmap(content: String, width: Int = 192, height: Int = 192): Bitmap? {
+    fun generarQrBitmap(content: String, width: Int = QR_PRINT_SIZE_DOTS, height: Int = QR_PRINT_SIZE_DOTS): Bitmap? {
         return try {
             val hints = mapOf(
                 EncodeHintType.CHARACTER_SET to "UTF-8",
                 EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
-                EncodeHintType.MARGIN to 1
+                EncodeHintType.MARGIN to 4
             )
             val bitMatrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, width, height, hints)
             val w = bitMatrix.width
@@ -499,6 +504,39 @@ object ThermalPrinterHelper {
             Log.e(TAG, "Error generando Bitmap de QR: ${e.message}", e)
             null
         }
+    }
+
+    /**
+     * Convierte el QR al formato raster ESC/POS (GS v 0). Cada fila se empaca
+     * horizontalmente en bytes completos, sin perder columnas ni mezclar filas.
+     */
+    fun bitmapToEscPosRaster(bitmap: Bitmap): ByteArray {
+        val widthBytes = (bitmap.width + 7) / 8
+        val stream = ByteArrayOutputStream(8 + widthBytes * bitmap.height)
+        stream.write(
+            byteArrayOf(
+                0x1D, 0x76, 0x30, 0x00,
+                (widthBytes and 0xFF).toByte(), ((widthBytes shr 8) and 0xFF).toByte(),
+                (bitmap.height and 0xFF).toByte(), ((bitmap.height shr 8) and 0xFF).toByte()
+            )
+        )
+        for (y in 0 until bitmap.height) {
+            for (byteX in 0 until widthBytes) {
+                var packed = 0
+                for (bit in 0 until 8) {
+                    val x = byteX * 8 + bit
+                    if (x < bitmap.width) {
+                        val pixel = bitmap.getPixel(x, y)
+                        val luminance = (Color.red(pixel) + Color.green(pixel) + Color.blue(pixel)) / 3
+                        if (Color.alpha(pixel) > 128 && luminance < 128) {
+                            packed = packed or (1 shl (7 - bit))
+                        }
+                    }
+                }
+                stream.write(packed)
+            }
+        }
+        return stream.toByteArray()
     }
 
     /**
