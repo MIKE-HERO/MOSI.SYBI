@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -70,13 +69,17 @@ class DeviceInfoActivity : BaseActivity() {
     // ── Actualizador ──
     private lateinit var tvInstalledVersion: TextView
     private lateinit var tvSoftwareVersion: TextView
+    private lateinit var tvGithubVersion: TextView
     private lateinit var btnCheckUpdates: Button
+    private lateinit var btnUpdateGithub: Button
     private lateinit var spnVersions: Spinner
     private lateinit var btnInstallSelected: Button
     private lateinit var tvMosiIntegrationStatus: TextView
     private lateinit var btnMosiActivation: Button
 
     private lateinit var updateManager: UpdateManager
+    private var sybimlReleases: List<MosiRelease> = emptyList()
+    private var githubReleases: List<MosiRelease> = emptyList()
     private var fetchedReleases: List<MosiRelease> = emptyList()
 
     // ✅ Versión realmente instalada (leída de packageManager)
@@ -97,7 +100,9 @@ class DeviceInfoActivity : BaseActivity() {
         // ── Vistas de actualización ──
         tvInstalledVersion = findViewById(R.id.tvInstalledVersion)
         tvSoftwareVersion = findViewById(R.id.tvSoftwareVersion)
+        tvGithubVersion = findViewById(R.id.tvGithubVersion)
         btnCheckUpdates = findViewById(R.id.btnCheckUpdates)
+        btnUpdateGithub = findViewById(R.id.btnUpdateGithub)
         spnVersions = findViewById(R.id.spnVersions)
         btnInstallSelected = findViewById(R.id.btnInstallSelected)
         tvMosiIntegrationStatus = findViewById(R.id.tvMosiIntegrationStatus)
@@ -138,49 +143,36 @@ class DeviceInfoActivity : BaseActivity() {
         // ── Mostrar versión del software INSTALADA ──
         showCurrentSoftwareVersion()
 
-        // ── Cargar releases del repositorio ──
+        // ── Cargar releases de los repositorios ──
         loadRepositoryReleases()
 
-        // ── Botón Buscar Actualizaciones (Manual/Última) ──
-        // Solo instala si la versión del repositorio es MÁS NUEVA que la instalada.
+        // ── Botón Actualizar desde SybiML (Manual) ──
         btnCheckUpdates.setOnClickListener {
             lifecycleScope.launch {
                 btnCheckUpdates.isEnabled = false
-                Toast.makeText(this@DeviceInfoActivity, "Buscando actualizaciones...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@DeviceInfoActivity, "Buscando actualizaciones en SybiML...", Toast.LENGTH_SHORT).show()
 
-                var releases = fetchedReleases
+                var releases = sybimlReleases
                 if (releases.isEmpty()) {
-                    releases = updateManager.fetchReleases()
-                    fetchedReleases = releases
+                    releases = updateManager.fetchSybimlReleases()
+                    sybimlReleases = releases
                 }
 
                 btnCheckUpdates.isEnabled = true
 
                 if (releases.isNotEmpty()) {
-                    val tagList = fetchedReleases.map { "${it.tagName} (${it.name})" }
-                    val adapter = ArrayAdapter(
-                        this@DeviceInfoActivity,
-                        android.R.layout.simple_spinner_item,
-                        tagList
-                    )
-                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                    spnVersions.adapter = adapter
-                    tvSoftwareVersion.text = "Versión disponible en MOSI: ${fetchedReleases[0].tagName}"
-
                     val latestRelease = releases[0]
                     val latestTag = latestRelease.tagName
 
                     if (!updateManager.isNewerVersion(latestTag, installedVersionName)) {
                         Toast.makeText(
                             this@DeviceInfoActivity,
-                            "Ya tienes instalada la versión más reciente ($latestTag)",
+                            "Ya tienes instalada la versión más reciente de SybiML ($latestTag)",
                             Toast.LENGTH_LONG
                         ).show()
                         return@launch
                     }
 
-                    // Lanzar pantalla de actualización ininterrumpida.
-                    // forceReinstall = false → solo se instala si es más nueva.
                     UpdateActivity.start(
                         this@DeviceInfoActivity,
                         latestRelease.downloadUrl,
@@ -193,7 +185,53 @@ class DeviceInfoActivity : BaseActivity() {
                 } else {
                     Toast.makeText(
                         this@DeviceInfoActivity,
-                        "No se pudo consultar el canal de actualizaciones MOSI",
+                        "No se pudo consultar el canal de actualizaciones SybiML",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+
+        // ── Botón Actualizar desde GitHub (Manual) ──
+        btnUpdateGithub.setOnClickListener {
+            lifecycleScope.launch {
+                btnUpdateGithub.isEnabled = false
+                Toast.makeText(this@DeviceInfoActivity, "Buscando actualizaciones en GitHub...", Toast.LENGTH_SHORT).show()
+
+                var releases = githubReleases
+                if (releases.isEmpty()) {
+                    releases = updateManager.fetchGithubReleases()
+                    githubReleases = releases
+                }
+
+                btnUpdateGithub.isEnabled = true
+
+                if (releases.isNotEmpty()) {
+                    val latestRelease = releases[0]
+                    val latestTag = latestRelease.tagName
+
+                    if (!updateManager.isNewerVersion(latestTag, installedVersionName)) {
+                        Toast.makeText(
+                            this@DeviceInfoActivity,
+                            "Ya tienes instalada la versión más reciente de GitHub ($latestTag)",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@launch
+                    }
+
+                    UpdateActivity.start(
+                        this@DeviceInfoActivity,
+                        latestRelease.downloadUrl,
+                        latestTag,
+                        forceReinstall = false,
+                        sha256 = "",
+                        updateId = "",
+                        requestId = ""
+                    )
+                } else {
+                    Toast.makeText(
+                        this@DeviceInfoActivity,
+                        "No se pudo consultar el repositorio de GitHub",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -201,13 +239,6 @@ class DeviceInfoActivity : BaseActivity() {
         }
 
         // ── Botón Instalar versión seleccionada ──
-        // Permite instalar CUALQUIER versión elegida en el spinner:
-        //   - la misma versión instalada (reinstalar)
-        //   - una versión anterior (downgrade)
-        //   - una versión más nueva (actualizar)
-        // forceReinstall = true → se salta la validación de isNewerVersion y
-        // se configuran los flags de PackageInstaller para permitir
-        // misma versión y downgrade.
         btnInstallSelected.setOnClickListener {
             if (fetchedReleases.isEmpty()) {
                 Toast.makeText(this, "No hay versiones disponibles para instalar", Toast.LENGTH_SHORT).show()
@@ -220,11 +251,10 @@ class DeviceInfoActivity : BaseActivity() {
 
                 Log.d(
                     TAG,
-                    "🔧 Instalando versión seleccionada: ${selected.tagName} " +
+                    "🔧 Instalando versión seleccionada: ${selected.tagName} (${selected.source}) " +
                             "(instalada actualmente: $installedVersionName). forceReinstall=true"
                 )
 
-                // forceReinstall = true → permite reinstalar misma versión y downgrade.
                 UpdateActivity.start(
                     this@DeviceInfoActivity,
                     selected.downloadUrl,
@@ -283,14 +313,38 @@ class DeviceInfoActivity : BaseActivity() {
     }
 
     /**
-     * Carga la actualización asignada a esta cabina en el canal MOSI.
-     * NO modifica tvInstalledVersion.
+     * Carga las versiones disponibles tanto de SybiML como de GitHub.
      */
     private fun loadRepositoryReleases() {
         lifecycleScope.launch {
-            fetchedReleases = updateManager.fetchReleases()
+            sybimlReleases = updateManager.fetchSybimlReleases()
+            githubReleases = updateManager.fetchGithubReleases()
+
+            val latestSybiml = sybimlReleases.firstOrNull()?.tagName
+            tvSoftwareVersion.text = if (latestSybiml != null) {
+                "Versión disponible en SybiML: $latestSybiml"
+            } else {
+                "Versión disponible en SybiML: —"
+            }
+
+            val latestGithub = githubReleases.firstOrNull()?.tagName
+            tvGithubVersion.text = if (latestGithub != null) {
+                "Versión disponible en GitHub: $latestGithub"
+            } else {
+                "Versión disponible en GitHub: —"
+            }
+
+            val combined = mutableListOf<MosiRelease>()
+            sybimlReleases.forEach { rel ->
+                combined.add(rel.copy(name = "[SybiML] ${rel.tagName}"))
+            }
+            githubReleases.forEach { rel ->
+                combined.add(rel.copy(name = "[GitHub] ${rel.tagName}"))
+            }
+            fetchedReleases = combined
+
             if (fetchedReleases.isNotEmpty()) {
-                val tagList = fetchedReleases.map { "${it.tagName} (${it.name})" }
+                val tagList = fetchedReleases.map { it.name }
                 val adapter = ArrayAdapter(
                     this@DeviceInfoActivity,
                     android.R.layout.simple_spinner_item,
@@ -298,19 +352,6 @@ class DeviceInfoActivity : BaseActivity() {
                 )
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 spnVersions.adapter = adapter
-
-                spnVersions.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                        if (position in fetchedReleases.indices) {
-                            val selected = fetchedReleases[position]
-                            tvSoftwareVersion.text = "Versión disponible en MOSI: ${selected.tagName}"
-                        }
-                    }
-
-                    override fun onNothingSelected(parent: AdapterView<*>?) {}
-                }
-
-                tvSoftwareVersion.text = "Versión disponible en MOSI: ${fetchedReleases[0].tagName}"
             } else {
                 val defaultList = listOf("Sin conexión / No disponible")
                 val adapter = ArrayAdapter(
@@ -320,7 +361,6 @@ class DeviceInfoActivity : BaseActivity() {
                 )
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 spnVersions.adapter = adapter
-                tvSoftwareVersion.text = "Versión disponible en MOSI: —"
             }
         }
     }

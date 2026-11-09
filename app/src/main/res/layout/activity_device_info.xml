@@ -172,7 +172,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
+                    android:layout_marginBottom="12dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -201,13 +201,23 @@
                             android:textSize="14sp"
                             android:textStyle="bold" />
 
-                        <!-- Actualización asignada por el administrador MOSI -->
+                        <!-- Actualización asignada por SybiML -->
                         <TextView
                             android:id="@+id/tvSoftwareVersion"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="Versión disponible en MOSI: —"
+                            android:text="Versión disponible en SybiML: —"
+                            android:textColor="#555555"
+                            android:textSize="13sp" />
+
+                        <!-- Actualización disponible en GitHub -->
+                        <TextView
+                            android:id="@+id/tvGithubVersion"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Versión disponible en GitHub: —"
                             android:textColor="#555555"
                             android:textSize="13sp" />
 
@@ -226,21 +236,42 @@
                         android:id="@+id/btnMosiActivation"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
                         android:backgroundTint="#546E7A"
                         android:text="Activar"
                         android:textColor="#FFFFFF"
                         android:textSize="12sp" />
+                </LinearLayout>
 
-                    <!-- Botón Buscar Actualizaciones a la derecha -->
+                <!-- BOTONES DE ACTUALIZACIÓN (SybiML / GitHub) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:orientation="horizontal">
+
                     <Button
                         android:id="@+id/btnCheckUpdates"
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
                         android:backgroundTint="#2E7D32"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:text="Buscar actualizaciones"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:text="Actualizar desde SybiML"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp" />
+
+                    <Button
+                        android:id="@+id/btnUpdateGithub"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:backgroundTint="#24292E"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:text="Actualizar desde GitHub"
                         android:textColor="#FFFFFF"
                         android:textSize="13sp" />
                 </LinearLayout>

@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
+import org.json.JSONArray
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
@@ -29,7 +30,8 @@ data class MosiRelease(
     val updateId: String = "",
     val versionCode: Long = 0,
     val sha256: String = "",
-    val requestId: String = ""
+    val requestId: String = "",
+    val source: String = "sybiml"
 )
 
 class UpdateManager(private val context: Context) {
@@ -41,27 +43,12 @@ class UpdateManager(private val context: Context) {
     companion object {
         private const val TAG = "UpdateManager"
 
-
-
         /**
          * Flag oculto de Android: INSTALL_ALLOW_DOWNGRADE.
          * Definido en PackageManager (android.content.pm.PackageManager).
          * Valor: 0x00000001
          */
         private const val INSTALL_ALLOW_DOWNGRADE = 0x00000001
-
-
-
-
-
-
-
-
-
-
-
-
-
     }
 
     private val client = OkHttpClient.Builder()
@@ -71,20 +58,11 @@ class UpdateManager(private val context: Context) {
         .followSslRedirects(true)
         .build()
 
-    /** Consulta el canal de actualizaciones MOSI autenticado para esta cabina. */
-    suspend fun fetchReleases(): List<MosiRelease> = withContext(Dispatchers.IO) {
+    /** Consulta las actualizaciones del canal SybiML por defecto. */
+    suspend fun fetchReleases(): List<MosiRelease> = fetchSybimlReleases()
 
-
-
-
-
-
-
-
-
-
-
-
+    /** Consulta el canal de actualizaciones SybiML (MOSI) autenticado para esta cabina. */
+    suspend fun fetchSybimlReleases(): List<MosiRelease> = withContext(Dispatchers.IO) {
         try {
             if (!MosiSecureStore.estaActivado(context)) return@withContext emptyList()
             val update = MosiApiClient(context).consultarActualizacion() ?: return@withContext emptyList()
@@ -95,44 +73,61 @@ class UpdateManager(private val context: Context) {
                 updateId = update.id,
                 versionCode = update.versionCode,
                 sha256 = update.sha256,
-                requestId = update.requestId
+                requestId = update.requestId,
+                source = "sybiml"
             ))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         } catch (e: Exception) {
-            Log.e(TAG, "Error consultando actualizaciones MOSI: ${e.message}")
+            Log.e(TAG, "Error consultando actualizaciones SybiML: ${e.message}")
             emptyList()
         }
+    }
 
+    /** Consulta el repositorio público de GitHub (MIKE-HERO/MOSI.SYBI). */
+    suspend fun fetchGithubReleases(): List<MosiRelease> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("https://api.github.com/repos/MIKE-HERO/MOSI.SYBI/releases")
+                .header("User-Agent", "QuioscoApp")
+                .header("Accept", "application/vnd.github+json")
+                .build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) {
+                Log.e(TAG, "Error HTTP al consultar GitHub releases: ${response.code}")
+                return@withContext emptyList()
+            }
+            val text = response.body?.string() ?: return@withContext emptyList()
+            val jsonArray = JSONArray(text)
+            val list = mutableListOf<MosiRelease>()
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.optJSONObject(i) ?: continue
+                val tagName = obj.optString("tag_name")
+                val name = obj.optString("name", tagName)
+                val assets = obj.optJSONArray("assets") ?: JSONArray()
+                var apkUrl = ""
+                for (j in 0 until assets.length()) {
+                    val asset = assets.optJSONObject(j) ?: continue
+                    val assetName = asset.optString("name")
+                    if (assetName.endsWith(".apk", ignoreCase = true)) {
+                        apkUrl = asset.optString("browser_download_url")
+                        break
+                    }
+                }
+                if (apkUrl.isNotBlank()) {
+                    list.add(
+                        MosiRelease(
+                            tagName = tagName,
+                            name = name,
+                            downloadUrl = apkUrl,
+                            source = "github"
+                        )
+                    )
+                }
+            }
+            list
+        } catch (e: Exception) {
+            Log.e(TAG, "Error consultando GitHub releases: ${e.message}")
+            emptyList()
+        }
     }
 
     /**
@@ -140,28 +135,33 @@ class UpdateManager(private val context: Context) {
      */
     suspend fun downloadApk(
         downloadUrl: String,
-        expectedSha256: String,
+        expectedSha256: String = "",
         onProgress: (percent: Int, bytesDownloaded: Long, totalBytes: Long) -> Unit
     ): File? = withContext(Dispatchers.IO) {
         try {
-            if (!expectedSha256.matches(Regex("[0-9a-fA-F]{64}"))) {
-                Log.e(TAG, "Descarga rechazada: falta un SHA-256 válido")
+            val isGithub = downloadUrl.contains("github.com", ignoreCase = true)
+
+            if (!isGithub && expectedSha256.isNotBlank() && !expectedSha256.matches(Regex("[0-9a-fA-F]{64}"))) {
+                Log.e(TAG, "Descarga SybiML rechazada: falta un SHA-256 válido")
                 return@withContext null
             }
+
             val requestBuilder = Request.Builder()
                 .url(downloadUrl)
                 .header("User-Agent", "QuioscoApp")
 
-            val token = MosiSecureStore.token(context)
-            if (token.isBlank()) {
-                Log.e(TAG, "Descarga rechazada: la cabina no está activada")
-                return@withContext null
+            if (!isGithub) {
+                val token = MosiSecureStore.token(context)
+                if (token.isBlank()) {
+                    Log.e(TAG, "Descarga rechazada: la cabina no está activada")
+                    return@withContext null
+                }
+                requestBuilder.header("Authorization", "Bearer $token")
             }
-            requestBuilder.header("Authorization", "Bearer $token")
 
             val response = client.newCall(requestBuilder.build()).execute()
             if (!response.isSuccessful) {
-                Log.e(TAG, "Error HTTP al descargar APK: ${response.code}")
+                Log.e(TAG, "Error HTTP al descargar APK (${response.code}) desde $downloadUrl")
                 return@withContext null
             }
 
@@ -196,11 +196,13 @@ class UpdateManager(private val context: Context) {
             outputStream.close()
             inputStream.close()
 
-            val actualHash = sha256(apkFile)
-            if (!actualHash.equals(expectedSha256, ignoreCase = true)) {
-                Log.e(TAG, "SHA-256 del APK no coincide; se descarta la descarga")
-                apkFile.delete()
-                return@withContext null
+            if (expectedSha256.matches(Regex("[0-9a-fA-F]{64}"))) {
+                val actualHash = sha256(apkFile)
+                if (!actualHash.equals(expectedSha256, ignoreCase = true)) {
+                    Log.e(TAG, "SHA-256 del APK no coincide; se descarta la descarga")
+                    apkFile.delete()
+                    return@withContext null
+                }
             }
 
             Log.d(TAG, "APK descargado exitosamente en: ${apkFile.absolutePath}")
