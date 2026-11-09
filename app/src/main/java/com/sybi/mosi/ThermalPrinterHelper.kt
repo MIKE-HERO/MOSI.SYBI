@@ -3,11 +3,13 @@ package com.sybi.mosi
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Matrix
 import android.util.Log
 import android.serialport.api.SerialPort
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.sybi.mosi.database.Paciente
 import com.sybi.mosi.database.Resultado
 import java.io.ByteArrayOutputStream
@@ -22,21 +24,17 @@ object ThermalPrinterHelper {
     // ============================================
     // CONFIGURACIÓN DE PÁGINA DE CÓDIGOS
     // ============================================
+    // Opciones:
+    //   0  -> CP437 (US, sin acentos)
+    //   2  -> CP850 (Latin-1, con acentos pero sin ¿¡)
+    //   16 -> CP1252 (Windows Latin-1, con acentos + ¿¡)  ← RECOMENDADO
+    //   19 -> CP858 (Latin-1 + €)
+    //
+    // Cambia estos valores si tu impresora no soporta CP1252.
     private const val CODEPAGE_NUM = 16
     private const val CODEPAGE_CHARSET = "windows-1252"
     private const val USAR_ACENTOS = true
 
-    // ============================================
-    // CONFIGURACIÓN DEL QR PARA SP-RMD8CS1H
-    // ============================================
-    // 96x96 px es el tamaño ideal para evitar desbordar el búfer de la SP-RMD8.
-    private const val QR_WIDTH = 96
-    private const val QR_HEIGHT = 96
-
-    /**
-     * Imprime el ticket de resultados en la impresora térmica.
-     * (TU LÓGICA ORIGINAL INTACTA).
-     */
     fun imprimirTicket(
         context: Context,
         paciente: Paciente?,
@@ -51,6 +49,7 @@ object ThermalPrinterHelper {
             return false
         }
 
+        // ✅ DEFENSIVO: usar SOLO el primer resultado
         val r = resultados.firstOrNull()
         if (r == null) {
             Log.w(TAG, "⚠️ Lista de resultados vacía, no se imprime nada")
@@ -85,6 +84,7 @@ object ThermalPrinterHelper {
                 return false
             }
 
+            // ✅ Charset según la página de códigos elegida
             val charset = Charset.forName(CODEPAGE_CHARSET)
 
             // ============================================
@@ -97,11 +97,14 @@ object ThermalPrinterHelper {
             val BOLD_OFF = byteArrayOf(0x1B, 0x45, 0x00)
             val REVERSE_OFF = byteArrayOf(0x1D, 0x42, 0x00)
             val UPSIDE_DOWN_OFF = byteArrayOf(0x1B, 0x7B, 0x00)
+            // ✅ Seleccionar página de códigos: ESC t n
             val SELECT_CODEPAGE = byteArrayOf(0x1B, 0x74, CODEPAGE_NUM.toByte())
             val FEED_LINES = byteArrayOf(0x1B, 0x64, 0x05)
             val CUT = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
 
+            // ============================================
             // INICIALIZACIÓN ROBUSTA
+            // ============================================
             outputStream.write(INIT)
             outputStream.write(REVERSE_OFF)
             outputStream.write(UPSIDE_DOWN_OFF)
@@ -116,6 +119,7 @@ object ThermalPrinterHelper {
             outputStream.flush()
             try { Thread.sleep(300) } catch (_: InterruptedException) {}
 
+            // ✅ Función auxiliar: sanitizar si no se usan acentos
             fun String.prepararParaImpresora(): String {
                 return if (USAR_ACENTOS) this else this.sanitizarParaImpresora()
             }
@@ -137,7 +141,7 @@ object ThermalPrinterHelper {
             val title = customTitle?.takeIf { it.isNotBlank() } ?: appPrefs.getString("PdfTitle", defaultTitle) ?: defaultTitle
             val subtitle = customSubtitle?.takeIf { it.isNotBlank() } ?: appPrefs.getString("PdfSubtitle", "") ?: ""
 
-            writeLine("")
+            writeLine("")   // ✅ Espacio antes de la sección
             writeLine(title, bold = true, alignCenter = true)
             if (subtitle.isNotBlank()) {
                 writeLine(subtitle, bold = false, alignCenter = true)
@@ -178,7 +182,7 @@ object ThermalPrinterHelper {
             writeLine("RESULTADOS DE MEDICIÓN", bold = true, alignCenter = true)
 
             if (showAlturaPeso && (r.altura.isNotBlank() || r.peso.isNotBlank())) {
-                writeLine("")
+                writeLine("")   // ✅ Espacio antes de la sección
                 writeLine("--- ALTURA Y PESO ---", bold = true, alignCenter = true)
                 if (r.altura.isNotBlank()) writeLine("Altura: ${r.altura} cm")
                 if (r.peso.isNotBlank()) writeLine("Peso: ${r.peso} kg")
@@ -186,7 +190,7 @@ object ThermalPrinterHelper {
             }
 
             if (showComposicion && (r.grasa_corporal.isNotBlank() || r.agua_corporal.isNotBlank() || r.masa_muscular.isNotBlank() || r.metabolismo_basal.isNotBlank())) {
-                writeLine("")
+                writeLine("")   // ✅ Espacio antes de la sección
                 writeLine("--- COMPOSICIÓN CORPORAL ---", bold = true, alignCenter = true)
                 if (r.grasa_corporal.isNotBlank()) writeLine("Grasa Corporal: ${r.grasa_corporal}% (${r.grasa_corporal_kg} kg)")
                 if (r.agua_corporal.isNotBlank()) writeLine("Agua Corporal: ${r.agua_corporal}% (${r.agua_corporal_kg} kg)")
@@ -201,14 +205,14 @@ object ThermalPrinterHelper {
             }
 
             if (showPresion && r.sistolica.isNotBlank() && r.diastolica.isNotBlank()) {
-                writeLine("")
+                writeLine("")   // ✅ Espacio antes de la sección
                 writeLine("--- PRESIÓN ARTERIAL ---", bold = true, alignCenter = true)
                 writeLine("Presión: ${r.sistolica}/${r.diastolica} mmHg")
                 if (r.pulso.isNotBlank()) writeLine("Pulso: ${r.pulso} bpm")
             }
 
             if (showOxigeno && r.spo2.isNotBlank()) {
-                writeLine("")
+                writeLine("")   // ✅ Espacio antes de la sección
                 writeLine("--- OXÍGENO EN SANGRE ---", bold = true, alignCenter = true)
                 writeLine("SpO2: ${r.spo2}%")
                 if (r.frecuencia_pulso.isNotBlank()) writeLine("Pulso: ${r.frecuencia_pulso} bpm")
@@ -216,13 +220,13 @@ object ThermalPrinterHelper {
             }
 
             if (showTemperatura && r.temperatura.isNotBlank()) {
-                writeLine("")
+                writeLine("")   // ✅ Espacio antes de la sección
                 writeLine("--- TEMPERATURA CORPORAL ---", bold = true, alignCenter = true)
                 writeLine("Temperatura: ${r.temperatura} °C / ${r.temperatura_f} °F")
             }
 
             if (showEcg && (r.frecuencia_cardiaca.isNotBlank() || r.resultado_ecg.isNotBlank())) {
-                writeLine("")
+                writeLine("")   // ✅ Espacio antes de la sección
                 writeLine("--- ELECTROCARDIOGRAMA ---", bold = true, alignCenter = true)
                 writeLine("Frec. Cardíaca: ${r.frecuencia_cardiaca} bpm")
                 if (r.eje_p.isNotBlank()) writeLine("Eje P/QRS/T: ${r.eje_p}/${r.eje_qrs}/${r.eje_t}")
@@ -245,6 +249,7 @@ object ThermalPrinterHelper {
             outputStream.flush()
             try { Thread.sleep(150) } catch (_: InterruptedException) {}
 
+            // ✅ RESET FINAL
             outputStream.write(INIT)
             outputStream.flush()
 
@@ -291,6 +296,10 @@ object ThermalPrinterHelper {
         }
     }
 
+    /**
+     * Reemplaza caracteres no soportados por equivalentes ASCII.
+     * Se usa como plan B si la impresora no soporta la página de códigos elegida.
+     */
     private fun String.sanitizarParaImpresora(): String {
         return this
             .replace("á", "a").replace("é", "e").replace("í", "i")
@@ -305,11 +314,14 @@ object ThermalPrinterHelper {
             .replace("‘", "'").replace("’", "'")
     }
 
-    // =====================================================================
-    // PRUEBA DE IMPRESIÓN QR (CORREGIDO PARA SP-RMD8CS1H USANDO ESC K)
-    // =====================================================================
-
-    fun imprimirTestQr(context: Context, qrText: String): Boolean {
+    /**
+     * Imprime un ticket de prueba con un código QR en la impresora térmica.
+     */
+    fun imprimirTestQr(
+        context: Context,
+        qrContent: String = "Impresión de QR de prueba",
+        invertirOrientacion: Boolean = true
+    ): Boolean {
         val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         val enabled = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_THERMAL_PRINTER, true)
         if (!enabled) {
@@ -353,13 +365,15 @@ object ThermalPrinterHelper {
             val BOLD_OFF = byteArrayOf(0x1B, 0x45, 0x00)
             val REVERSE_OFF = byteArrayOf(0x1D, 0x42, 0x00)
             val UPSIDE_DOWN_OFF = byteArrayOf(0x1B, 0x7B, 0x00)
+            val UPSIDE_DOWN_ON = byteArrayOf(0x1B, 0x7B, 0x01)
             val SELECT_CODEPAGE = byteArrayOf(0x1B, 0x74, CODEPAGE_NUM.toByte())
-            val FEED_LINES = byteArrayOf(0x1B, 0x64, 0x05)
+            val FEED_LINES = byteArrayOf(0x1B, 0x64, 0x04)
             val CUT = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
 
+            // Inicialización limpia
             outputStream.write(INIT)
             outputStream.write(REVERSE_OFF)
-            outputStream.write(UPSIDE_DOWN_OFF)
+            outputStream.write(if (invertirOrientacion) UPSIDE_DOWN_ON else UPSIDE_DOWN_OFF)
             outputStream.write(SELECT_CODEPAGE)
             outputStream.flush()
             try { Thread.sleep(300) } catch (_: InterruptedException) {}
@@ -372,41 +386,54 @@ object ThermalPrinterHelper {
                 outputStream.flush()
             }
 
-            writeLine("")
-            writeLine("PRUEBA DE IMPRESIÓN QR", bold = true, alignCenter = true)
-            writeLine("--------------------------------", alignCenter = true)
-            writeLine("Contenido del QR:", bold = false, alignCenter = true)
-            writeLine(qrText, bold = false, alignCenter = true)
-            writeLine("")
+            // Enviamos los elementos en orden inverso (Pie -> QR -> Título) para que
+            // en la tira impresa el Título quede arriba, el QR en el centro y el Pie abajo.
 
-            try { Thread.sleep(300) } catch (_: InterruptedException) {}
+            if (invertirOrientacion) {
+                // --- 1. PIE DE TICKET (Se imprime primero -> queda ABAJO en el papel) ---
+                writeLine("--------------------------------", alignCenter = true)
+                writeLine("Texto QR: $qrContent", alignCenter = true)
+                writeLine("")
 
-            // ✅ Usar el nuevo generador ESC K
-            val escKbytes = generarEscKQrConZxing(qrText, QR_WIDTH, QR_HEIGHT)
-            if (escKbytes != null) {
-                outputStream.write(ALIGN_CENTER)
-                outputStream.flush()
-
-                // ✅ Enviar en trozos muy pequeños (32 bytes) para no saturar el búfer
-                var offset = 0
-                val chunkSize = 32
-                while (offset < escKbytes.size) {
-                    val count = Math.min(chunkSize, escKbytes.size - offset)
-                    outputStream.write(escKbytes, offset, count)
+                // --- 2. CÓDIGO QR (Se imprime segundo -> queda en el CENTRO del papel) ---
+                val qrBitmap = generarQrBitmap(qrContent, width = 144, height = 144)
+                if (qrBitmap != null) {
+                    val rotatedBitmap = qrBitmap.rotate180()
+                    val columnBytes = bitmapToEscPosColumnBitImage(rotatedBitmap)
+                    outputStream.write(ALIGN_CENTER)
                     outputStream.flush()
-                    offset += count
-                    try { Thread.sleep(30) } catch (_: InterruptedException) {} // Pausa crítica
+                    outputStream.writeThrottled(columnBytes, chunkSize = 64, delayMs = 20)
+                    outputStream.flush()
+                    try { Thread.sleep(500) } catch (_: InterruptedException) {}
                 }
 
-                outputStream.write("\n".toByteArray(charset))
-                outputStream.flush()
-                try { Thread.sleep(500) } catch (_: InterruptedException) {}
-            } else {
-                Log.e(TAG, "❌ No se pudo generar la imagen ESC K del QR")
-            }
+                writeLine("")
 
-            writeLine("")
-            writeLine("--------------------------------", alignCenter = true)
+                // --- 3. TÍTULO Y SUBTÍTULO (Se imprime al final -> queda ARRIBA en el papel) ---
+                writeLine("Escanee el siguiente código:", alignCenter = true)
+                writeLine("--- PRUEBA DE CÓDIGO QR ---", bold = true, alignCenter = true)
+                writeLine("")
+            } else {
+                // Modo estándar sin inversión
+                writeLine("")
+                writeLine("--- PRUEBA DE CÓDIGO QR ---", bold = true, alignCenter = true)
+                writeLine("Escanee el siguiente código:", alignCenter = true)
+                writeLine("")
+
+                val qrBitmap = generarQrBitmap(qrContent, width = 144, height = 144)
+                if (qrBitmap != null) {
+                    val columnBytes = bitmapToEscPosColumnBitImage(qrBitmap)
+                    outputStream.write(ALIGN_CENTER)
+                    outputStream.flush()
+                    outputStream.writeThrottled(columnBytes, chunkSize = 64, delayMs = 20)
+                    outputStream.flush()
+                    try { Thread.sleep(500) } catch (_: InterruptedException) {}
+                }
+
+                writeLine("")
+                writeLine("Texto QR: $qrContent", alignCenter = true)
+                writeLine("--------------------------------", alignCenter = true)
+            }
 
             outputStream.write(FEED_LINES)
             outputStream.flush()
@@ -422,12 +449,11 @@ object ThermalPrinterHelper {
             if (outputStream is FileOutputStream) {
                 try { outputStream.fd.sync() } catch (_: Exception) {}
             }
-            try { Thread.sleep(300) } catch (_: InterruptedException) {}
 
             Log.i(TAG, "✅ QR de prueba impreso exitosamente en $portPath")
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error al imprimir QR de prueba: ${e.message}", e)
+            Log.e(TAG, "❌ Error imprimiendo QR de prueba: ${e.message}", e)
             return false
         } finally {
             try {
@@ -444,20 +470,34 @@ object ThermalPrinterHelper {
         }
     }
 
-    // --- NUEVAS FUNCIONES PARA GENERAR EL QR EN ESC K ---
-
-    private fun generarEscKQrConZxing(text: String, width: Int, height: Int): ByteArray? {
-        val bitmap = generarBitmapQr(text, width, height) ?: return null
-        return bitmapToEscK(bitmap)
+    /**
+     * Escribe un ByteArray de forma dosificada (throttled) para evitar saturar
+     * el buffer del puerto serie UART/TTL a 9600 baudios.
+     */
+    private fun OutputStream.writeThrottled(bytes: ByteArray, chunkSize: Int = 128, delayMs: Long = 15) {
+        var offset = 0
+        while (offset < bytes.size) {
+            val count = Math.min(chunkSize, bytes.size - offset)
+            this.write(bytes, offset, count)
+            this.flush()
+            offset += count
+            if (delayMs > 0 && offset < bytes.size) {
+                try { Thread.sleep(delayMs) } catch (_: InterruptedException) {}
+            }
+        }
     }
 
-    private fun generarBitmapQr(text: String, width: Int, height: Int): Bitmap? {
+    /**
+     * Genera un Bitmap con el código QR deseado usando ZXing.
+     */
+    fun generarQrBitmap(content: String, width: Int = 192, height: Int = 192): Bitmap? {
         return try {
             val hints = mapOf(
                 EncodeHintType.CHARACTER_SET to "UTF-8",
+                EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
                 EncodeHintType.MARGIN to 1
             )
-            val bitMatrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, width, height, hints)
+            val bitMatrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, width, height, hints)
             val w = bitMatrix.width
             val h = bitMatrix.height
             val pixels = IntArray(w * h)
@@ -471,54 +511,66 @@ object ThermalPrinterHelper {
             bitmap.setPixels(pixels, 0, w, 0, 0, w, h)
             bitmap
         } catch (e: Exception) {
-            Log.e(TAG, "Error generando QR con ZXing: ${e.message}", e)
+            Log.e(TAG, "Error generando Bitmap de QR: ${e.message}", e)
             null
         }
     }
 
     /**
-     * Convierte el Bitmap al comando ESC K (Bit Image de 8 puntos de alto).
-     * Este comando es el que la SP-RMD8CS1H maneja nativamente sin corromper los datos.
+     * Convierte un Bitmap monocromático a comandos ESC * 33 (24-dot Double Density Column Bit Image).
+     * Usa espaciado de línea ajustado a 24/180 de pulgada (ESC 3 24) para eliminar las franjas
+     * blancas horizontales y mantener la proporción cuadrada 1:1 del código QR sin estirarlo.
      */
-    private fun bitmapToEscK(bitmap: Bitmap): ByteArray {
+    fun bitmapToEscPosColumnBitImage(bitmap: Bitmap): ByteArray {
         val width = bitmap.width
         val height = bitmap.height
         val stream = ByteArrayOutputStream()
 
-        // Ajustar espaciado de línea para que las tiras de 8 bits se unan sin espacios blancos
-        stream.write(byteArrayOf(0x1B, 0x33, 0x00)) // ESC 3 0
+        // ESC 3 24 (0x1B 0x33 0x18) -> Ajusta el avance de línea a 24/180 pulgada
+        val SET_LINE_SPACE_24 = byteArrayOf(0x1B, 0x33, 0x18)
+        // ESC 2 (0x1B 0x32) -> Restaura espaciado de línea predeterminado
+        val RESET_LINE_SPACE = byteArrayOf(0x1B, 0x32)
+
+        stream.write(SET_LINE_SPACE_24)
+
+        val nL = (width % 256).toByte()
+        val nH = (width / 256).toByte()
 
         var y = 0
         while (y < height) {
-            // Comando ESC K n1 n2 (ancho en puntos)
-            val n1 = (width % 256).toByte()
-            val n2 = (width / 256).toByte()
-            stream.write(byteArrayOf(0x1B, 0x4B, n1, n2))
+            // Comando ESC * m nL nH (m = 33 / 0x21 para 24-dot double density: 203x203 dpi)
+            stream.write(byteArrayOf(0x1B, 0x2A, 0x21, nL, nH))
 
-            // Datos de la tira (8 filas de alto)
             for (x in 0 until width) {
-                var b = 0
-                for (bit in 0 until 8) {
-                    val pixelY = y + bit
-                    if (pixelY < height) {
-                        val pixel = bitmap.getPixel(x, pixelY)
-                        val r = Color.red(pixel)
-                        val g = Color.green(pixel)
-                        val bCol = Color.blue(pixel)
-                        val alpha = Color.alpha(pixel)
-                        if (alpha > 128 && (r + g + bCol) / 3 < 128) {
-                            b = b or (1 shl (7 - bit))
+                for (k in 0 until 3) { // 3 bytes por columna (24 puntos verticales)
+                    var b = 0
+                    for (bit in 0 until 8) {
+                        val pixelY = y + k * 8 + bit
+                        if (pixelY < height) {
+                            val pixel = bitmap.getPixel(x, pixelY)
+                            val red = Color.red(pixel)
+                            val green = Color.green(pixel)
+                            val blue = Color.blue(pixel)
+                            val alpha = Color.alpha(pixel)
+                            val isBlack = alpha > 128 && (red + green + blue) / 3 < 128
+                            if (isBlack) {
+                                b = b or (1 shl (7 - bit))
+                            }
                         }
                     }
+                    stream.write(b)
                 }
-                stream.write(b)
             }
-            stream.write(0x0A) // Salto de línea
-            y += 8
+            stream.write(0x0A) // Avance de línea ajustado a 24 puntos
+            y += 24
         }
 
-        // Restaurar espaciado normal
-        stream.write(byteArrayOf(0x1B, 0x32))
+        stream.write(RESET_LINE_SPACE)
         return stream.toByteArray()
+    }
+
+    private fun Bitmap.rotate180(): Bitmap {
+        val matrix = Matrix().apply { postRotate(180f) }
+        return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
     }
 }
