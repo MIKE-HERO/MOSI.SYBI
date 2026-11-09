@@ -366,6 +366,8 @@ class MosiActivationActivity : BaseActivity() {
         status.visibility = View.VISIBLE
         MosiTelemetryWorker.schedule(this)
         MedicionesSyncWorker.schedule(this, 5L)
+        com.sybi.mosi.updater.MosiUpdateWorker.schedule(this)
+        com.sybi.mosi.updater.MosiUpdateWorker.checkNow(this, 2L)
         setResult(RESULT_OK)
         finish()
     }

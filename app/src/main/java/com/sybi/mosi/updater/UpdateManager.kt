@@ -381,19 +381,15 @@ class UpdateManager(private val context: Context) {
             )
             params.setAppPackageName(context.packageName)
 
+            // Un Device Owner puede confirmar actualizaciones normales sin interacción.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                params.setRequireUserAction(
+                    PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED
+                )
+            }
+
             if (forceReinstall) {
                 // ── Permitir reinstalar la misma versión y hacer downgrade ──
-                try {
-                    // Android 12+ (API 31): no pedir confirmación al usuario
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        params.setRequireUserAction(
-                            PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED
-                        )
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "No se pudo configurar USER_ACTION_NOT_REQUIRED: ${e.message}")
-                }
-
                 // Android 9+ (API 28): permitir downgrade / misma versión
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     allowDowngrade(params)
@@ -432,6 +428,7 @@ class UpdateManager(private val context: Context) {
             Log.i(TAG, "📦 Sesión de instalación enviada exitosamente (sessionId: $sessionId, forceReinstall=$forceReinstall)")
             true
         } catch (e: Exception) {
+            lastInstallError = "PackageInstaller no pudo iniciar: ${e.message ?: e.javaClass.simpleName}"
             Log.e(TAG, "❌ Error al iniciar instalación silenciosa: ${e.message}", e)
             try { session?.abandon() } catch (_: Exception) {}
             false

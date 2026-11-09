@@ -2,6 +2,7 @@ package com.sybi.mosi.updater
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
@@ -14,6 +15,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.sybi.mosi.R
+import com.sybi.mosi.admin.PermisosAdmin
 import com.sybi.mosi.integration.MosiApiClient
 import com.sybi.mosi.integration.MosiSecureStore
 import kotlinx.coroutines.Dispatchers
@@ -21,11 +23,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Pantalla de actualización ininterrumpida sin botones.
- * Muestra el progreso de descarga de la versión y la barra/anillo de carga.
- * Bloquea la salida o retroceso hasta que la actualización finaliza.
- */
+/** Pantalla protegida que acompaña la descarga, validacion e instalacion del APK. */
 class UpdateActivity : AppCompatActivity() {
 
     companion object {
@@ -37,11 +35,6 @@ class UpdateActivity : AppCompatActivity() {
         const val EXTRA_UPDATE_ID = "extra_update_id"
         const val EXTRA_REQUEST_ID = "extra_request_id"
 
-        /**
-         * @param forceReinstall si es true, permite reinstalar la MISMA versión
-         *        y también instalar versiones ANTERIORES (downgrade).
-         *        Si es false, solo se permite actualizar a una versión más nueva.
-         */
         fun start(
             context: Context,
             downloadUrl: String,
@@ -60,8 +53,8 @@ class UpdateActivity : AppCompatActivity() {
                 putExtra(EXTRA_REQUEST_ID, requestId)
                 addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
                 )
             }
             context.startActivity(intent)
@@ -72,152 +65,234 @@ class UpdateActivity : AppCompatActivity() {
     private lateinit var tvStatus: TextView
     private lateinit var tvVersion: TextView
     private lateinit var tvWarning: TextView
+    private lateinit var tvDetail: TextView
+    private lateinit var tvStepDownload: TextView
+    private lateinit var tvStepVerify: TextView
+    private lateinit var tvStepInstall: TextView
     private lateinit var pbRing: ProgressBar
+    private lateinit var pbLinear: ProgressBar
     private lateinit var updateManager: UpdateManager
 
-    private var downloadUrl: String = ""
-    private var versionTag: String = ""
-    private var forceReinstall: Boolean = false
-    private var sha256: String = ""
-    private var updateId: String = ""
-    private var requestId: String = ""
+    private var downloadUrl = ""
+    private var versionTag = ""
+    private var forceReinstall = false
+    private var sha256 = ""
+    private var updateId = ""
+    private var requestId = ""
+    private var retryCount = 0
+    private var updateRunning = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Mantener la pantalla encendida y sin barras del sistema
         window.addFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN or
-                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         )
-
         setContentView(R.layout.activity_update)
 
         updateManager = UpdateManager(this)
+        readIntent(intent)
+        bindViews()
+        showInitialState()
+        applyThemeColor()
 
-        downloadUrl = intent.getStringExtra(EXTRA_DOWNLOAD_URL) ?: ""
-        versionTag = intent.getStringExtra(EXTRA_VERSION_TAG) ?: "v1.0"
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                Log.d(TAG, "Navegacion bloqueada durante la actualizacion")
+            }
+        })
+        iniciarProcesoActualizacion()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (!updateRunning) {
+            readIntent(intent)
+            showInitialState()
+            iniciarProcesoActualizacion()
+        }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME) return true
+        return super.onKeyDown(keyCode, event)
+    }
+
+    private fun readIntent(intent: Intent) {
+        downloadUrl = intent.getStringExtra(EXTRA_DOWNLOAD_URL).orEmpty()
+        versionTag = intent.getStringExtra(EXTRA_VERSION_TAG) ?: "1.0"
         forceReinstall = intent.getBooleanExtra(EXTRA_FORCE_REINSTALL, false)
         sha256 = intent.getStringExtra(EXTRA_SHA256).orEmpty()
         updateId = intent.getStringExtra(EXTRA_UPDATE_ID).orEmpty()
         requestId = intent.getStringExtra(EXTRA_REQUEST_ID).orEmpty()
+    }
 
+    private fun bindViews() {
         tvPercent = findViewById(R.id.tvUpdatePercent)
         tvStatus = findViewById(R.id.tvUpdateStatus)
         tvVersion = findViewById(R.id.tvUpdateVersion)
         tvWarning = findViewById(R.id.tvUpdateWarning)
+        tvDetail = findViewById(R.id.tvUpdateDetail)
+        tvStepDownload = findViewById(R.id.tvStepDownload)
+        tvStepVerify = findViewById(R.id.tvStepVerify)
+        tvStepInstall = findViewById(R.id.tvStepInstall)
         pbRing = findViewById(R.id.pbUpdateRing)
-
-        tvVersion.text = "Versión $versionTag"
-        tvStatus.text = "Iniciando descarga de actualización..."
-        tvPercent.text = "0%"
-
-        applyThemeColor()
-
-        // Bloquear completamente la tecla o gesto Atrás
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                Log.d(TAG, "Intento de navegación hacia atrás bloqueado durante la actualización")
-            }
-        })
-
-        iniciarProcesoActualizacion()
+        pbLinear = findViewById(R.id.pbUpdateLinear)
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME) {
-            return true
-        }
-        return super.onKeyDown(keyCode, event)
+    private fun showInitialState() {
+        tvVersion.text = "Versión $versionTag"
+        tvStatus.text = "Preparando actualización"
+        tvDetail.text = "Validando el paquete asignado a esta cabina."
+        tvWarning.text = "Mantenga el equipo encendido y conectado a internet."
+        tvWarning.setTextColor(Color.parseColor("#334E68"))
+        tvPercent.text = "0%"
+        pbLinear.progress = 0
+        pbRing.visibility = View.VISIBLE
     }
 
     private fun applyThemeColor() {
-        val prefs = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
-        val savedColorHex = prefs.getString("BackgroundColor", "#0F3E82") ?: "#0F3E82"
-        val themeColor = try {
-            Color.parseColor(savedColorHex)
-        } catch (_: Exception) {
-            Color.parseColor("#0F3E82")
-        }
-
-        pbRing.indeterminateTintList = android.content.res.ColorStateList.valueOf(themeColor)
-        tvPercent.setTextColor(themeColor)
+        val saved = getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+            .getString("BackgroundColor", "#176FA3") ?: "#176FA3"
+        val color = runCatching { Color.parseColor(saved) }.getOrDefault(Color.parseColor("#176FA3"))
+        pbRing.indeterminateTintList = ColorStateList.valueOf(color)
     }
 
     private fun iniciarProcesoActualizacion() {
+        if (updateRunning) return
+        updateRunning = true
         lifecycleScope.launch(Dispatchers.IO) {
             if (downloadUrl.isBlank()) {
                 withContext(Dispatchers.Main) {
-                    tvStatus.text = "Consultando canal de actualizaciones MOSI..."
+                    tvStatus.text = "Buscando actualización"
+                    tvDetail.text = "Consultando el canal seguro de MOSI."
                 }
-                val releases = updateManager.fetchReleases()
-                if (releases.isNotEmpty()) {
-                    downloadUrl = releases[0].downloadUrl
-                    versionTag = releases[0].tagName
-                    sha256 = releases[0].sha256
-                    updateId = releases[0].updateId
-                    requestId = releases[0].requestId
+                val release = updateManager.fetchReleases().firstOrNull()
+                if (release == null) {
                     withContext(Dispatchers.Main) {
-                        tvVersion.text = "Versión $versionTag"
+                        showFailure("No se encontró una actualización disponible.")
                     }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        tvStatus.text = "No hay actualización asignada o no hay conexión"
-                        tvWarning.text = "No se pudo conectar con el servidor. Reintentando en breve..."
-                    }
-                    delay(5000)
-                    iniciarProcesoActualizacion()
+                    updateRunning = false
                     return@launch
                 }
+                downloadUrl = release.downloadUrl
+                versionTag = release.tagName
+                sha256 = release.sha256
+                updateId = release.updateId
+                requestId = release.requestId
+                withContext(Dispatchers.Main) { tvVersion.text = "Versión $versionTag" }
             }
 
-            withContext(Dispatchers.Main) {
-                tvStatus.text = "Descargando actualización..."
-                tvWarning.text = "⚠️ Descargando archivos. Por favor no cierre la app ni apague el equipo."
-            }
-
+            withContext(Dispatchers.Main) { showDownloading() }
             val downloadedFile = updateManager.downloadApk(downloadUrl, sha256) { percent, _, _ ->
                 runOnUiThread {
                     if (percent >= 0) {
-                        tvPercent.visibility = View.VISIBLE
+                        pbLinear.isIndeterminate = false
+                        pbLinear.progress = percent
                         tvPercent.text = "$percent%"
                     } else {
-                        tvPercent.visibility = View.GONE
+                        pbLinear.isIndeterminate = true
+                        tvPercent.text = "--"
                     }
                 }
             }
 
-            if (downloadedFile != null && downloadedFile.exists()) {
-                reportEvent("descarga")
+            if (downloadedFile == null || !downloadedFile.exists()) {
+                handleDownloadFailure()
+                return@launch
+            }
+
+            reportEvent("descarga")
+            withContext(Dispatchers.Main) { showVerifying() }
+            delay(650)
+            withContext(Dispatchers.Main) { showInstalling() }
+
+            MosiSecureStore.guardarActualizacionPendiente(
+                this@UpdateActivity, updateId, versionTag, requestId
+            )
+            val started = updateManager.installApkAuto(downloadedFile, forceReinstall)
+            if (!started) {
+                val detail = updateManager.lastInstallError
+                    ?: "No se pudo iniciar la instalación de Android"
+                reportEvent("error", "$detail; device_owner=${PermisosAdmin.esPropietario(this@UpdateActivity)}")
+                withContext(Dispatchers.Main) { showFailure(detail) }
+                updateRunning = false
+            } else if (!PermisosAdmin.esPropietario(this@UpdateActivity)) {
                 withContext(Dispatchers.Main) {
-                    tvPercent.visibility = View.GONE
-                    tvStatus.text = "Instalando actualización..."
-                    tvWarning.text = "⚙️ Instalando actualización. No cierre la app ni apague el equipo."
-                }
-
-                delay(1000)
-
-                // ✅ Se pasa forceReinstall para permitir reinstalar misma versión y downgrade
-                MosiSecureStore.guardarActualizacionPendiente(this@UpdateActivity, updateId, versionTag, requestId)
-                val exito = updateManager.installApkAuto(downloadedFile, forceReinstall)
-                if (!exito) {
-                    reportEvent(
-                        "error",
-                        updateManager.lastInstallError
-                            ?: "No se pudo iniciar PackageInstaller; device_owner=${com.sybi.mosi.admin.PermisosAdmin.esPropietario(this@UpdateActivity)}"
-                    )
-                    Log.e(TAG, "Error al iniciar el proceso de instalación")
+                    tvStatus.text = "Confirme la instalación"
+                    tvDetail.text = "Android necesita confirmación porque esta cabina no es Device Owner."
+                    tvWarning.text = "Complete la ventana del sistema para continuar."
                 }
             } else {
-                reportEvent("error", "La descarga falló o el SHA-256 no coincide")
                 withContext(Dispatchers.Main) {
-                    tvStatus.text = "❌ Error al descargar el archivo"
-                    tvWarning.text = "Falló la descarga. Reintentando en 5 segundos..."
+                    tvStatus.text = "Aplicando actualización"
+                    tvDetail.text = "El sistema reiniciará MOSI automáticamente."
                 }
-                delay(5000)
-                iniciarProcesoActualizacion()
             }
         }
+    }
+
+    private suspend fun handleDownloadFailure() {
+        reportEvent("error", "La descarga fallo o el SHA-256 no coincide")
+        retryCount++
+        if (retryCount < 3) {
+            withContext(Dispatchers.Main) {
+                tvStatus.text = "Reconectando con el servidor"
+                tvDetail.text = "La descarga se reintentará automáticamente."
+                tvWarning.text = "Intento ${retryCount + 1} de 3. Mantenga la conexión activa."
+            }
+            delay(5000)
+            updateRunning = false
+            iniciarProcesoActualizacion()
+        } else {
+            withContext(Dispatchers.Main) {
+                showFailure("La descarga falló o el archivo no superó la validación de seguridad.")
+            }
+            updateRunning = false
+        }
+    }
+
+    private fun showDownloading() {
+        tvStatus.text = "Descargando actualización"
+        tvDetail.text = "Recibiendo la versión $versionTag desde el canal seguro."
+        tvWarning.text = "Mantenga el equipo encendido y conectado a internet."
+        setSteps(download = "#176FA3", verify = "#9FB3C8", install = "#9FB3C8")
+        pbLinear.progress = 0
+    }
+
+    private fun showVerifying() {
+        tvStatus.text = "Verificando integridad"
+        tvDetail.text = "Validando firma, versión y huella SHA-256."
+        tvWarning.text = "El paquete fue descargado. No apague el equipo."
+        setSteps(download = "#16794A", verify = "#176FA3", install = "#9FB3C8")
+        pbLinear.isIndeterminate = false
+        pbLinear.progress = 100
+        tvPercent.text = "100%"
+    }
+
+    private fun showInstalling() {
+        tvStatus.text = "Instalando actualización"
+        tvDetail.text = "Android está reemplazando la aplicación de forma segura."
+        tvWarning.text = "MOSI se reiniciará automáticamente al finalizar."
+        setSteps(download = "#16794A", verify = "#16794A", install = "#176FA3")
+    }
+
+    private fun showFailure(detail: String) {
+        pbRing.visibility = View.INVISIBLE
+        pbLinear.isIndeterminate = false
+        pbLinear.progress = 0
+        tvStatus.text = "No fue posible actualizar"
+        tvDetail.text = detail
+        tvWarning.text = "Revise la firma del APK, la conexión y el modo Device Owner."
+        tvWarning.setTextColor(Color.parseColor("#B42318"))
+        tvPercent.text = "ERROR"
+    }
+
+    private fun setSteps(download: String, verify: String, install: String) {
+        tvStepDownload.setTextColor(Color.parseColor(download))
+        tvStepVerify.setTextColor(Color.parseColor(verify))
+        tvStepInstall.setTextColor(Color.parseColor(install))
     }
 
     private fun reportEvent(event: String, detail: String? = null) {
