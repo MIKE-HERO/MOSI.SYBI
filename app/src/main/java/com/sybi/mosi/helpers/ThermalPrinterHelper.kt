@@ -1,15 +1,18 @@
-package com.sybi.mosi
+package com.sybi.mosi.helpers
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Matrix
-import android.util.Log
 import android.serialport.api.SerialPort
+import android.text.format.DateFormat
+import android.util.Log
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import com.sybi.mosi.SerialBaudConfig
+import com.sybi.mosi.TestElementsActivity
 import com.sybi.mosi.database.Paciente
 import com.sybi.mosi.database.Resultado
 import java.io.ByteArrayOutputStream
@@ -17,6 +20,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
 import java.nio.charset.Charset
+import java.util.Calendar
+import java.util.Date
 
 object ThermalPrinterHelper {
     private const val TAG = "ThermalPrinterHelper"
@@ -166,7 +171,7 @@ object ThermalPrinterHelper {
             writeLine("Género: $genero")
 
             val fechaHora = r.fecha_medicion.ifBlank {
-                android.text.format.DateFormat.format("dd/MM/yyyy HH:mm", java.util.Date()).toString()
+                DateFormat.format("dd/MM/yyyy HH:mm", Date()).toString()
             }
             writeLine("Fecha/Hora: $fechaHora")
             writeDivider()
@@ -288,7 +293,7 @@ object ThermalPrinterHelper {
             val parts = fechaNacimiento.split("/")
             if (parts.size == 3) {
                 val year = parts[2].toInt()
-                val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                val currentYear = Calendar.getInstance().get(Calendar.YEAR)
                 currentYear - year
             } else -1
         } catch (_: Exception) {
@@ -320,23 +325,17 @@ object ThermalPrinterHelper {
     fun imprimirTestQr(
         context: Context,
         qrContent: String = "Impresión de QR de prueba",
-        invertirOrientacion: Boolean = true
+        invertirOrientacion: Boolean = false
     ): Boolean {
         val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         val enabled = prefs.getBoolean(TestElementsActivity.PREF_DEVICE_THERMAL_PRINTER, true)
-        if (!enabled) {
-            Log.w(TAG, "⚠️ Impresora térmica desactivada en ajustes")
-            return false
-        }
+        if (!enabled) return false
 
         val portPath = prefs.getString("${TestElementsActivity.PREF_DEVICE_THERMAL_PRINTER}_port", "/dev/ttyS1") ?: "/dev/ttyS1"
         val baudRate = SerialBaudConfig.get(prefs, TestElementsActivity.PREF_DEVICE_THERMAL_PRINTER)
 
         val file = File(portPath)
-        if (!file.exists()) {
-            Log.e(TAG, "❌ Puerto de impresora térmica $portPath no existe")
-            return false
-        }
+        if (!file.exists()) return false
 
         var outputStream: OutputStream? = null
         var serialPort: SerialPort? = null
@@ -345,16 +344,11 @@ object ThermalPrinterHelper {
             try {
                 serialPort = SerialPort.getSerialPort(portPath, baudRate)
                 outputStream = serialPort.outputStream
-                Log.d(TAG, "✅ Puerto abierto con SerialPort (modo raw)")
             } catch (e: Throwable) {
-                Log.w(TAG, "⚠️ SerialPort falló (${e.message}), usando FileOutputStream")
                 outputStream = FileOutputStream(file)
             }
 
-            if (outputStream == null) {
-                Log.e(TAG, "❌ No se pudo obtener OutputStream para $portPath")
-                return false
-            }
+            if (outputStream == null) return false
 
             val charset = Charset.forName(CODEPAGE_CHARSET)
 
@@ -370,7 +364,6 @@ object ThermalPrinterHelper {
             val FEED_LINES = byteArrayOf(0x1B, 0x64, 0x04)
             val CUT = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
 
-            // Inicialización limpia
             outputStream.write(INIT)
             outputStream.write(REVERSE_OFF)
             outputStream.write(if (invertirOrientacion) UPSIDE_DOWN_ON else UPSIDE_DOWN_OFF)
@@ -386,50 +379,46 @@ object ThermalPrinterHelper {
                 outputStream.flush()
             }
 
-            // Enviamos los elementos en orden inverso (Pie -> QR -> Título) para que
-            // en la tira impresa el Título quede arriba, el QR en el centro y el Pie abajo.
+            // Función para imprimir el QR nativo
+            fun printNativeQR(data: String) {
+                val dataBytes = data.toByteArray(Charset.forName("UTF-8"))
+                val len = dataBytes.size + 3
+                val pL = (len % 256).toByte()
+                val pH = (len / 256).toByte()
+
+                // 1. Seleccionar modelo de QR (Modelo 2)
+                outputStream.write(byteArrayOf(0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00))
+                // 2. Establecer tamaño del módulo (6 puntos)
+                outputStream.write(byteArrayOf(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06))
+                // 3. Establecer nivel de corrección de errores (M)
+                outputStream.write(byteArrayOf(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x31))
+                // 4. Almacenar los datos del QR
+                outputStream.write(byteArrayOf(0x1D, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30))
+                outputStream.write(dataBytes)
+                // 5. Imprimir el QR almacenado
+                outputStream.write(byteArrayOf(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30))
+                outputStream.flush()
+            }
 
             if (invertirOrientacion) {
-                // --- 1. PIE DE TICKET (Se imprime primero -> queda ABAJO en el papel) ---
                 writeLine("--------------------------------", alignCenter = true)
                 writeLine("Texto QR: $qrContent", alignCenter = true)
                 writeLine("")
-
-                // --- 2. CÓDIGO QR (Se imprime segundo -> queda en el CENTRO del papel) ---
-                val qrBitmap = generarQrBitmap(qrContent, width = 144, height = 144)
-                if (qrBitmap != null) {
-                    val rotatedBitmap = qrBitmap.rotate180()
-                    val columnBytes = bitmapToEscPosColumnBitImage(rotatedBitmap)
-                    outputStream.write(ALIGN_CENTER)
-                    outputStream.flush()
-                    outputStream.writeThrottled(columnBytes, chunkSize = 64, delayMs = 20)
-                    outputStream.flush()
-                    try { Thread.sleep(500) } catch (_: InterruptedException) {}
-                }
-
+                outputStream.write(ALIGN_CENTER); outputStream.flush()
+                printNativeQR(qrContent)
+                try { Thread.sleep(200) } catch (_: InterruptedException) {}
                 writeLine("")
-
-                // --- 3. TÍTULO Y SUBTÍTULO (Se imprime al final -> queda ARRIBA en el papel) ---
                 writeLine("Escanee el siguiente código:", alignCenter = true)
                 writeLine("--- PRUEBA DE CÓDIGO QR ---", bold = true, alignCenter = true)
                 writeLine("")
             } else {
-                // Modo estándar sin inversión
                 writeLine("")
                 writeLine("--- PRUEBA DE CÓDIGO QR ---", bold = true, alignCenter = true)
                 writeLine("Escanee el siguiente código:", alignCenter = true)
                 writeLine("")
-
-                val qrBitmap = generarQrBitmap(qrContent, width = 144, height = 144)
-                if (qrBitmap != null) {
-                    val columnBytes = bitmapToEscPosColumnBitImage(qrBitmap)
-                    outputStream.write(ALIGN_CENTER)
-                    outputStream.flush()
-                    outputStream.writeThrottled(columnBytes, chunkSize = 64, delayMs = 20)
-                    outputStream.flush()
-                    try { Thread.sleep(500) } catch (_: InterruptedException) {}
-                }
-
+                outputStream.write(ALIGN_CENTER); outputStream.flush()
+                printNativeQR(qrContent)
+                try { Thread.sleep(200) } catch (_: InterruptedException) {}
                 writeLine("")
                 writeLine("Texto QR: $qrContent", alignCenter = true)
                 writeLine("--------------------------------", alignCenter = true)
@@ -450,10 +439,9 @@ object ThermalPrinterHelper {
                 try { outputStream.fd.sync() } catch (_: Exception) {}
             }
 
-            Log.i(TAG, "✅ QR de prueba impreso exitosamente en $portPath")
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error imprimiendo QR de prueba: ${e.message}", e)
+            Log.e(TAG, "❌ Error imprimiendo QR: ${e.message}", e)
             return false
         } finally {
             try {
@@ -463,10 +451,7 @@ object ThermalPrinterHelper {
                 }
                 outputStream?.close()
             } catch (_: Exception) {}
-
-            try {
-                serialPort?.close()
-            } catch (_: Exception) {}
+            try { serialPort?.close() } catch (_: Exception) {}
         }
     }
 
@@ -517,60 +502,56 @@ object ThermalPrinterHelper {
     }
 
     /**
-     * Convierte un Bitmap monocromático a comandos ESC * 33 (24-dot Double Density Column Bit Image).
-     * Usa espaciado de línea ajustado a 24/180 de pulgada (ESC 3 24) para eliminar las franjas
-     * blancas horizontales y mantener la proporción cuadrada 1:1 del código QR sin estirarlo.
+     * Convierte un Bitmap a comandos ESC/POS usando ESC * (Column Bit Image) + ESC J (Avance de 8 puntos).
+     * Este método es universal y a prueba de fallos de avance de línea.
      */
     fun bitmapToEscPosColumnBitImage(bitmap: Bitmap): ByteArray {
         val width = bitmap.width
         val height = bitmap.height
         val stream = ByteArrayOutputStream()
 
-        // ESC 3 24 (0x1B 0x33 0x18) -> Ajusta el avance de línea a 24/180 pulgada
-        val SET_LINE_SPACE_24 = byteArrayOf(0x1B, 0x33, 0x18)
-        // ESC 2 (0x1B 0x32) -> Restaura espaciado de línea predeterminado
-        val RESET_LINE_SPACE = byteArrayOf(0x1B, 0x32)
+        val widthBytes = (width + 7) / 8
+        val nL = (widthBytes % 256).toByte()
+        val nH = (widthBytes / 256).toByte()
 
-        stream.write(SET_LINE_SPACE_24)
-
-        val nL = (width % 256).toByte()
-        val nH = (width / 256).toByte()
+        // Comando ESC J: Avanza el papel n/144 de pulgada hacia arriba (imprime y avanza)
+        // Para avanzar 8 puntos (1 byte de alto), usamos 8 (0x08)
+        val FEED_8_DOTS = byteArrayOf(0x1B, 0x4A, 0x08)
 
         var y = 0
         while (y < height) {
-            // Comando ESC * m nL nH (m = 33 / 0x21 para 24-dot double density: 203x203 dpi)
-            stream.write(byteArrayOf(0x1B, 0x2A, 0x21, nL, nH))
+            // Comando ESC * m nL nH (m=0 para 8 puntos de densidad simple)
+            // Usar densidad simple (m=0) es más rápido y seguro para la SP-RMD
+            stream.write(byteArrayOf(0x1B, 0x2A, 0x00, nL, nH))
 
-            for (x in 0 until width) {
-                for (k in 0 until 3) { // 3 bytes por columna (24 puntos verticales)
-                    var b = 0
-                    for (bit in 0 until 8) {
-                        val pixelY = y + k * 8 + bit
-                        if (pixelY < height) {
-                            val pixel = bitmap.getPixel(x, pixelY)
-                            val red = Color.red(pixel)
-                            val green = Color.green(pixel)
-                            val blue = Color.blue(pixel)
-                            val alpha = Color.alpha(pixel)
-                            val isBlack = alpha > 128 && (red + green + blue) / 3 < 128
-                            if (isBlack) {
-                                b = b or (1 shl (7 - bit))
-                            }
+            for (x in 0 until widthBytes) {
+                var b = 0
+                for (bit in 0 until 8) {
+                    val pixelX = x * 8 + bit
+                    if (pixelX < width && (y + bit) < height) {
+                        val pixel = bitmap.getPixel(pixelX, y + bit)
+                        val isBlack = Color.alpha(pixel) > 128 && (Color.red(pixel) + Color.green(pixel) + Color.blue(pixel)) / 3 < 128
+                        if (isBlack) {
+                            b = b or (1 shl (7 - bit))
                         }
                     }
-                    stream.write(b)
                 }
+                stream.write(b)
             }
-            stream.write(0x0A) // Avance de línea ajustado a 24 puntos
-            y += 24
-        }
 
-        stream.write(RESET_LINE_SPACE)
+            // Forzamos el avance del papel 8 puntos (1 byte) para la siguiente tira
+            stream.write(FEED_8_DOTS)
+
+            y += 8
+        }
         return stream.toByteArray()
     }
 
+    // ✅ Esta función ya no se usa, pero la dejo comentada por si la necesitas en el futuro
+    /*
     private fun Bitmap.rotate180(): Bitmap {
         val matrix = Matrix().apply { postRotate(180f) }
         return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
     }
+    */
 }
