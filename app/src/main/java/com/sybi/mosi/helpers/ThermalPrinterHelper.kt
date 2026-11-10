@@ -438,7 +438,7 @@ object ThermalPrinterHelper {
                 writeLine("")
 
                 // ✅ Corregido: Tamaño 192x192 y SIN rotar
-                val qrBitmap = generarQrBitmap(qrContent, width = 192, height = 192)
+                val qrBitmap = generarQrBitmap(qrContent, width = 288, height = 288)
                 if (qrBitmap != null) {
                     outputStream.write(ALIGN_CENTER)
                     outputStream.flush()
@@ -534,7 +534,7 @@ object ThermalPrinterHelper {
     /**
      * Genera un Bitmap con el código QR deseado usando ZXing.
      */
-    fun generarQrBitmap(content: String, width: Int = 192, height: Int = 192): Bitmap? {
+    fun generarQrBitmap(content: String, width: Int = 288, height: Int = 288): Bitmap? {
         return try {
             val hints = mapOf(
                 EncodeHintType.CHARACTER_SET to "UTF-8",
