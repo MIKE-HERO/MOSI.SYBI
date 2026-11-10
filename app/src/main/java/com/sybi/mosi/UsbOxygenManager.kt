@@ -210,34 +210,47 @@ class UsbOxygenManager(private val context: Context) {
         }
     }
 
-    private fun initializeDevice() {
+    private fun initializeDevice(): Boolean {
         // ✅ Enviar comando de inicialización
         val initCommand = byteArrayOf(
             0xAA.toByte(), 0x55, 0x50, 0x03, 0x02, 0x01, 0x00
         )
         initCommand[6] = crc8CheckValue(initCommand, 0, 5).toByte()
 
-        if (bulkWriteEndpoint != null) {
-            val result = usbConnection?.bulkTransfer(
-                bulkWriteEndpoint,
-                initCommand,
-                initCommand.size,
-                1000
-            )
-            Log.d(TAG, "Comando de inicialización enviado, resultado: $result")
+        var initialized = false
+        if (bulkWriteEndpoint != null && usbConnection != null) {
+            val maxRetries = 3
+            for (attempt in 1..maxRetries) {
+                val result = usbConnection?.bulkTransfer(
+                    bulkWriteEndpoint,
+                    initCommand,
+                    initCommand.size,
+                    500
+                )
+                Log.d(TAG, "Comando init intento $attempt, resultado: $result")
 
-            if (result != null && result >= 0) {
-                isDeviceInitialized = true
-                Log.d(TAG, "✅ Dispositivo inicializado correctamente")
-            } else {
-                Log.e(TAG, "❌ Error al inicializar el dispositivo")
-                isDeviceInitialized = false
+                if (result != null && result >= 0) {
+                    isDeviceInitialized = true
+                    initialized = true
+                    Log.d(TAG, "✅ Dispositivo inicializado correctamente")
+                    break
+                }
+                try {
+                    Thread.sleep(100)
+                } catch (e: InterruptedException) {
+                    break
+                }
             }
+        }
+
+        if (!initialized) {
+            Log.e(TAG, "❌ Error al inicializar el dispositivo tras 3 intentos")
+            isDeviceInitialized = false
         }
 
         // Esperar a que el dispositivo se estabilice
         try {
-            Thread.sleep(300)
+            Thread.sleep(200)
         } catch (e: InterruptedException) {
             // Ignorar
         }
@@ -246,6 +259,8 @@ class UsbOxygenManager(private val context: Context) {
         val intent = Intent("USB_DEVICE_STATUS_CHANGED")
         intent.putExtra("connected", isDeviceInitialized)
         LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
+
+        return initialized
     }
 
     fun isDeviceReady(): Boolean {
@@ -267,16 +282,18 @@ class UsbOxygenManager(private val context: Context) {
         return false
     }
 
-    // ✅ CAMBIO CRÍTICO: Corregir la lógica de isReading
+    // ✅ CAMBIO CRÍTICO: Corregir la lógica de isReading y liberación de endpoints USB
     fun startMeasure() {
         Log.d(TAG, "🚀 Iniciando medición de oxímetro...")
 
         isReading = false
+        readThread?.interrupt()
         try {
-            readThread?.join(300)
+            readThread?.join(500)
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
         }
+        readThread = null
 
         // ✅ Ejecutar todo en un hilo de fondo para NO bloquear el main thread
         Thread {
@@ -302,9 +319,16 @@ class UsbOxygenManager(private val context: Context) {
                     return@Thread
                 }
             } else {
-                // Asegurar que al iniciar cada medición se envíe el comando de inicialización y onda
-                initializeDevice()
+                // Asegurar que al iniciar cada medición se envíe el comando de inicialización
+                if (!initializeDevice()) {
+                    Log.w(TAG, "⚠️ initializeDevice() falló, forzando reconexión USB...")
+                    disconnect()
+                    findAndConnectDevice()
+                    waitForDevice(3000)
+                }
             }
+
+            if (!isDeviceReady()) return@Thread
 
             Log.d(TAG, "✅ Dispositivo listo, iniciando lectura...")
 
@@ -312,19 +336,14 @@ class UsbOxygenManager(private val context: Context) {
                 isReading = true
                 val thread = Thread {
                     val buffer = ByteArray(64)
-                    var readCount = 0
                     while (isReading) {
                         try {
-                            if (bulkReadEndpoint != null) {
+                            if (bulkReadEndpoint != null && usbConnection != null) {
                                 val bytesRead = usbConnection?.bulkTransfer(
-                                    bulkReadEndpoint, buffer, buffer.size, 1000
+                                    bulkReadEndpoint, buffer, buffer.size, 200
                                 )
                                 if (bytesRead != null && bytesRead > 0) {
-                                    readCount++
                                     val data = buffer.copyOf(bytesRead)
-                                    val hexString = data.joinToString(" ") { "%02X".format(it) }
-                                    Log.d(TAG, "📥 Datos recibidos #$readCount: $hexString")
-
                                     val oxygenIntent = Intent("OXYGEN_RAW_DATA")
                                     oxygenIntent.putExtra("data", data)
                                     LocalBroadcastManager.getInstance(context).sendBroadcast(oxygenIntent)

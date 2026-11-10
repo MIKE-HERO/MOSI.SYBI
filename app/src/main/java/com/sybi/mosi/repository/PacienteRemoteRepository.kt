@@ -6,6 +6,7 @@ import com.sybi.mosi.DeviceInfoActivity
 import com.sybi.mosi.database.Paciente
 import com.sybi.mosi.network.ConnectivityStatusProvider
 import com.sybi.mosi.network.MedicionesRequest
+import com.sybi.mosi.network.NetworkSpeedHelper
 import com.sybi.mosi.network.RetrofitClient
 import com.sybi.mosi.network.UsuarioWeb
 
@@ -264,10 +265,6 @@ class PacienteRemoteRepository(private val context: Context) {
             Log.d(TAG, "   device_model: ${mediciones.deviceModel}")
             Log.d(TAG, "   Fecha Registro: ${mediciones.fechaRegistro}")
 
-            // ✅ Diagnóstico de conectividad de red y velocidad/estado antes de enviar
-            val conn = ConnectivityStatusProvider.get(context)
-            Log.d(TAG, "🌐 [DIAGNÓSTICO RED] Transporte: ${conn.transport}, WiFi Conectado: ${conn.wifiConnected}, Ethernet Conectado: ${conn.ethernetConnected}, Internet Accesible: ${conn.internetAvailable}, SSID: ${conn.ssid ?: "N/A"}")
-
             // Desglose del payload
             val ecgSizeKb = (mediciones.ecgImg?.length ?: 0) / 1024
             val fotoSizeKb = (mediciones.foto?.length ?: 0) / 1024
@@ -290,59 +287,31 @@ class PacienteRemoteRepository(private val context: Context) {
                 return EnvioMedicionResult(success = false, error = "JSON demasiado grande (>5 MB)")
             }
 
-            // ✅ 1. ANÁLISIS PRE-ENVÍO (Antes de transmitir el payload pesado)
-            val preSendStartTime = System.currentTimeMillis()
-            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
-            val activeNetwork = cm?.activeNetwork
-            val capabilities = activeNetwork?.let { cm.getNetworkCapabilities(it) }
-
-            val downlinkKbps = capabilities?.linkDownstreamBandwidthKbps ?: -1
-            val upstreamKbps = capabilities?.linkUpstreamBandwidthKbps ?: -1
-
-            var preSendLatencyMs = -1L
-            try {
-                val client = okhttp3.OkHttpClient.Builder()
-                    .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
-                    .readTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
-                    .build()
-                val headReq = okhttp3.Request.Builder().url("https://www.sybiml.com/APIRest/Usuario_mosi/public/").head().build()
-                val headStart = System.currentTimeMillis()
-                client.newCall(headReq).execute().use {
-                    preSendLatencyMs = System.currentTimeMillis() - headStart
-                }
-            } catch (e: Exception) {
-                preSendLatencyMs = System.currentTimeMillis() - preSendStartTime
-                Log.w(TAG, "⚠️ [ANÁLISIS PRE-ENVÍO] Error en test de latencia previo: ${e.message}")
-            }
-
-            Log.d(TAG, "📊 [ANÁLISIS PRE-ENVÍO DE RED]")
-            Log.d(TAG, "   • Ancho de banda estimado por OS (Descarga): ${if (downlinkKbps > 0) "%.2f Mbps".format(downlinkKbps / 1000.0) else "No disponible"}")
-            Log.d(TAG, "   • Ancho de banda estimado por OS (Subida): ${if (upstreamKbps > 0) "%.2f Mbps".format(upstreamKbps / 1000.0) else "No disponible"}")
-            Log.d(TAG, "   • Latencia / RTT Pre-envío (Servidor): ${preSendLatencyMs} ms")
-            if (preSendLatencyMs > 1500) {
-                Log.w(TAG, "⚠️ [ANÁLISIS PRE-ENVÍO] Latencia inicial alta (${preSendLatencyMs} ms). Posible congestión en la red antes de transmitir.")
-            }
-
+            val connStatus = ConnectivityStatusProvider.get(context)
             val callStartTime = System.currentTimeMillis()
             val response = RetrofitClient.apiService.registrarMedicion(mediciones)
             val callDuration = System.currentTimeMillis() - callStartTime
 
-            // ✅ Cálculo preciso de la velocidad de subida (throughput) de internet durante el envío
+            // ✅ Cálculo real de velocidad de carga (throughput) de internet durante la transmisión del payload
             val payloadBytes = jsonString.length.toLong()
             val uploadSpeedMbps = if (callDuration > 0) {
                 (payloadBytes * 8.0) / (callDuration / 1000.0) / 1_000_000.0
             } else 0.0
             val uploadSpeedKbps = uploadSpeedMbps * 1000.0
 
-            Log.d(TAG, "📊 [DIAGNÓSTICO DE VELOCIDAD DE INTERNET]")
-            Log.d(TAG, "   • Datos enviados: ~%.2f MB (%d bytes)".format(payloadBytes / 1024.0 / 1024.0, payloadBytes))
-            Log.d(TAG, "   • Tiempo de transferencia: %d ms (%.2f s)".format(callDuration, callDuration / 1000.0))
-            Log.d(TAG, "   • Velocidad de subida estimada: %.2f Mbps (%.1f kbps)".format(uploadSpeedMbps, uploadSpeedKbps))
+            val latenciaServer = NetworkSpeedHelper.medirLatenciaSocket("www.sybiml.com", 443, 2000)
+
+            Log.d(TAG, "📊 [DIAGNÓSTICO RED POST-ENVÍO API]")
+            Log.d(TAG, "   • Datos transmitidos: ~%.2f MB (%d bytes)".format(payloadBytes / 1024.0 / 1024.0, payloadBytes))
+            Log.d(TAG, "   • Tiempo de respuesta HTTP POST: %d ms (%.2f s)".format(callDuration, callDuration / 1000.0))
+            Log.d(TAG, "   • Velocidad real de carga (Upload Speed): %.2f Mbps (%.1f kbps)".format(uploadSpeedMbps, uploadSpeedKbps))
+            Log.d(TAG, "   • Latencia Socket Servidor (www.sybiml.com:443): ${if (latenciaServer >= 0) "$latenciaServer ms" else "Sin respuesta"}")
 
             when {
-                uploadSpeedMbps < 0.5 -> Log.e(TAG, "❌ [DIAGNÓSTICO RED] ⚠️ INTERNET MUY LENTO (< 0.5 Mbps). La lentitud del envío es DEFINITIVAMENTE por la red de internet del quiosco.")
-                uploadSpeedMbps < 2.0 -> Log.w(TAG, "⚠️ [DIAGNÓSTICO RED] ⚠️ INTERNET LENTO (0.5 - 2.0 Mbps). Puede causar timeouts al enviar paquetes pesados con ECG.")
-                else -> Log.d(TAG, "✅ [DIAGNÓSTICO RED] 🚀 Velocidad de internet adecuada (> 2.0 Mbps).")
+                !connStatus.internetAvailable || latenciaServer < 0 -> Log.e(TAG, "❌ [DIAGNÓSTICO RED POST-ENVÍO] ⚠️ CONEXIÓN PERDIDA O SERVIDOR INALCANZABLE.")
+                uploadSpeedMbps < 0.5 -> Log.e(TAG, "❌ [DIAGNÓSTICO RED POST-ENVÍO] ⚠️ VELOCIDAD DE CARGA MUY LENTA (< 0.5 Mbps). La lentitud es por la red del quiosco.")
+                uploadSpeedMbps < 2.0 -> Log.w(TAG, "⚠️ [DIAGNÓSTICO RED POST-ENVÍO] ⚠️ VELOCIDAD DE CARGA LENTA (0.5 - 2.0 Mbps).")
+                else -> Log.d(TAG, "✅ [DIAGNÓSTICO RED POST-ENVÍO] 🚀 Velocidad real de carga adecuada (> 2.0 Mbps).")
             }
 
             Log.d(TAG, "⏱️ [DIAGNÓSTICO API] Tiempo de respuesta HTTP (latencia/duración): ${callDuration} ms")

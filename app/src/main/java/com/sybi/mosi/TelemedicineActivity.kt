@@ -14,9 +14,14 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.sybi.mosi.integration.MosiTelemedicineSession
+import com.sybi.mosi.network.ConnectivityStatusProvider
+import com.sybi.mosi.network.NetworkSpeedHelper
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -47,6 +52,7 @@ class TelemedicineActivity : BaseActivity() {
     private var sessionId: String = UUID.randomUUID().toString()
     private var reportedStart = false
     private var reportedEnd = false
+    private var telemedicinaMonitorJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,6 +105,7 @@ class TelemedicineActivity : BaseActivity() {
     }
 
     override fun onDestroy() {
+        detenerMonitoreoRedTeleconsulta()
         if (isFinishing && !isChangingConfigurations && reportedStart && !reportedEnd) {
             reportedEnd = true
             MosiTelemedicineSession.cancel(this, "La pantalla de telemedicina se cerró sin usar el botón Salir")
@@ -182,6 +189,9 @@ class TelemedicineActivity : BaseActivity() {
         val uri = urlConsulta().toString()
         Log.d(TAG, "🌐 Abriendo consulta en CustomTabs: $uri")
         DailyReportManager.onTelemedicineStarted(this, idUsuarioWeb)
+
+        iniciarMonitoreoRedTeleconsulta()
+
         // efimero=true: cada consulta pide permiso de cámara/mic de nuevo, sin reusar uno
         // guardado de una sesión anterior (ver CustomTabsHelper.openUrl).
         val exito = CustomTabsHelper.openUrl(this, uri, efimero = true)
@@ -191,13 +201,85 @@ class TelemedicineActivity : BaseActivity() {
                 MosiTelemedicineSession.start(this, sessionId)
             }
         } else {
+            detenerMonitoreoRedTeleconsulta()
             MosiTelemedicineSession.error(this, sessionId, "No se encontró un navegador compatible")
             tvEstado.text = "No se pudo abrir la consulta en el navegador."
             Toast.makeText(this, "No se encontró un navegador compatible instalado", Toast.LENGTH_LONG).show()
         }
     }
 
+    private fun iniciarMonitoreoRedTeleconsulta() {
+        telemedicinaMonitorJob?.cancel()
+        telemedicinaMonitorJob = CoroutineScope(Dispatchers.IO).launch {
+            Log.d(TAG, "🚀 [TELECONSULTA] Iniciando diagnóstico continuo de red (Cada 5s) durante la teleconsulta...")
+            var iteracion = 0
+            while (isActive) {
+                try {
+                    iteracion++
+                    val connStatus = ConnectivityStatusProvider.get(applicationContext)
+                    val latenciaServer = NetworkSpeedHelper.medirLatenciaSocket("www.sybiml.com", 443, 2000)
+                    val latenciaDns = NetworkSpeedHelper.medirLatenciaSocket("8.8.8.8", 53, 2000)
+
+                    val estadoCalidad = when {
+                        !connStatus.internetAvailable || (latenciaServer < 0 && latenciaDns < 0) -> "CRÍTICO (SIN INTERNET / SERVIDOR INALCANZABLE)"
+                        latenciaServer > 800 || latenciaDns > 800 -> "DEMASIADO LENTO (LATENCIA ALTA)"
+                        latenciaServer > 400 || latenciaDns > 400 -> "REGULAR"
+                        else -> "ESTABLE / EXCELENTE"
+                    }
+
+                    val transportInfo = buildString {
+                        append(connStatus.transport.uppercase())
+                        if (connStatus.wifiConnected && !connStatus.ssid.isNullOrBlank()) {
+                            append(" (${connStatus.ssid}")
+                            if (connStatus.signalDbm != null) append(", ${connStatus.signalDbm}dBm")
+                            append(")")
+                        }
+                    }
+
+                    val latenciaServerTexto = if (latenciaServer >= 0) "$latenciaServer ms" else "Sin respuesta"
+                    val latenciaDnsTexto = if (latenciaDns >= 0) "$latenciaDns ms" else "Sin respuesta"
+
+                    Log.d(
+                        TAG,
+                        "📊 [DIAGNÓSTICO RED TELECONSULTA #$iteracion (Cada 5s)] " +
+                                "Latencia Servidor API: $latenciaServerTexto | Latencia DNS (8.8.8.8): $latenciaDnsTexto | " +
+                                "Transporte: $transportInfo | " +
+                                "Estado: $estadoCalidad"
+                    )
+
+                    if (!connStatus.internetAvailable || (latenciaServer < 0 && latenciaDns < 0)) {
+                        Log.e(
+                            TAG,
+                            "❌ [DIAGNÓSTICO RED TELECONSULTA] 🚨 CONEXIÓN PERDIDA: Se ha perdido la conexión a internet o al servidor durante la teleconsulta! " +
+                                    "(Latencia Servidor: $latenciaServerTexto, DNS: $latenciaDnsTexto, Transporte: $transportInfo)"
+                        )
+                    } else if (latenciaServer > 800 || latenciaDns > 800) {
+                        Log.w(
+                            TAG,
+                            "⚠️ [DIAGNÓSTICO RED TELECONSULTA] ⚠️ CONEXIÓN DEMASIADO LENTA durante teleconsulta. " +
+                                    "Latencia Servidor: $latenciaServerTexto, DNS: $latenciaDnsTexto. " +
+                                    "Esto provocará congelamiento de imagen, desincronización de audio o desconexión en la videollamada."
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "⚠️ Error en diagnóstico de red de teleconsulta: ${e.message}")
+                }
+
+                delay(5000)
+            }
+        }
+    }
+
+    private fun detenerMonitoreoRedTeleconsulta() {
+        if (telemedicinaMonitorJob != null) {
+            Log.d(TAG, "🛑 [TELECONSULTA] Deteniendo diagnóstico continuo de red de teleconsulta...")
+            telemedicinaMonitorJob?.cancel()
+            telemedicinaMonitorJob = null
+        }
+    }
+
     private fun irAInicio() {
+        detenerMonitoreoRedTeleconsulta()
         if (reportedStart && !reportedEnd) {
             reportedEnd = true
             MosiTelemedicineSession.finish(this)

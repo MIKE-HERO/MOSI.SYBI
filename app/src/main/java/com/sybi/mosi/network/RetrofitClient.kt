@@ -14,6 +14,7 @@ import java.util.concurrent.*
 object RetrofitClient {
 
     private const val BASE_URL = "https://www.sybiml.com/APIRest/Usuario_mosi/public/"
+    private const val API_KEY = "dc5cdc3d48c15c6f1130e72e68ffdec3b0b127000fd0d46584b556cce62f86ba"
     //private const val BASE_URL = "https://desarrollo.sybiml3.com/APIRest/Usuario_mosi/public/"
     private val dnsExecutor: ExecutorService by lazy {
         Executors.newCachedThreadPool { runnable ->
@@ -49,6 +50,7 @@ object RetrofitClient {
             .dns(timeoutDns)
             .addInterceptor { chain ->
                 val requestBuilder = chain.request().newBuilder()
+                    .header("X-Api-Key", API_KEY)
                 val token = MosiSecureStore.token(MosiApp.instance)
                 if (token.isNotBlank()) {
                     requestBuilder.header("Authorization", "Bearer $token")

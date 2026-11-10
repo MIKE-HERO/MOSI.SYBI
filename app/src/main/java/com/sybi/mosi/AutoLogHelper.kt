@@ -97,7 +97,12 @@ object AutoLogHelper {
 
         Log.d(TAG, "🚀 Generando y enviando log automático por $motivo...")
         val config = EmailSender.cargarConfig(context)
-        val archivo = ErrorLogHelper.generarLogDeErrores(context)
+        val tipoLog = when {
+            motivo.contains("Arranque", ignoreCase = true) -> "arranque"
+            motivo.contains("Fin", ignoreCase = true) || motivo.contains("consulta", ignoreCase = true) -> "fin_consulta"
+            else -> "auto"
+        }
+        val archivo = ErrorLogHelper.generarLogDeErrores(context, tipoLog)
 
         if (archivo != null && archivo.exists()) {
             val fechaStr = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())
@@ -112,7 +117,7 @@ object AutoLogHelper {
                     <p>Se adjunta el archivo con el registro de log del quiosco.</p>
                 """.trimIndent(),
                 adjunto = archivo,
-                nombreAdjunto = "mosi_log_auto.log"
+                nombreAdjunto = archivo.name
             )
 
             if (resultado.isSuccess) {

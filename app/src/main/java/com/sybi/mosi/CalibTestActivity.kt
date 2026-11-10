@@ -234,7 +234,7 @@ class CalibTestActivity : BaseActivity() {
         val config = EmailSender.cargarConfig(this)
 
         Thread {
-            val archivo = ErrorLogHelper.generarLogDeErrores(this)
+            val archivo = ErrorLogHelper.generarLogDeErrores(this, "manual")
             val diagRed = com.sybi.mosi.network.NetworkSpeedHelper.obtenerDiagnosticoRedCompleto(this)
 
             val resultado = if (archivo != null) {
@@ -251,7 +251,7 @@ class CalibTestActivity : BaseActivity() {
                         <p>Se adjunta el archivo con el registro de errores del quiosco.</p>
                     """.trimIndent(),
                     adjunto = archivo,
-                    nombreAdjunto = "mosi_errores.log"
+                    nombreAdjunto = archivo.name
                 )
             } else {
                 Result.failure(IllegalStateException("No se pudo generar el archivo de log"))
