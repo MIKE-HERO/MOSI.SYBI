@@ -718,10 +718,6 @@ class MainActivity : BaseActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "Error desregistrando receivers: ${e.message}")
         }
-
-        val intent = Intent("RELEASE_SERIAL_PORTS")
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-        stopService(Intent(this, SerialService::class.java))
     }
 
     // ==========================================

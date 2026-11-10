@@ -37,10 +37,6 @@ class FinConsultaActivity : Activity() {
         // Enviar log automático si está activado
         AutoLogHelper.enviarLogFinConsulta(this)
 
-        // Reiniciar el servicio serial por si la pantalla de telemedicina lo dejó detenido
-        // (es idempotente: onCreate de SerialService reabre todos los puertos).
-        runCatching { startService(Intent(this, SerialService::class.java)) }
-
         // Volver al menú principal limpiando la pila: esto destruye la pantalla de telemedicina
         // (su onDestroy restaura el sonido de VideoLoop) y deja el Custom Tab atrás; como el menú
         // principal es el HOME del quiosco, el navegador no queda a la vista.

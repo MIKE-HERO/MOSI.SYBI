@@ -94,14 +94,6 @@ class TelemedicineActivity : BaseActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             VideoLoopRemote.silenciarMientras(appContext, TAG)
         }
-
-        // SerialService lee los puertos de los sensores de la cabina en hilos propios de forma
-        // continua (sondeo cada 20ms por puerto, no es solo espera pasiva) -- ese dato no se usa
-        // durante la consulta, solo se manda después, así que se detiene mientras dure la llamada
-        // para no competirle CPU a Firefox en una tablet de 2GB. onCreate() de SerialService
-        // reabre todos los puertos solo con que se vuelva a arrancar el servicio, así que es
-        // seguro parar/reiniciar en cada entrada/salida de esta pantalla.
-        stopService(Intent(this, SerialService::class.java))
     }
 
     override fun onDestroy() {
@@ -114,7 +106,6 @@ class TelemedicineActivity : BaseActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             VideoLoopRemote.restaurarSilencio(appContext, TAG)
         }
-        startService(Intent(this, SerialService::class.java))
         super.onDestroy()
     }
 

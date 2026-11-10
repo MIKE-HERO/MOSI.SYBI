@@ -203,8 +203,6 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
             getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE).edit().clear().apply()
         }
 
-        runCatching { startService(Intent(this, SerialService::class.java)) }
-
         readPatientIntent()
         bindViews()
         setupManagers()
@@ -1984,6 +1982,11 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         ecgManager.onResume()
         updateButtonVisibility()
         checkLastMeasurement()
+
+        // ═══ Asegurar que SerialService esté vivo y sus hilos activos ═══
+        // NO detenemos hilos aquí; solo verificamos/arrancamos si faltan.
+        LocalBroadcastManager.getInstance(this).sendBroadcast(Intent("QUERY_CONNECTED_DEVICES"))
+        LocalBroadcastManager.getInstance(this).sendBroadcast(Intent("START_SERIAL_READING"))
 
         // ═══ FIX: si hay un ECG pendiente y estamos en la pestaña ECG,
         //          reanudar watchdog Y forzar búsqueda inmediata del resultado.

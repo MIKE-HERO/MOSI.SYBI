@@ -144,6 +144,7 @@ class UsbOxygenManager(private val context: Context) {
     }
 
     private fun connectToDevice(device: UsbDevice) {
+        Log.d(TAG, "🔌 [USB] connectToDevice() — thread=${Thread.currentThread().name}")
         usbDevice = device
         bulkReadEndpoint = null
         bulkWriteEndpoint = null
@@ -179,8 +180,22 @@ class UsbOxygenManager(private val context: Context) {
         }
         usbConnection = connection
 
-        if (usbInterface != null && !connection.claimInterface(usbInterface, true)) {
-            Log.e(TAG, "❌ No se pudo reclamar la interfaz")
+        var claimed = false
+        if (usbInterface != null) {
+            for (attempt in 1..3) {
+                try {
+                    if (connection.claimInterface(usbInterface, true)) {
+                        claimed = true
+                        break
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "⚠️ Intento $attempt reclamo de interfaz USB falló: ${e.message}")
+                }
+                try { Thread.sleep(100) } catch (_: InterruptedException) {}
+            }
+        }
+        if (!claimed && usbInterface != null) {
+            Log.e(TAG, "❌ No se pudo reclamar la interfaz tras 3 intentos")
             return
         }
 
@@ -319,12 +334,20 @@ class UsbOxygenManager(private val context: Context) {
                     return@Thread
                 }
             } else {
-                // Asegurar que al iniciar cada medición se envíe el comando de inicialización
+                // Asegurar que al iniciar cada medición se envíe el comando de inicialización.
+                // ⚠️ NO desconectar aquí: eso reproduce el ciclo abrir/cerrar USB que queremos evitar.
+                //    Si falla, reintentar initializeDevice() UNA vez sin soltar la conexión.
                 if (!initializeDevice()) {
-                    Log.w(TAG, "⚠️ initializeDevice() falló, forzando reconexión USB...")
-                    disconnect()
-                    findAndConnectDevice()
-                    waitForDevice(3000)
+                    Log.w(TAG, "⚠️ initializeDevice() falló; reintentando UNA vez sin desconectar...")
+                    try { Thread.sleep(150) } catch (_: InterruptedException) {}
+                    if (!initializeDevice()) {
+                        Log.e(TAG, "❌ initializeDevice() falló dos veces; abandono esta medición")
+                        val failIntent = Intent("USB_DEVICE_STATUS_CHANGED")
+                        failIntent.putExtra("connected", false)
+                        failIntent.putExtra("error", "init_failed")
+                        LocalBroadcastManager.getInstance(context).sendBroadcast(failIntent)
+                        return@Thread
+                    }
                 }
             }
 
@@ -430,6 +453,7 @@ class UsbOxygenManager(private val context: Context) {
     }
 
     fun disconnect() {
+        Log.d(TAG, "🔌 [USB] disconnect() — thread=${Thread.currentThread().name}")
         isReading = false
         readThread?.interrupt()
         try {

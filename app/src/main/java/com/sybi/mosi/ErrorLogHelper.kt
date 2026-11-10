@@ -43,10 +43,11 @@ object ErrorLogHelper {
             val lineas = proceso.inputStream.bufferedReader().readLines()
             proceso.waitFor()
 
-            // Filtrar líneas de sistema 'chatty' y 'expire' que ensucian el log
+            // Filtrar líneas de sistema ('chatty', 'expire') y ruido de memoria de ART
             val lineasUtiles = lineas.filter { linea ->
                 !linea.contains("chatty", ignoreCase = true) &&
-                !linea.contains(" expire ", ignoreCase = true)
+                        !linea.contains(" expire ", ignoreCase = true) &&
+                        !linea.contains(" art     :") // 🚫 Excluye logs internos de memoria (GC, JitCodeCache)
             }
 
             val recientes = if (lineasUtiles.size > MAX_LINEAS) lineasUtiles.takeLast(MAX_LINEAS) else lineasUtiles

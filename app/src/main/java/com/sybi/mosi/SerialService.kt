@@ -144,6 +144,24 @@ class SerialService : Service() {
         }
         registerLocalReceiver(releaseReceiver, IntentFilter("RELEASE_SERIAL_PORTS"))
 
+        val startReadingReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == "START_SERIAL_READING") {
+                    startReading()
+                }
+            }
+        }
+        registerLocalReceiver(startReadingReceiver, IntentFilter("START_SERIAL_READING"))
+
+        val stopReadingReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action == "STOP_SERIAL_READING") {
+                    stopReading()
+                }
+            }
+        }
+        registerLocalReceiver(stopReadingReceiver, IntentFilter("STOP_SERIAL_READING"))
+
         val oxygenDataReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == "OXYGEN_RAW_DATA") {
@@ -461,7 +479,7 @@ class SerialService : Service() {
     }
 
     private fun startReadingLoop(portPath: String) {
-        if (isReadingActive.containsKey(portPath) && isReadingActive[portPath] == true) {
+        if (isReadingActive[portPath] == true && readingThreads[portPath]?.isAlive == true) {
             return
         }
 
@@ -472,8 +490,11 @@ class SerialService : Service() {
         val myStream = openStreams[portPath] ?: return
 
         // Los bytes se juntan en tramas completas antes de interpretarlos (ver SerialFrameAssembler)
-        val assembler = SerialFrameAssembler(frameScheduler) { burst -> processBurst(portPath, burst) }
-        assemblers[portPath] = assembler
+        var assembler = assemblers[portPath]
+        if (assembler == null) {
+            assembler = SerialFrameAssembler(frameScheduler) { burst -> processBurst(portPath, burst) }
+            assemblers[portPath] = assembler
+        }
 
         val thread = Thread {
             // Alta prioridad de hilo para responder instantáneamente al puerto serie
@@ -576,34 +597,58 @@ class SerialService : Service() {
 
     fun sendReadCommand(commandType: String) {
         Log.d(TAG, "📨 sendReadCommand: $commandType")
+        val prefs = getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
 
         when (commandType) {
             "ALTURA_PESO" -> {
-                val outStream = openOutStreams[alturaPesoPortPath]
+                var outStream = openOutStreams[alturaPesoPortPath]
+                if (outStream == null) {
+                    Log.w(TAG, "⚠️ Stream de Altura/Peso ausente; reintentando apertura")
+                    if (alturaPesoPortPath.isNotEmpty() &&
+                        openPortInternalSimple(alturaPesoPortPath, SerialBaudConfig.get(prefs, "device_altura_peso"))) {
+                        if (!activePorts.contains(alturaPesoPortPath)) activePorts.add(alturaPesoPortPath)
+                        outStream = openOutStreams[alturaPesoPortPath]
+                    }
+                }
                 if (outStream != null) {
-                    // Cada medición empieza en limpio: si no, una altura o peso de la medición anterior
-                    // (u otro paciente) se mostraba cuando la trama nueva no llegaba.
                     hwFatHelper.resetAlturaPesoResults()
                     hwFatHelper.sendAlturaPesoCommand(outStream, alturaPesoPortPath)
                 } else {
-                    Log.e(TAG, "❌ No hay stream para Altura/Peso")
+                    Log.e(TAG, "❌ No hay stream para Altura/Peso tras reintento")
                 }
             }
             "COMPOSICION" -> {
-                val outStream = openOutStreams[alturaPesoPortPath]
+                var outStream = openOutStreams[alturaPesoPortPath]
+                if (outStream == null) {
+                    Log.w(TAG, "⚠️ Stream de Composición ausente; reintentando apertura")
+                    if (alturaPesoPortPath.isNotEmpty() &&
+                        openPortInternalSimple(alturaPesoPortPath, SerialBaudConfig.get(prefs, "device_altura_peso"))) {
+                        if (!activePorts.contains(alturaPesoPortPath)) activePorts.add(alturaPesoPortPath)
+                        outStream = openOutStreams[alturaPesoPortPath]
+                    }
+                }
                 if (outStream != null) {
                     hwFatHelper.sendComposicionCommand(outStream, alturaPesoPortPath)
                 } else {
-                    Log.e(TAG, "❌ No hay stream para Composición")
+                    Log.e(TAG, "❌ No hay stream para Composición tras reintento")
                 }
             }
             "TEMPERATURA" -> {
                 temperHelper.resetAllResults()
                 Log.d(TAG, "Termómetro: esperando datos...")
+                // Fallback: si el puerto no está abierto, intentar abrirlo
+                if (temperaturaPortPath.isNotEmpty() && !openStreams.containsKey(temperaturaPortPath)) {
+                    Log.w(TAG, "⚠️ Puerto de Temperatura ausente; reintentando apertura")
+                    openPortInternalSimple(temperaturaPortPath, SerialBaudConfig.get(prefs, "device_temperatura"))
+                }
             }
             "PRESION" -> {
                 pressureHelper.resetAllResults()
                 Log.d(TAG, "Presión: esperando datos...")
+                if (presionPortPath.isNotEmpty() && !openStreams.containsKey(presionPortPath)) {
+                    Log.w(TAG, "⚠️ Puerto de Presión ausente; reintentando apertura")
+                    openPortInternalSimple(presionPortPath, SerialBaudConfig.get(prefs, "device_presion"))
+                }
             }
             "OXIGENO" -> {
                 oxigenHelper.resetAllResults()
@@ -650,11 +695,37 @@ class SerialService : Service() {
         sendConnectedDevicesResponse()
     }
 
+    fun startReading() {
+        if (destroyed) return
+        Log.d(TAG, "▶️ Iniciando lectura en puertos seriales...")
+        for (portPath in openStreams.keys) {
+            startReadingLoop(portPath)
+        }
+    }
+
+    /**
+     * ⚠️ IMPORTANTE: NO llamar desde Activities de medición (MeasurementActivity, ResultsActivity,
+     * TelemedicineActivity, etc.). Los hilos de lectura deben permanecer activos mientras viva el
+     * servicio porque:
+     *   1. MainActivity depende de la trama de la báscula (ACTION_SCALE_STEP / SERIAL_RAW_DATA)
+     *      para detectar la pisada y abrir LoginActivity.
+     *   2. El consumo de CPU de un hilo bloqueado en read() es ~0%.
+     * Solo llamar desde onDestroy() del servicio (vía releaseAllPorts() o directamente).
+     */
+    fun stopReading() {
+        Log.d(TAG, "⏹️ Deteniendo hilos de lectura en puertos seriales (descriptores permanecen abiertos)...")
+        for (portPath in openStreams.keys) {
+            isReadingActive[portPath] = false
+            readingThreads[portPath]?.interrupt()
+        }
+        readingThreads.clear()
+    }
+
     fun releaseAllPorts() {
-        Log.i(TAG, "📤 Liberando todos los puertos seriales...")
-        closeAllPorts()
+        Log.i(TAG, "⏹️ Pausando hilos de lectura en puertos seriales (puertos permanecen abiertos)...")
+        stopReading()
         sendConnectedDevicesResponse()
-        Log.i(TAG, "✅ Puertos liberados correctamente")
+        Log.i(TAG, "✅ Lectura pausada correctamente")
     }
 
     private fun bytesToHex(bytes: ByteArray): String {
