@@ -28,8 +28,20 @@ class MedicionesSender(private val context: Context) {
 
     /**
      * Construye un MedicionesRequest desde ResultsPrefs (envío en vivo).
+     *
+     * Instrumentado: en un RK3288 el coste de armar la petición (leer el Base64
+     * del ECG desde SharedPreferences, recomprimir la foto del paciente, armar
+     * ~100 campos) se paga ANTES de que empiece el envío y hasta ahora no se
+     * medía, así que se confundía con lentitud de red.
      */
     suspend fun buildFromPrefs(idUsuarioWeb: Int, idLocal: Long): MedicionesRequest {
+        val inicio = System.currentTimeMillis()
+        val peticion = buildFromPrefsInterno(idUsuarioWeb, idLocal)
+        Log.d(TAG, "⏱️ [DIAGNÓSTICO PREPARACIÓN] buildFromPrefs (envío en vivo): ${System.currentTimeMillis() - inicio} ms")
+        return peticion
+    }
+
+    private suspend fun buildFromPrefsInterno(idUsuarioWeb: Int, idLocal: Long): MedicionesRequest {
         val prefs = context.getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE)
         val devicePrefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
 
@@ -141,6 +153,13 @@ class MedicionesSender(private val context: Context) {
      * Lee el JPG original y lo pasa a Base64 SIN recomprimir.
      */
     suspend fun buildFromResultado(r: Resultado, overrideIdUsuarioWeb: Int = 0): MedicionesRequest {
+        val inicio = System.currentTimeMillis()
+        val peticion = buildFromResultadoInterno(r, overrideIdUsuarioWeb)
+        Log.d(TAG, "⏱️ [DIAGNÓSTICO PREPARACIÓN] buildFromResultado (reenvío): ${System.currentTimeMillis() - inicio} ms")
+        return peticion
+    }
+
+    private suspend fun buildFromResultadoInterno(r: Resultado, overrideIdUsuarioWeb: Int = 0): MedicionesRequest {
         val devicePrefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
         val modelo = devicePrefs.getString("device_model_custom", "") ?: ""
         val serie = devicePrefs.getString("device_serial_custom", "") ?: ""
