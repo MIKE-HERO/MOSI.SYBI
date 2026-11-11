@@ -34,6 +34,13 @@ class ResultsActivity : BaseActivity() {
 
     companion object {
         private const val TAG = "ResultsActivity"
+
+        // Presupuesto total para enviar las mediciones, incluidos los
+        // reintentos internos de PacienteRemoteRepository.enviarMediciones
+        // (hasta 3 POST más 2.4 s de respaldo escalonado). Se alinea con el
+        // callTimeout de 60 s de RetrofitClient. Antes eran 30 s POR intento
+        // de un bucle de 3, es decir hasta 94 s de espera para el paciente.
+        private const val TIMEOUT_ENVIO_MS = 60_000L
         // ✅ CAMBIO MODO INVITADO: id_usuario_web fijo usado en modo invitado
         //    para armar la URL de la consulta.
         private const val ID_USUARIO_WEB_INVITADO = 4721085
@@ -397,35 +404,47 @@ class ResultsActivity : BaseActivity() {
                 }
             }
 
-            val maxIntentos = 3
+            // ════════════════════════════════════════════════════════════════
+            // UN SOLO NIVEL DE REINTENTO
+            // ════════════════════════════════════════════════════════════════
+            // El reintento vive en PacienteRemoteRepository.enviarMediciones,
+            // que es el único punto con la información necesaria para decidir
+            // qué fallos se pueden repetir sin riesgo.
+            //
+            // Aquí había un segundo bucle de 3 intentos que:
+            //  1. Los multiplicaba: 3 externos x 3 internos = hasta 9 POST del
+            //     mismo payload, con el ECG en PNG + Base64 que eso implica.
+            //  2. Reintentaba CUALQUIER fallo, incluidos los timeouts de
+            //     lectura. Ese es justo el caso en que el backend puede haber
+            //     recibido y guardado ya la medición: como MedicionesRequest no
+            //     lleva clave de idempotencia (recordID va fijo en "0"), el
+            //     reintento creaba un registro duplicado del paciente. El
+            //     filtro de esSeguroReintentar() quedaba anulado por este bucle.
+            //  3. Consumía del presupuesto de tiempo: 3 x 30 s más dos pausas
+            //     de 2 s son hasta 94 s de "Enviando resultados..." en pantalla.
+            //
+            // El reintento a discreción del operador sigue disponible en
+            // btnRetryUpload, que es el lugar correcto para decidirlo.
             var exito = false
 
-            for (intento in 1..maxIntentos) {
-                try {
-                    Log.d(TAG, "📤 Enviando mediciones (Intento $intento/$maxIntentos)...")
-                    Log.d(TAG, "   id_UsuarioWeb: $idUsuarioWeb")
+            try {
+                Log.d(TAG, "📤 Enviando mediciones...")
+                Log.d(TAG, "   id_UsuarioWeb: $idUsuarioWeb")
 
-                    // ✅ Timeout de 30 segundos por intento (para cargas de ~1MB con ECG)
-                    val resultadoEnvio = runBlocking {
-                        withTimeoutOrNull(30_000L) {
-                            sender.enviar(requestData)
-                        }
+                val resultadoEnvio = runBlocking {
+                    withTimeoutOrNull(TIMEOUT_ENVIO_MS) {
+                        sender.enviar(requestData)
                     }
-
-                    if (resultadoEnvio?.success == true) {
-                        exito = true
-                        Log.d(TAG, "✅ Envío exitoso en el intento $intento")
-                        break
-                    } else {
-                        Log.w(TAG, "⚠️ Intento $intento falló o tardó más de 10s sin confirmación.")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "❌ Excepción en intento $intento: ${e.message}", e)
                 }
 
-                if (intento < maxIntentos) {
-                    Thread.sleep(2000L) // Pausa de 2s antes de reintentar
+                exito = resultadoEnvio?.success == true
+                when {
+                    exito -> Log.d(TAG, "✅ Envío exitoso")
+                    resultadoEnvio == null -> Log.w(TAG, "⚠️ El envío superó el presupuesto de ${TIMEOUT_ENVIO_MS / 1000}s sin confirmación.")
+                    else -> Log.w(TAG, "⚠️ El envío falló: ${resultadoEnvio.error}")
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Excepción enviando mediciones: ${e.message}", e)
             }
 
             uiHandler.post {
