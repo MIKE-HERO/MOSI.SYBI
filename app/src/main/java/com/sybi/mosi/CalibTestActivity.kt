@@ -242,11 +242,16 @@ class CalibTestActivity : BaseActivity() {
 
     private fun enviarLogPorCorreo(destino: String) {
         btnSendLog.isEnabled = false
-        btnSendLog.text = "Enviando..."
+        btnSendLog.text = "Midiendo y enviando..."
+        Toast.makeText(this, "Ejecutando test de velocidad y generando log...", Toast.LENGTH_SHORT).show()
 
         val config = EmailSender.cargarConfig(this)
 
         Thread {
+            // 1. Ejecutar test de velocidad actualizado en tiempo real antes de generar el log
+            AutoLogHelper.ejecutarYGuardarTestVelocidad()
+
+            // 2. Generar el log con la información fresca de red, velocidad, sybiml y puertos
             val archivo = ErrorLogHelper.generarLogDeErrores(this, "manual")
             val diagRed = com.sybi.mosi.network.NetworkSpeedHelper.obtenerDiagnosticoRedCompleto(this)
 
@@ -261,7 +266,7 @@ class CalibTestActivity : BaseActivity() {
                             <b>Diagnóstico de Red y Velocidad de Internet:</b><br/>
                             <pre>$diagRed</pre>
                         </div>
-                        <p>Se adjunta el archivo con el registro de errores del quiosco.</p>
+                        <p>Se adjunta el archivo con el registro de errores del quiosco con diagnósticos actualizados al momento de envío.</p>
                     """.trimIndent(),
                     adjunto = archivo,
                     nombreAdjunto = archivo.name
@@ -272,9 +277,9 @@ class CalibTestActivity : BaseActivity() {
 
             runOnUiThread {
                 btnSendLog.isEnabled = true
-                btnSendLog.text = "Enviar"
+                btnSendLog.text = "Enviar log"
                 if (resultado.isSuccess) {
-                    Toast.makeText(this, "Log enviado a $destino", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Log enviado a $destino con diagnósticos en tiempo real", Toast.LENGTH_LONG).show()
                 } else {
                     Toast.makeText(
                         this,

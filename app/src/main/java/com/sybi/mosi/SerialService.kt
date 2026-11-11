@@ -74,6 +74,7 @@ class SerialService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         Log.i(TAG, "Servicio Serial iniciado")
 
         // Inicializar helpers
@@ -797,6 +798,7 @@ class SerialService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        instance = null
         destroyed = true
         // Dar de baja todos los receptores: si no, esta instancia sigue viva recibiendo órdenes
         val lbm = LocalBroadcastManager.getInstance(this)
@@ -807,5 +809,72 @@ class SerialService : Service() {
         closeAllPorts()
         frameScheduler.shutdownNow()
         Log.i(TAG, "Servicio destruido")
+    }
+
+    companion object {
+        @Volatile
+        private var instance: SerialService? = null
+
+        fun isPortOpen(portPath: String): Boolean {
+            return instance?.openStreams?.containsKey(portPath) == true
+        }
+
+        fun obtenerEstadoPuertos(context: Context): String {
+            val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+            val sb = StringBuilder()
+
+            data class DeviceSpec(val nombre: String, val prefKey: String, val defaultBaud: Int)
+            val dispositivos = listOf(
+                DeviceSpec("Báscula (Altura/Peso)", "device_altura_peso", 9600),
+                DeviceSpec("Baumanómetro (Presión)", "device_presion", 9600),
+                DeviceSpec("Termómetro (Temperatura)", "device_temperatura", 9600),
+                DeviceSpec("Lector Tarjeta IC", "device_ic_card", 9600),
+                DeviceSpec("Impresora Térmica", "device_thermal_printer", 115200)
+            )
+
+            for (dev in dispositivos) {
+                val enabled = prefs.getBoolean(dev.prefKey, true)
+                val portPath = prefs.getString("${dev.prefKey}_port", "") ?: ""
+                val baud = SerialBaudConfig.get(prefs, dev.prefKey)
+
+                sb.append("• ${dev.nombre}: ")
+                if (!enabled) {
+                    sb.appendLine("DESHABILITADO")
+                    continue
+                }
+                if (portPath.isBlank() || portPath == "No se encontraron puertos") {
+                    sb.appendLine("NO CONFIGURADO")
+                    continue
+                }
+
+                val existe = try { File(portPath).exists() } catch (_: Exception) { false }
+                val abierto = isPortOpen(portPath)
+
+                val estado = when {
+                    abierto -> "ABIERTO (OK)"
+                    existe -> "PUERTO DETECTADO (NO ABIERTO)"
+                    else -> "ERROR (Puerto no encontrado: $portPath)"
+                }
+                sb.appendLine("$portPath @ $baud baud → $estado")
+            }
+
+            // Oxímetro USB
+            val oxigenoEnabled = prefs.getBoolean("device_oxigeno", true)
+            sb.append("• Oxímetro (USB): ")
+            if (!oxigenoEnabled) {
+                sb.appendLine("DESHABILITADO")
+            } else {
+                val ready = UsbOxygenManager.isDeviceReady()
+                val present = UsbOxygenManager.isDevicePresent(context)
+                val estadoOx = when {
+                    ready -> "CONECTADO Y LISTO (OK)"
+                    present -> "DETECTADO EN USB (INICIALIZANDO)"
+                    else -> "NO DETECTADO / DESCONECTADO"
+                }
+                sb.appendLine("PL2303 USB @ 38400 baud → $estadoOx")
+            }
+
+            return sb.toString().trimEnd()
+        }
     }
 }

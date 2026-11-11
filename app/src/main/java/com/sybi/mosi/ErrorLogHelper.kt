@@ -110,6 +110,8 @@ object ErrorLogHelper {
 
             val contexto = ContextoQuiosco.resolver(context, cliente, sucursal, cabina)
 
+            val incluirResumen = tipoLog.equals("arranque", ignoreCase = true) || tipoLog.equals("manual", ignoreCase = true)
+
             val encabezado = buildString {
                 appendLine("=== Log completo — Quiosco MOSI ===")
                 appendLine("Generado: ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}")
@@ -122,6 +124,30 @@ object ErrorLogHelper {
                 appendLine("Ubicación: ${archivo.absolutePath}")
                 appendLine("=======================================")
                 appendLine()
+
+                if (incluirResumen) {
+                    val resumenRed = AutoLogHelper.obtenerResumenRedYVelocidad(context)
+                    val resumenServicioWeb = AutoLogHelper.obtenerResumenServicioWeb()
+                    val resumenPuertos = SerialService.obtenerEstadoPuertos(context)
+
+                    val tituloResumen = if (tipoLog.equals("arranque", ignoreCase = true)) {
+                        "--- RESUMEN DE DIAGNÓSTICO AL ARRANQUE ---"
+                    } else {
+                        "--- RESUMEN DE DIAGNÓSTICO ---"
+                    }
+
+                    appendLine(tituloResumen)
+                    appendLine("[RED E INTERNET]")
+                    appendLine(resumenRed)
+                    appendLine()
+                    appendLine("[SERVICIO WEB Y API REST]")
+                    appendLine(resumenServicioWeb)
+                    appendLine()
+                    appendLine("[PUERTOS SERIALES Y DISPOSITIVOS]")
+                    appendLine(resumenPuertos)
+                    appendLine("=======================================")
+                    appendLine()
+                }
             }
 
             val cuerpo = if (recientes.isEmpty())

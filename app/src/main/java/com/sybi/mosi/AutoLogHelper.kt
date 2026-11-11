@@ -37,6 +37,11 @@ object AutoLogHelper {
     // Tiempo de espera para el log de arranque (5 minutos = 300,000 ms)
     private const val STARTUP_LOG_DELAY_MS = 5 * 60 * 1000L
 
+    @Volatile
+    private var testVelocidadArranque: SpeedTestHelper.ResultadoSpeedTest? = null
+    @Volatile
+    private var testVelocidadEnProgreso = false
+
     fun isAutoLogEnabled(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         return prefs.getBoolean(PREF_KEY_AUTO_LOG, false)
@@ -50,18 +55,124 @@ object AutoLogHelper {
 
     /**
      * Programar el envío de log automático de arranque a los 5 minutos del inicio de la app.
+     * Inicia inmediatamente el test de velocidad de internet en segundo plano.
      * Es seguro llamarlo en MosiApp u onCreate de MainActivity (solo se programa una vez por proceso).
      */
     fun programarLogArranque(context: Context) {
         if (startupScheduled.getAndSet(true)) return
 
         val appContext = context.applicationContext
+
+        // Iniciar test de velocidad automático al arrancar la app
+        ejecutarTestVelocidadArranque()
+
         Handler(Looper.getMainLooper()).postDelayed({
             executor.execute {
                 enviarLogSiCorresponde(appContext, "Arranque de la aplicación (5 min)")
             }
         }, STARTUP_LOG_DELAY_MS)
-        Log.d(TAG, "⏰ Programado envío de log de arranque en ${STARTUP_LOG_DELAY_MS / 1000}s")
+        Log.d(TAG, "⏰ Programado envío de log de arranque en ${STARTUP_LOG_DELAY_MS / 1000}s con test de velocidad automático.")
+    }
+
+    private fun ejecutarTestVelocidadArranque() {
+        if (testVelocidadEnProgreso) return
+        testVelocidadEnProgreso = true
+        executor.execute {
+            try {
+                Log.d(TAG, "🌐 Ejecutando test de velocidad automático de arranque...")
+                val resultado = kotlinx.coroutines.runBlocking {
+                    SpeedTestHelper.ejecutarTest()
+                }
+                testVelocidadArranque = resultado
+                Log.d(TAG, "✅ Test de velocidad de arranque completado:\n${resultado.resumenTexto()}")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error en test de velocidad de arranque: ${e.message}")
+            } finally {
+                testVelocidadEnProgreso = false
+            }
+        }
+    }
+
+    /**
+     * Ejecuta síncronamente un test de velocidad y actualiza los resultados guardados.
+     * Útil para logs manuales donde se requiere información en tiempo real.
+     */
+    fun ejecutarYGuardarTestVelocidad(): SpeedTestHelper.ResultadoSpeedTest = kotlinx.coroutines.runBlocking {
+        Log.d(TAG, "🌐 Ejecutando test de velocidad actualizado para log manual...")
+        val resultado = SpeedTestHelper.ejecutarTest()
+        testVelocidadArranque = resultado
+        resultado
+    }
+
+    /**
+     * Obtiene el estado de la red e internet junto con los resultados del test de velocidad
+     * ejecutado al arranque para incluirlo en el resumen del log.
+     */
+    fun obtenerResumenRedYVelocidad(context: Context): String {
+        val status = com.sybi.mosi.network.ConnectivityStatusProvider.get(context)
+        val sb = StringBuilder()
+
+        val redTipo = when {
+            status.ethernetConnected -> "ETHERNET"
+            status.wifiConnected -> "WIFI${if (status.ssid != null) " (${status.ssid})" else ""}"
+            else -> "SIN CONEXIÓN (NINGUNA)"
+        }
+        sb.appendLine("Tipo de conexión: $redTipo")
+        if (status.wifiConnected && status.signalDbm != null) {
+            sb.appendLine("Señal WiFi: ${status.signalDbm} dBm (Nivel ${status.signalLevel ?: 0}/4)")
+        }
+        sb.appendLine("Acceso a Internet (Validado): ${if (status.internetAvailable) "SÍ" else "NO"}")
+        if (status.interfaceName != null || status.localIp != null) {
+            sb.appendLine("Interfaz local: ${status.interfaceName ?: "N/A"} (${status.localIp ?: "N/A"})")
+        }
+
+        val test = testVelocidadArranque
+        if (test != null) {
+            sb.appendLine("IP pública: ${test.ipPublica ?: "No disponible"}")
+            sb.appendLine("Latencia: ${test.latenciaMs?.let { "$it ms" } ?: "No disponible"}")
+            sb.appendLine("Bajada: ${test.bajadaMbps?.let { String.format(Locale.US, "%.2f Mbps", it) } ?: "No disponible"}")
+            sb.appendLine("Subida: ${test.subidaMbps?.let { String.format(Locale.US, "%.2f Mbps", it) } ?: "No disponible"}")
+            if (test.error != null) {
+                sb.appendLine("Nota SpeedTest: ${test.error}")
+            }
+        } else if (testVelocidadEnProgreso) {
+            sb.appendLine("Test de velocidad: En progreso...")
+        } else {
+            ejecutarTestVelocidadArranque()
+            sb.appendLine("Test de velocidad: No ejecutado aún (Iniciado ahora)")
+        }
+
+        return sb.toString().trimEnd()
+    }
+
+    /**
+     * Realiza una prueba rápida y segura de conectividad y consulta (lectura) a la API REST de sybiml.
+     */
+    fun obtenerResumenServicioWeb(): String = kotlinx.coroutines.runBlocking {
+        val sb = StringBuilder()
+        val latenciaSocket = com.sybi.mosi.network.NetworkSpeedHelper.medirLatenciaSocket("www.sybiml.com", 443, 3000)
+        if (latenciaSocket >= 0) {
+            sb.appendLine("• Latencia Servidor (www.sybiml.com:443): ${latenciaSocket} ms")
+        } else {
+            sb.appendLine("• Latencia Servidor (www.sybiml.com:443): Sin respuesta / Timeout")
+        }
+
+        val inicio = System.currentTimeMillis()
+        try {
+            val response = com.sybi.mosi.network.RetrofitClient.apiService.obtenerClientes()
+            val tiempoMs = System.currentTimeMillis() - inicio
+            if (response.isSuccessful) {
+                val totalClientes = response.body()?.clientes?.size ?: 0
+                sb.appendLine("• Consulta API REST (GET /clientes): OK (HTTP ${response.code()}) en ${tiempoMs} ms [$totalClientes registros]")
+            } else {
+                sb.appendLine("• Consulta API REST (GET /clientes): RESPUESTA HTTP ${response.code()} en ${tiempoMs} ms")
+            }
+        } catch (e: Exception) {
+            val tiempoMs = System.currentTimeMillis() - inicio
+            sb.appendLine("• Consulta API REST (GET /clientes): ERROR (${e.message ?: "Sin respuesta"}) [${tiempoMs} ms]")
+        }
+
+        sb.toString().trimEnd()
     }
 
     /**
