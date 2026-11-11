@@ -31,6 +31,11 @@ import java.text.SimpleDateFormat
 import java.util.Collections
 import java.util.Date
 import java.util.Locale
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
 
 class BasicSettingsActivity : BaseActivity() {
 
@@ -526,10 +531,12 @@ class BasicSettingsActivity : BaseActivity() {
             }
 
             if (isEthernetConnected) {
-                val ipAddress = obtenerIpEthernet()
-                txtEthernetStatus.text = if (ipAddress.isNotEmpty()) ipAddress else "Conectado"
+                txtEthernetStatus.text = "Obteniendo IP pública..."
                 txtEthernetStatus.setTextColor(Color.parseColor("#2E7D32"))
                 imgEthernetIcon.setColorFilter(Color.parseColor("#4CAF50"))
+
+                // Llamamos a la función asíncrona
+                consultarIpPublica()
             } else {
                 txtEthernetStatus.text = "No conectado"
                 txtEthernetStatus.setTextColor(Color.parseColor("#9E9E9E"))
@@ -540,6 +547,38 @@ class BasicSettingsActivity : BaseActivity() {
             txtEthernetStatus.text = "No conectado"
             txtEthernetStatus.setTextColor(Color.parseColor("#666666"))
             imgEthernetIcon.setColorFilter(Color.parseColor("#0F3E82"))
+        }
+    }
+
+    private fun consultarIpPublica() {
+        lifecycleScope.launch {
+            val ipPublica = withContext(Dispatchers.IO) {
+                try {
+                    val client = OkHttpClient.Builder()
+                        .connectTimeout(5, TimeUnit.SECONDS)
+                        .readTimeout(5, TimeUnit.SECONDS)
+                        .build()
+                    val request = Request.Builder().url("https://api.ipify.org").build()
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) response.body?.string()?.trim() else null
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error obteniendo IP pública: ${e.message}")
+                    null
+                }
+            }
+
+            if (isFinishing || isDestroyed) return@launch
+
+            if (ipPublica != null) {
+                txtEthernetStatus.text = ipPublica
+                txtEthernetStatus.setTextColor(Color.parseColor("#2E7D32"))
+            } else {
+                // Si falla internet, mostramos la IP privada de respaldo
+                val ipLocal = obtenerIpEthernet()
+                txtEthernetStatus.text = if (ipLocal.isNotEmpty()) ipLocal else "Conectado (Sin Internet)"
+                txtEthernetStatus.setTextColor(Color.parseColor("#E65100")) // Color naranja de advertencia
+            }
         }
     }
 

@@ -340,6 +340,45 @@
                         android:backgroundTint="#0F3E82" />
                 </LinearLayout>
 
+                <!-- ITEM 6: TEST DE VELOCIDAD DE RED -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingVertical="12dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Test de velocidad de red"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#333333"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Mide velocidad de bajada, subida, latencia e IP pública reales y envía el resultado por correo a soporte."
+                        android:textSize="12sp"
+                        android:textColor="#757575"
+                        android:layout_marginBottom="10dp" />
+
+                    <Button
+                        android:id="@+id/btnSpeedTest"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end"
+                        android:text="Test de velocidad"
+                        android:textColor="#FFFFFF"
+                        android:backgroundTint="#0F3E82" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#E0E0E0" />
+
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"

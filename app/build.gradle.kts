@@ -12,8 +12,8 @@ android {
         applicationId = "com.sybi.mosi"
         minSdk = 25
         targetSdk = 34
-        versionCode = 44
-        versionName = "1.0.39"
+        versionCode = 45
+        versionName = "1.0.40"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -97,6 +97,8 @@ dependencies {
     implementation("androidx.camera:camera-video:1.3.0")
     // ML Kit Face Detection
     implementation("com.google.mlkit:face-detection:16.1.7")
+
+    implementation("fr.bmartel:jspeedtest:1.32.1")
 
 
     testImplementation("junit:junit:4.13.2")

@@ -848,8 +848,11 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
 
     private fun startEcg(derivaciones: Int) {
         btnStarECG.visibility = View.GONE
-        // ═══ FIX: cancelar cualquier watchdog previo antes de arrancar uno nuevo ═══
         ecgWatchdogHandler.removeCallbacks(ecgWatchdogRunnable)
+
+        // ⚡ Cerrar la app externa y esperar a que el sistema la elimine por completo
+        cerrarAppEcgExterna()
+        try { Thread.sleep(1000) } catch (_: InterruptedException) {} // ⏳ 1 segundo
 
         val startTime = System.currentTimeMillis()
         val ok = ecgManager.startMeasurement(
@@ -869,10 +872,12 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
     private fun cerrarAppEcgExterna() {
         try {
             Log.d(TAG, "Intentando cerrar app externa de ECG (com.ecgmac.ecgtab)...")
-            Runtime.getRuntime().exec(arrayOf("su", "-c", "am force-stop com.ecgmac.ecgtab"))
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "am force-stop com.ecgmac.ecgtab"))
+            process.waitFor() // ⏳ Esperar a que el comando termine de verdad
         } catch (_: Exception) {
             try {
-                Runtime.getRuntime().exec("am force-stop com.ecgmac.ecgtab")
+                val process = Runtime.getRuntime().exec("am force-stop com.ecgmac.ecgtab")
+                process.waitFor()
             } catch (e: Exception) {
                 Log.e(TAG, "No se pudo cerrar la app de ECG por shell", e)
             }

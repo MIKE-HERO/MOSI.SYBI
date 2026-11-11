@@ -42,6 +42,11 @@ class SerialService : Service() {
     private val IDLE_SLEEP_MS = 20L
     private val ERROR_SLEEP_MS = 500L
 
+    // Comandos para el baumanómetro Maibobo (protocolo MBB)
+    private val COMM_MBB_SET = byteArrayOf(0xCC.toByte(), 0x80.toByte(), 0x03, 0x07, 0x02, 0x02, 0x01, 0x01, 0x01, 0x00, 0x00, 0x05)
+    private val COMM_MBB_START = byteArrayOf(0xCC.toByte(), 0x80.toByte(), 0x03, 0x03, 0x01, 0x02, 0x00, 0x03)
+    private val COMM_MBB_STOP = byteArrayOf(0xCC.toByte(), 0x80.toByte(), 0x03, 0x03, 0x01, 0x03, 0x00, 0x02)
+
     private val localReceivers = mutableListOf<BroadcastReceiver>()
     @Volatile private var destroyed = false
 
@@ -459,6 +464,18 @@ class SerialService : Service() {
             openStreams[portPath] = serialPort.inputStream
             openOutStreams[portPath] = serialPort.outputStream
             Log.i(TAG, "🔧 $portPath configurado: $baudRate baudios, 8N1, modo binario")
+
+            // ⚡ MAIBOBO: Enviar comando SET de inicialización si es el puerto de presión
+            if (portPath == presionPortPath) {
+                try {
+                    serialPort.outputStream.write(COMM_MBB_SET)
+                    serialPort.outputStream.flush()
+                    Log.d(TAG, "🩺 Maibobo: Comando SET enviado en apertura de puerto")
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Error enviando comando SET al Maibobo: ${e.message}")
+                }
+            }
+
             startReadingLoop(portPath)
             return true
         } catch (e: Throwable) {
@@ -469,6 +486,18 @@ class SerialService : Service() {
         return try {
             openStreams[portPath] = FileInputStream(file)
             openOutStreams[portPath] = FileOutputStream(file)
+
+            // ⚡ MAIBOBO: Enviar comando SET también si se abre como fallback
+            if (portPath == presionPortPath) {
+                try {
+                    openOutStreams[portPath]?.write(COMM_MBB_SET)
+                    openOutStreams[portPath]?.flush()
+                    Log.d(TAG, "🩺 Maibobo: Comando SET enviado (fallback)")
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Error enviando comando SET al Maibobo: ${e.message}")
+                }
+            }
+
             startReadingLoop(portPath)
             true
         } catch (e: Exception) {
@@ -644,10 +673,13 @@ class SerialService : Service() {
             }
             "PRESION" -> {
                 pressureHelper.resetAllResults()
-                Log.d(TAG, "Presión: esperando datos...")
-                if (presionPortPath.isNotEmpty() && !openStreams.containsKey(presionPortPath)) {
-                    Log.w(TAG, "⚠️ Puerto de Presión ausente; reintentando apertura")
-                    openPortInternalSimple(presionPortPath, SerialBaudConfig.get(prefs, "device_presion"))
+                Log.d(TAG, "Presión: enviando comando de inicio...")
+                val outStream = openOutStreams[presionPortPath]
+                if (outStream != null) {
+                    outStream.write(COMM_MBB_START)
+                    outStream.flush()
+                } else {
+                    Log.e(TAG, "❌ No hay stream para Presión")
                 }
             }
             "OXIGENO" -> {

@@ -217,6 +217,14 @@ class ECGHelper(private val callback: ECGCallback) {
                     handleError()
                     return@Thread
                 }
+                // 🛡️ VALIDACIÓN EXTRA: Asegurar que el archivo físico se haya modificado
+                // después de que el paciente inició la medición. Esto evita leer archivos
+                // "fantasma" de consultas anteriores si el reloj se desfasa.
+                if (latestXml.lastModified() < measurementStartTime - 2000) {
+                    Log.w(TAG, "⚠️ Archivo ignorado porque es muy viejo (${latestXml.lastModified()} < $measurementStartTime)")
+                    retryOrFail(attempt, "Archivo físico es viejo")
+                    return@Thread
+                }
 
                 val actualFileName = latestXml.nameWithoutExtension
                 Log.d(TAG, "📄 Archivo seleccionado: $actualFileName")

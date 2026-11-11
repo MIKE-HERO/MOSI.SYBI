@@ -16,8 +16,15 @@ import android.widget.Button
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.sybi.mosi.helpers.ThermalPrinterHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class CalibTestActivity : BaseActivity() {
 
@@ -29,6 +36,7 @@ class CalibTestActivity : BaseActivity() {
     private lateinit var btnTestPrinterQr: Button
     private lateinit var etQrText: android.widget.EditText
     private lateinit var btnSendLog: Button
+    private lateinit var btnSpeedTest: Button
     private lateinit var switchAutoLog: android.widget.Switch
     private lateinit var etCardResult: android.widget.EditText
 
@@ -55,6 +63,7 @@ class CalibTestActivity : BaseActivity() {
         btnTestPrinterQr = findViewById(R.id.btnTestPrinterQr)
         etQrText = findViewById(R.id.etQrText)
         btnSendLog = findViewById(R.id.btnSendLog)
+        btnSpeedTest = findViewById(R.id.btnSpeedTest)
         switchAutoLog = findViewById(R.id.switchAutoLog)
         etCardResult = findViewById(R.id.etCardResult)
 
@@ -130,6 +139,9 @@ class CalibTestActivity : BaseActivity() {
         }
 
         btnSendLog.setOnClickListener { mostrarDialogoEnviarLog() }
+
+        // NUEVO: test de velocidad + envío por correo
+        btnSpeedTest.setOnClickListener { ejecutarYEnviarTestVelocidad() }
     }
 
     private fun aplicarColorTema(hexColor: String) {
@@ -142,6 +154,7 @@ class CalibTestActivity : BaseActivity() {
             btnCalibrate.backgroundTintList = colorStateList
             btnTestPrinterQr.backgroundTintList = colorStateList
             btnSendLog.backgroundTintList = colorStateList
+            btnSpeedTest.backgroundTintList = colorStateList
 
             val switchColor = ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
@@ -187,7 +200,7 @@ class CalibTestActivity : BaseActivity() {
     }
 
     // ==========================================
-    // ENVIAR LOG DE ERRORES
+    // ENVIAR LOG DE ERRORES (SIN TEST DE VELOCIDAD)
     // ==========================================
     private fun mostrarDialogoEnviarLog() {
         if (!EmailSender.estaConfigurado(this)) {
@@ -266,6 +279,81 @@ class CalibTestActivity : BaseActivity() {
                     Toast.makeText(
                         this,
                         "Error al enviar el log: ${resultado.exceptionOrNull()?.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }.start()
+    }
+
+    // ==========================================
+    // TEST DE VELOCIDAD + ENVÍO POR CORREO
+    // ==========================================
+    private fun ejecutarYEnviarTestVelocidad() {
+        if (!EmailSender.estaConfigurado(this)) {
+            Toast.makeText(
+                this,
+                "Configura primero el correo en Configuración de informes > Configurar envío de correo (SMTP)",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        btnSpeedTest.isEnabled = false
+        btnSpeedTest.text = "Midiendo..."
+        Toast.makeText(this, "Midiendo velocidad de red (puede tardar ~30 s)...", Toast.LENGTH_LONG).show()
+
+        lifecycleScope.launch {
+            val resultado = withContext(Dispatchers.IO) { SpeedTestHelper.ejecutarTest() }
+
+            btnSpeedTest.isEnabled = true
+            btnSpeedTest.text = "Test de velocidad"
+
+            // Mostrar resultado al usuario
+            android.app.AlertDialog.Builder(this@CalibTestActivity)
+                .setTitle("Resultado del test de velocidad")
+                .setMessage(resultado.resumenTexto())
+                .setPositiveButton("Enviar por correo") { _, _ ->
+                    enviarResultadoSpeedTestPorCorreo(resultado)
+                }
+                .setNegativeButton("Cerrar", null)
+                .show()
+        }
+    }
+
+    private fun enviarResultadoSpeedTestPorCorreo(resultado: SpeedTestHelper.ResultadoSpeedTest) {
+        val config = EmailSender.cargarConfig(this)
+        val destino = AutoLogHelper.DESTINO_SOPORTE
+        val fecha = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())
+
+        Toast.makeText(this, "Enviando resultado a $destino...", Toast.LENGTH_SHORT).show()
+
+        Thread {
+            val cuerpoHtml = """
+                <h3>Test de velocidad de red — Quiosco MOSI</h3>
+                <p><b>Fecha:</b> $fecha</p>
+                <p><b>Dispositivo:</b> ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} (Android ${android.os.Build.VERSION.RELEASE})</p>
+                <div style="background-color: #f4f4f4; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 14px;">
+                    <b>Resultados:</b><br/>
+                    <pre>${resultado.resumenTexto()}</pre>
+                </div>
+                <p><i>Test ejecutado desde Testeo y Calibración → Test de velocidad.</i></p>
+            """.trimIndent()
+
+            val envio = EmailSender.enviar(
+                config = config,
+                destino = destino,
+                asunto = "Test de velocidad de red — Quiosco MOSI",
+                cuerpoHtml = cuerpoHtml
+            )
+
+            runOnUiThread {
+                if (envio.isSuccess) {
+                    Toast.makeText(this, "Resultado enviado a $destino", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(
+                        this,
+                        "Error al enviar resultado: ${envio.exceptionOrNull()?.message}",
                         Toast.LENGTH_LONG
                     ).show()
                 }

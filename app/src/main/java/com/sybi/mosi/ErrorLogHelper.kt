@@ -4,6 +4,11 @@ import android.content.Context
 import android.os.Build
 import android.os.Process
 import android.util.Log
+import com.sybi.mosi.TelemedicineSettingsActivity.Companion.PREF_CLIENTE
+import com.sybi.mosi.TelemedicineSettingsActivity.Companion.PREF_CLIENTE_NOMBRE
+import com.sybi.mosi.TelemedicineSettingsActivity.Companion.PREF_SUCURSAL
+import com.sybi.mosi.TelemedicineSettingsActivity.Companion.PREF_SUCURSAL_NOMBRE
+import com.sybi.mosi.integration.MosiSecureStore
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -24,12 +29,31 @@ object ErrorLogHelper {
     private const val RETENCION_DIAS_MS = 7 * 24 * 60 * 60 * 1000L // 7 días en milisegundos
     private const val CARPETA_LOGS = "Logs_Mosi"
 
+    /** Preferencias donde la instalación deja cliente/sucursal (compartidas con TelemedicineSettingsActivity). */
+    private const val PREFS_INSTALACION = "DevicePrefs"
+
     /**
      * Genera un archivo con el log completo del propio proceso de la app
      * (todos los niveles: V, D, I, W, E, F), guardando una copia con fecha
      * en la carpeta dedicada 'Logs_Mosi' dentro del almacenamiento interno como respaldo.
+     *
+     * Cliente, sucursal, cabina y sus IDs se leen automáticamente de las preferencias
+     * que guarda la instalación (MosiApiClient.completarInstalacion), por lo
+     * que no hace falta pasarlos en cada llamada. Si quieres sobreescribirlos,
+     * usa los parámetros opcionales.
+     *
+     * @param cliente   Sobreescribe el cliente leído de prefs (opcional)
+     * @param sucursal  Sobreescribe la sucursal leída de prefs (opcional)
+     * @param cabina    Sobreescribe el número de cabina (opcional). Si es null
+     *                  se usa el número de serie activado, que identifica la cabina.
      */
-    fun generarLogDeErrores(context: Context, tipoLog: String = "manual"): File? {
+    fun generarLogDeErrores(
+        context: Context,
+        tipoLog: String = "manual",
+        cliente: String? = null,
+        sucursal: String? = null,
+        cabina: String? = null
+    ): File? {
         return try {
             // 1. Limpiar automáticamente logs de respaldo con más de 7 días
             limpiarLogsAntiguos(context)
@@ -43,11 +67,39 @@ object ErrorLogHelper {
             val lineas = proceso.inputStream.bufferedReader().readLines()
             proceso.waitFor()
 
-            // Filtrar líneas de sistema ('chatty', 'expire') y ruido de memoria de ART
+            // Filtrar líneas de sistema, ruido gráfico, IA y errores de SELinux (audit)
             val lineasUtiles = lineas.filter { linea ->
+                // 1. Filtros anteriores (Sistema, memoria y SELinux)
                 !linea.contains("chatty", ignoreCase = true) &&
                         !linea.contains(" expire ", ignoreCase = true) &&
-                        !linea.contains(" art     :") // 🚫 Excluye logs internos de memoria (GC, JitCodeCache)
+                        !linea.contains(" art     :") &&
+                        !linea.contains(" audit", ignoreCase = true) &&
+                        !linea.contains("avc: denied", ignoreCase = true) &&
+
+                        // 2. Ruido gráfico y de renderizado (OpenGL, Mali, Skia)
+                        !linea.contains("mali_winsys") &&
+                        !linea.contains("OpenGLRenderer") &&
+                        !linea.contains("skia") &&
+                        !linea.contains("EGLint") &&
+
+                        // 3. Librerías de Inteligencia Artificial (Cara, TensorFlow, MediaPipe)
+                        !linea.contains("tflite") &&
+                        !linea.contains("TensorFlowLite") &&
+                        !linea.contains("FaceEmbeddingHelper") &&
+                        !linea.contains("MediaPipeFaceHelper") &&
+                        !linea.contains("interp.run()") &&
+
+                        // 4. Librerías internas de Google y Android que no aportan
+                        !linea.contains("TransportRuntime") &&
+                        !linea.contains("WM-") &&  // Oculta WM-WorkerWrapper, WM-Schedulers, etc.
+                        !linea.contains("mali_so") &&
+                        !linea.contains("AppCompatDelegate") &&
+                        !linea.contains("ProfileInstaller") &&
+                        !linea.contains("NetworkSecurityConfig") &&
+                        !linea.contains("EngineFactory") &&
+
+                        // 5. Falsos positivos de USB
+                        !linea.contains("Ignorando desconexión de USB de otro dispositivo")
             }
 
             val recientes = if (lineasUtiles.size > MAX_LINEAS) lineasUtiles.takeLast(MAX_LINEAS) else lineasUtiles
@@ -56,10 +108,15 @@ object ErrorLogHelper {
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val archivo = File(dir, "mosi_log_${tipoLog}_$timestamp.log")
 
+            val contexto = ContextoQuiosco.resolver(context, cliente, sucursal, cabina)
+
             val encabezado = buildString {
                 appendLine("=== Log completo — Quiosco MOSI ===")
                 appendLine("Generado: ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())}")
                 appendLine("Tipo: $tipoLog")
+                appendLine("Cliente: ${contexto.clienteNombre} (ID: ${contexto.clienteId})")
+                appendLine("Sucursal: ${contexto.sucursalNombre} (ID: ${contexto.sucursalId})")
+                appendLine("Cabina: ${contexto.cabina}")
                 appendLine("Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL} (Android ${Build.VERSION.RELEASE})")
                 appendLine("Versión de la app: ${obtenerVersionApp(context)}")
                 appendLine("Ubicación: ${archivo.absolutePath}")
@@ -78,6 +135,53 @@ object ErrorLogHelper {
         } catch (e: Exception) {
             Log.e(TAG, "No se pudo generar el log completo: ${e.message}", e)
             null
+        }
+    }
+
+    /**
+     * Datos de identificación del quiosco que se escriben en el encabezado.
+     * Se resuelven una sola vez por generación de log.
+     */
+    private data class ContextoQuiosco(
+        val clienteNombre: String,
+        val clienteId: String,
+        val sucursalNombre: String,
+        val sucursalId: String,
+        val cabina: String
+    ) {
+        companion object {
+            private const val NO_DISPONIBLE = "No disponible"
+
+            fun resolver(
+                context: Context,
+                clienteOverride: String?,
+                sucursalOverride: String?,
+                cabinaOverride: String?
+            ): ContextoQuiosco {
+                val prefs = context.getSharedPreferences(PREFS_INSTALACION, Context.MODE_PRIVATE)
+
+                val clienteNombre = clienteOverride?.takeIf { it.isNotBlank() }
+                    ?: prefs.getString(PREF_CLIENTE_NOMBRE, null)?.takeIf { it.isNotBlank() }
+                    ?: NO_DISPONIBLE
+
+                val clienteId = prefs.getString(PREF_CLIENTE, null)?.takeIf { it.isNotBlank() }
+                    ?: NO_DISPONIBLE
+
+                val sucursalNombre = sucursalOverride?.takeIf { it.isNotBlank() }
+                    ?: prefs.getString(PREF_SUCURSAL_NOMBRE, null)?.takeIf { it.isNotBlank() }
+                    ?: NO_DISPONIBLE
+
+                val sucursalId = prefs.getString(PREF_SUCURSAL, null)?.takeIf { it.isNotBlank() }
+                    ?: NO_DISPONIBLE
+
+                // La cabina se identifica por el número de serie activado (único por equipo).
+                // Si en el futuro guardas un número de cabina legible, pásalo por el override.
+                val cabina = cabinaOverride?.takeIf { it.isNotBlank() }
+                    ?: MosiSecureStore.serialActivado(context).takeIf { it.isNotBlank() }
+                    ?: NO_DISPONIBLE
+
+                return ContextoQuiosco(clienteNombre, clienteId, sucursalNombre, sucursalId, cabina)
+            }
         }
     }
 
