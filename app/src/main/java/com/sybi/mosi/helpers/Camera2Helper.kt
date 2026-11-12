@@ -43,6 +43,28 @@ class Camera2Helper(
         private const val DEFAULT_PREVIEW_WIDTH = 640
         private const val DEFAULT_PREVIEW_HEIGHT = 480
 
+        // ════════════════════════════════════════════════════════════════
+        // CÁMARA OCUPADA POR OTRO PROCESO
+        // ════════════════════════════════════════════════════════════════
+        // En Android el acceso a la cámara es EXCLUSIVO: un solo cliente a la
+        // vez, y en 7.1 no existe el modo compartido. En el quiosco la
+        // videollamada se abre en Custom Tabs, y TelemedicineActivity.
+        // abrirConsulta() ya hace unbindAll() más 250 ms de margen al HAL
+        // justo por este motivo: para cederle el dispositivo al navegador.
+        //
+        // Lo que faltaba era el camino de vuelta. Una llamada WebRTC mantiene
+        // la cámara tomada a propósito mientras la pestaña siga viva, así que
+        // al regresar a la app openCamera() devuelve ERROR_CAMERA_IN_USE hasta
+        // que el navegador la suelta.
+        //
+        // Antes ese error saltaba a la siguiente cámara de la lista y, al
+        // agotarla, se abandonaba PARA SIEMPRE: un bloqueo temporal se volvía
+        // permanente hasta reiniciar la app. Ahora se espera y se reintenta.
+        private const val MAX_REINTENTOS_OCUPADA = 6
+        private const val ESPERA_BASE_OCUPADA_MS = 500L   // 500, 1000 ... 3000 = 10.5 s en total
+        private const val MAX_BARRIDOS_LISTA = 3
+        private const val ESPERA_ENTRE_BARRIDOS_MS = 1500L
+
         fun getAvailableCameraIds(context: Context): List<String> {
             return try {
                 val manager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
@@ -74,6 +96,10 @@ class Camera2Helper(
     private var cameraPriorityList: List<String> = emptyList()
     private var currentCameraIndex: Int = 0
 
+    // Reintentos cuando la cámara está tomada por otro proceso (ver companion)
+    private var intentosOcupada: Int = 0
+    private var barridosLista: Int = 0
+
     /**
      * Inicia la cámara. Si el TextureView ya está listo abre de inmediato,
      * de lo contrario espera al listener de la superficie.
@@ -87,24 +113,9 @@ class Camera2Helper(
         textureView.scaleX = if (configuredMirror) 1f else -1f
 
         startBackgroundThread()
-        buildCameraPriorityList()
-
-        if (targetCameraId != null && cameraPriorityList.contains(targetCameraId)) {
-            val list = cameraPriorityList.toMutableList()
-            list.remove(targetCameraId)
-            list.add(0, targetCameraId)
-            cameraPriorityList = list
-            currentCameraIndex = 0
-        } else if (targetCameraId == null) {
-            val savedMainId = prefs.getString("pref_main_camera_id", null)
-            if (savedMainId != null && cameraPriorityList.contains(savedMainId)) {
-                val list = cameraPriorityList.toMutableList()
-                list.remove(savedMainId)
-                list.add(0, savedMainId)
-                cameraPriorityList = list
-                currentCameraIndex = 0
-            }
-        }
+        intentosOcupada = 0
+        barridosLista = 0
+        enumerarYPriorizarCamaras()
 
         if (textureView.isAvailable) {
             openNextCameraInternal()
@@ -177,6 +188,58 @@ class Camera2Helper(
     }
 
     /**
+     * Enumera las cámaras del sistema y aplica la prioridad configurada
+     * (targetCameraId explícito, o la guardada en DevicePrefs), dejando el
+     * índice en el primer candidato.
+     *
+     * Se extrajo de startCamera() para poder repetir la enumeración en un
+     * barrido posterior: si la cámara USB no estaba presente en el primer
+     * intento (por ejemplo, el navegador aún no la había soltado o el HAL no
+     * la había reexpuesto), al reintentar hay que volver a preguntarle al
+     * CameraManager en vez de reusar una lista vieja.
+     */
+    private fun enumerarYPriorizarCamaras() {
+        buildCameraPriorityList()
+
+        val prefs = context.getSharedPreferences("DevicePrefs", Context.MODE_PRIVATE)
+        val preferida = targetCameraId ?: prefs.getString("pref_main_camera_id", null)
+
+        if (preferida != null && cameraPriorityList.contains(preferida)) {
+            val list = cameraPriorityList.toMutableList()
+            list.remove(preferida)
+            list.add(0, preferida)
+            cameraPriorityList = list
+        }
+        currentCameraIndex = 0
+    }
+
+    /**
+     * La cámara activa está tomada por otro proceso. Se espera y se reintenta
+     * la MISMA cámara, en vez de saltar a otra: si el navegador tiene la USB,
+     * ninguna otra de la lista es la que queremos, y rendirse deja la app sin
+     * cámara hasta reiniciarla.
+     */
+    private fun reintentarMismaCamara() {
+        if (!isCameraRunning) return
+
+        if (intentosOcupada >= MAX_REINTENTOS_OCUPADA) {
+            Log.e(TAG, "❌ La cámara $activeCameraId sigue ocupada tras $MAX_REINTENTOS_OCUPADA reintentos; probando el resto de la lista")
+            intentosOcupada = 0
+            tryNextCamera()
+            return
+        }
+
+        intentosOcupada++
+        val espera = ESPERA_BASE_OCUPADA_MS * intentosOcupada
+        Log.w(TAG, "⏳ Cámara $activeCameraId ocupada por otro proceso; reintento $intentosOcupada/$MAX_REINTENTOS_OCUPADA en ${espera} ms")
+
+        backgroundHandler?.postDelayed({
+            // currentCameraIndex no cambia, así que se reabre la misma cámara.
+            if (isCameraRunning) openNextCameraInternal()
+        }, espera)
+    }
+
+    /**
      * Intenta abrir la siguiente cámara de la lista. Si falla, pasa a la siguiente.
      */
     private fun openNextCameraInternal() {
@@ -230,11 +293,16 @@ class Camera2Helper(
             cameraManager.openCamera(activeCameraId, object : CameraDevice.StateCallback() {
                 override fun onOpened(device: CameraDevice) {
                     Log.d(TAG, "✅ Cámara $activeCameraId abierta correctamente")
+                    intentosOcupada = 0
+                    barridosLista = 0
                     cameraDevice = device
                     createCameraPreviewSession()
                 }
 
                 override fun onDisconnected(device: CameraDevice) {
+                    // Pasa cuando se desconecta el USB o cuando otro cliente de
+                    // mayor prioridad se lleva el dispositivo (p. ej. el
+                    // navegador al iniciar la videollamada).
                     Log.w(TAG, "⚠️ Cámara $activeCameraId desconectada")
                     device.close()
                     cameraDevice = null
@@ -242,10 +310,28 @@ class Camera2Helper(
                 }
 
                 override fun onError(device: CameraDevice, error: Int) {
-                    Log.e(TAG, "❌ Error en cámara $activeCameraId: $error")
+                    val motivo = when (error) {
+                        CameraDevice.StateCallback.ERROR_CAMERA_IN_USE -> "ERROR_CAMERA_IN_USE (otro proceso tiene la cámara)"
+                        CameraDevice.StateCallback.ERROR_MAX_CAMERAS_IN_USE -> "ERROR_MAX_CAMERAS_IN_USE (límite de cámaras abiertas)"
+                        CameraDevice.StateCallback.ERROR_CAMERA_DISABLED -> "ERROR_CAMERA_DISABLED (deshabilitada por política del dispositivo)"
+                        CameraDevice.StateCallback.ERROR_CAMERA_DEVICE -> "ERROR_CAMERA_DEVICE (fallo del dispositivo)"
+                        CameraDevice.StateCallback.ERROR_CAMERA_SERVICE -> "ERROR_CAMERA_SERVICE (fallo del servicio de cámara)"
+                        else -> "código desconocido"
+                    }
+                    Log.e(TAG, "❌ Error en cámara $activeCameraId: $error — $motivo")
                     device.close()
                     cameraDevice = null
-                    tryNextCamera()
+
+                    // Que esté ocupada es transitorio: hay que esperar a que el
+                    // otro proceso la suelte, no descartarla. Los demás errores
+                    // sí justifican probar otra cámara.
+                    if (error == CameraDevice.StateCallback.ERROR_CAMERA_IN_USE ||
+                        error == CameraDevice.StateCallback.ERROR_MAX_CAMERAS_IN_USE
+                    ) {
+                        reintentarMismaCamara()
+                    } else {
+                        tryNextCamera()
+                    }
                 }
             }, backgroundHandler)
         } catch (e: SecurityException) {
@@ -261,9 +347,27 @@ class Camera2Helper(
         if (isCameraRunning && currentCameraIndex < cameraPriorityList.size) {
             Log.d(TAG, "🔁 Reintentando con siguiente cámara...")
             openNextCameraInternal()
-        } else {
-            Log.e(TAG, "❌ No quedan más cámaras por probar")
+            return
         }
+
+        // Lista agotada. Antes se abandonaba aquí definitivamente, de modo que
+        // cualquier causa pasajera (el navegador todavía con la cámara, el USB
+        // aún sin reenumerar) dejaba la app sin cámara hasta reiniciarla.
+        // Ahora se vuelve a barrer la lista completa unas pocas veces,
+        // reenumerando el CameraManager en cada barrido.
+        if (isCameraRunning && barridosLista < MAX_BARRIDOS_LISTA) {
+            barridosLista++
+            Log.w(TAG, "🔁 Lista agotada; barrido completo $barridosLista/$MAX_BARRIDOS_LISTA en ${ESPERA_ENTRE_BARRIDOS_MS} ms")
+            backgroundHandler?.postDelayed({
+                if (!isCameraRunning) return@postDelayed
+                intentosOcupada = 0
+                enumerarYPriorizarCamaras()
+                openNextCameraInternal()
+            }, ESPERA_ENTRE_BARRIDOS_MS)
+            return
+        }
+
+        Log.e(TAG, "❌ No quedan más cámaras por probar")
     }
 
     /**
@@ -408,6 +512,8 @@ class Camera2Helper(
     fun stopCamera() {
         isCameraRunning = false
         try {
+            // Cancelar cualquier reintento pendiente antes de soltar el hilo.
+            backgroundHandler?.removeCallbacksAndMessages(null)
             captureSession?.close()
             captureSession = null
             cameraDevice?.close()
