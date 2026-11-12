@@ -9,16 +9,28 @@ class PressureHelper(private val context: Context) {
 
     companion object {
         private const val TAG = "PressureHelper"
+
+        // Comandos del baumanómetro Maibobo (Protocolo MBB)
+        val COMM_MBB_SET = byteArrayOf(0xCC.toByte(), 0x80.toByte(), 0x03, 0x07, 0x02, 0x02, 0x01, 0x01, 0x01, 0x00, 0x00, 0x05)
+        val COMM_MBB_COM = byteArrayOf(0xCC.toByte(), 0x80.toByte(), 0x03, 0x03, 0x01, 0x01, 0x00, 0x00)
+        val COMM_MBB_START = byteArrayOf(0xCC.toByte(), 0x80.toByte(), 0x03, 0x03, 0x01, 0x02, 0x00, 0x03)
+        val COMM_MBB_STOP = byteArrayOf(0xCC.toByte(), 0x80.toByte(), 0x03, 0x03, 0x01, 0x03, 0x00, 0x02)
     }
 
     var lastSystolic: Int? = null
     var lastDiastolic: Int? = null
     var lastPulse: Int? = null
 
+    // Callback para responder comandos al puerto serie desde el helper
+    var onSendResponse: ((ByteArray) -> Unit)? = null
+
     // Buffer para el Maibobo
     private var buffer = ByteArray(0)
 
     fun parseData(data: ByteArray) {
+        val hexStr = data.joinToString(" ") { "%02X".format(it.toInt() and 0xFF) }
+        Log.d(TAG, "📥 RX Presión (${data.size} bytes): $hexStr")
+
         // 1. DETECCIÓN DEL BAUMANÓMETRO VIEJO (Empieza con D0 C2)
         if (data.size >= 8 && data[0] == 0xD0.toByte() && data[1] == 0xC2.toByte()) {
             try {
@@ -57,8 +69,23 @@ class PressureHelper(private val context: Context) {
                     if ((sum and 0xFF) == cks) {
                         val type1 = buffer[index + 4].toInt() and 0xFF
                         val type2 = buffer[index + 5].toInt() and 0xFF
+                        val d = buffer[index + 6].toInt() and 0xFF
 
-                        if (size == 15 && type1 == 1 && type2 == 6) {
+                        if (size == 3) {
+                            if (type1 == 1 && type2 == 1 && d == 0) {
+                                Log.d(TAG, "🩺 Maibobo ACK Handshake (1,1,0) recibido -> Enviando COMM_MBB_START")
+                                onSendResponse?.invoke(COMM_MBB_START)
+                            } else if (type1 == 1 && type2 == 2 && d == 0) {
+                                Log.d(TAG, "🩺 Maibobo ACK Start (1,2,0) recibido -> Medición de presión iniciada")
+                            } else if (type1 == 1 && type2 == 3 && d == 0) {
+                                Log.d(TAG, "🩺 Maibobo ACK Stop (1,3,0) recibido -> Medición detenida")
+                            } else if (type1 == 1 && type2 == 7) {
+                                Log.w(TAG, "⚠️ Maibobo Error ACK (1,7) recibido")
+                            }
+                        } else if (size == 4 && type1 == 1 && type2 == 5) {
+                            val pressure = (d shl 8) or (buffer[index + 7].toInt() and 0xFF)
+                            Log.d(TAG, "🩺 Maibobo Presión en manguito: $pressure mmHg")
+                        } else if (size == 15 && type1 == 1 && type2 == 6) {
                             val sys1 = buffer[index + 13].toInt() and 0xFF
                             val sys2 = buffer[index + 14].toInt() and 0xFF
                             val dia1 = buffer[index + 15].toInt() and 0xFF

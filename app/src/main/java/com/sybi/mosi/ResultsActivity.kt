@@ -436,8 +436,6 @@ class ResultsActivity : BaseActivity() {
                 btnRetryUpload.visibility = if (exito) View.GONE else View.VISIBLE
 
                 if (exito) {
-                    Log.d(TAG, "🚀 [LOG AUTOMÁTICO] Envío exitoso de resultados; disparando log automático de fin de mediciones...")
-                    AutoLogHelper.enviarLogFinConsulta(this@ResultsActivity)
                     Toast.makeText(
                         this@ResultsActivity,
                         "✅ Resultados enviados al doctor",
@@ -454,6 +452,16 @@ class ResultsActivity : BaseActivity() {
         }.start()
     }
 
+    private var logFinMedicionEnviado = false
+
+    private fun enviarLogFinMedicionSiCorresponde() {
+        if (!logFinMedicionEnviado) {
+            logFinMedicionEnviado = true
+            Log.d(TAG, "🚀 [LOG AUTOMÁTICO] Saliendo de ResultsActivity; disparando log automático de fin de medición...")
+            AutoLogHelper.enviarLogFinMedicion(this)
+        }
+    }
+
     private fun detenerMensajesEnvio() {
         enviandoMediciones = false
         envioHandler.removeCallbacks(envioRunnable)
@@ -461,6 +469,7 @@ class ResultsActivity : BaseActivity() {
 
     private fun iniciarVideollamada(idUsuarioWeb: Int) {
         Log.d(TAG, "🎬 Iniciando videollamada (Ruta A) con id_usuario_web=$idUsuarioWeb")
+        enviarLogFinMedicionSiCorresponde()
 
         val intent = Intent(this, TelemedicineActivity::class.java).apply {
             putExtra(TelemedicineActivity.EXTRA_ID_USUARIO_WEB, idUsuarioWeb)
@@ -479,6 +488,7 @@ class ResultsActivity : BaseActivity() {
             return
         }
 
+        enviarLogFinMedicionSiCorresponde()
         limpiarModoInvitado()   // ✅ CAMBIO
         clearResults()
         val intent = Intent(this, MainActivity::class.java)
@@ -499,6 +509,7 @@ class ResultsActivity : BaseActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        enviarLogFinMedicionSiCorresponde()
         detenerMensajesEnvio()
         limpiarModoInvitado()   // ✅ CAMBIO
         clearResults()

@@ -42,11 +42,6 @@ class SerialService : Service() {
     private val IDLE_SLEEP_MS = 20L
     private val ERROR_SLEEP_MS = 500L
 
-    // Comandos para el baumanómetro Maibobo (protocolo MBB)
-    private val COMM_MBB_SET = byteArrayOf(0xCC.toByte(), 0x80.toByte(), 0x03, 0x07, 0x02, 0x02, 0x01, 0x01, 0x01, 0x00, 0x00, 0x05)
-    private val COMM_MBB_START = byteArrayOf(0xCC.toByte(), 0x80.toByte(), 0x03, 0x03, 0x01, 0x02, 0x00, 0x03)
-    private val COMM_MBB_STOP = byteArrayOf(0xCC.toByte(), 0x80.toByte(), 0x03, 0x03, 0x01, 0x03, 0x00, 0x02)
-
     private val localReceivers = mutableListOf<BroadcastReceiver>()
     @Volatile private var destroyed = false
 
@@ -77,10 +72,16 @@ class SerialService : Service() {
         instance = this
         Log.i(TAG, "Servicio Serial iniciado")
 
+        iniciarServicioForeground()
+
         // Inicializar helpers
         hwFatHelper = HWFatHelper(this)
         temperHelper = TemperHelper(this)
-        pressureHelper = PressureHelper(this)
+        pressureHelper = PressureHelper(this).apply {
+            onSendResponse = { bytes ->
+                sendBytesToPort(presionPortPath, bytes, "Maibobo Helper Response")
+            }
+        }
         oxigenHelper = OxigenHelper(this)
         icCardHelper = IcCardHelper(this)
 
@@ -95,6 +96,46 @@ class SerialService : Service() {
         registerReceivers()
 
         openAllConfiguredPorts()
+    }
+
+    private fun iniciarServicioForeground() {
+        val channelId = "mosi_serial_service_channel"
+        val notificationId = 1001
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = android.app.NotificationChannel(
+                channelId,
+                "Servicio Quiosco MOSI",
+                android.app.NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Mantiene los servicios del quiosco activos en segundo plano"
+            }
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
+            manager?.createNotificationChannel(channel)
+        }
+
+        val notification = androidx.core.app.NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Quiosco MOSI")
+            .setContentText("Servicio del quiosco activo")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .build()
+
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                startForeground(
+                    notificationId,
+                    notification,
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                )
+            } else {
+                startForeground(notificationId, notification)
+            }
+            Log.i(TAG, "✅ SerialService promovido a Foreground Service exitosamente")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al iniciar Foreground Service en SerialService: ${e.message}")
+        }
     }
 
     /**
@@ -306,6 +347,7 @@ class SerialService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        iniciarServicioForeground()
         return START_STICKY
     }
 
@@ -468,13 +510,7 @@ class SerialService : Service() {
 
             // ⚡ MAIBOBO: Enviar comando SET de inicialización si es el puerto de presión
             if (portPath == presionPortPath) {
-                try {
-                    serialPort.outputStream.write(COMM_MBB_SET)
-                    serialPort.outputStream.flush()
-                    Log.d(TAG, "🩺 Maibobo: Comando SET enviado en apertura de puerto")
-                } catch (e: Exception) {
-                    Log.e(TAG, "❌ Error enviando comando SET al Maibobo: ${e.message}")
-                }
+                sendBytesToPort(presionPortPath, PressureHelper.COMM_MBB_SET, "Maibobo SET (Init)")
             }
 
             startReadingLoop(portPath)
@@ -490,13 +526,7 @@ class SerialService : Service() {
 
             // ⚡ MAIBOBO: Enviar comando SET también si se abre como fallback
             if (portPath == presionPortPath) {
-                try {
-                    openOutStreams[portPath]?.write(COMM_MBB_SET)
-                    openOutStreams[portPath]?.flush()
-                    Log.d(TAG, "🩺 Maibobo: Comando SET enviado (fallback)")
-                } catch (e: Exception) {
-                    Log.e(TAG, "❌ Error enviando comando SET al Maibobo: ${e.message}")
-                }
+                sendBytesToPort(presionPortPath, PressureHelper.COMM_MBB_SET, "Maibobo SET (Fallback)")
             }
 
             startReadingLoop(portPath)
@@ -675,12 +705,18 @@ class SerialService : Service() {
             "PRESION" -> {
                 pressureHelper.resetAllResults()
                 Log.d(TAG, "Presión: enviando comando de inicio...")
-                val outStream = openOutStreams[presionPortPath]
-                if (outStream != null) {
-                    outStream.write(COMM_MBB_START)
-                    outStream.flush()
+                if (openOutStreams.containsKey(presionPortPath)) {
+                    // Paso 1: Enviar COMM_MBB_COM (Handshake inicial)
+                    sendBytesToPort(presionPortPath, PressureHelper.COMM_MBB_COM, "COMM_MBB_COM (Handshake)")
+
+                    // Reintento / Fallback tras 500ms si no se recibe respuesta de handshake
+                    frameScheduler.schedule({
+                        if (pressureHelper.lastSystolic == null) {
+                            sendBytesToPort(presionPortPath, PressureHelper.COMM_MBB_START, "COMM_MBB_START (Fallback/Direct)")
+                        }
+                    }, 500, java.util.concurrent.TimeUnit.MILLISECONDS)
                 } else {
-                    Log.e(TAG, "❌ No hay stream para Presión")
+                    Log.e(TAG, "❌ No hay stream para Presión ($presionPortPath)")
                 }
             }
             "OXIGENO" -> {
@@ -703,6 +739,30 @@ class SerialService : Service() {
                     Log.e(TAG, "❌ No hay stream para Altura/Peso")
                 }
             }
+            "PRESION" -> {
+                sendBytesToPort(presionPortPath, PressureHelper.COMM_MBB_STOP, "COMM_MBB_STOP")
+            }
+        }
+    }
+
+    fun sendBytesToPort(portPath: String, bytes: ByteArray, tag: String) {
+        val outStream = openOutStreams[portPath]
+        if (outStream != null) {
+            try {
+                outStream.write(bytes)
+                outStream.flush()
+                val hexStr = bytesToHex(bytes)
+                Log.d(TAG, "📤 TX $portPath ($tag): $hexStr")
+                val txIntent = Intent("SERIAL_RAW_DATA")
+                txIntent.putExtra("port", portPath)
+                txIntent.putExtra("data", hexStr)
+                txIntent.putExtra("type", "TX")
+                LocalBroadcastManager.getInstance(this).sendBroadcast(txIntent)
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error al enviar datos a $portPath ($tag): ${e.message}")
+            }
+        } else {
+            Log.e(TAG, "❌ No hay stream de salida para $portPath ($tag)")
         }
     }
 

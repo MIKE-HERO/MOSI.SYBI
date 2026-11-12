@@ -34,6 +34,9 @@ class MosiApp : Application() {
         // Limpieza de respaldo de logs antiguos (> 7 días)
         ErrorLogHelper.limpiarLogsAntiguos(this)
 
+        // Iniciar el servicio Serial en primer plano para mantener vivo el proceso durante llamadas de telemedicina
+        startService(android.content.Intent(this, SerialService::class.java))
+
         // Programar el envío automático del log de arranque a los 5 minutos del inicio
         AutoLogHelper.programarLogArranque(this)
 

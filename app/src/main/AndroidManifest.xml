@@ -17,6 +17,10 @@
     <!-- Permisos USB -->
     <uses-permission android:name="android.permission.USB_PERMISSION" />
 
+    <!-- Permisos para Foreground Service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+
     <!-- Permisos para WebView y videollamada -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -180,7 +184,8 @@
         <!-- Servicio -->
         <service
             android:name=".SerialService"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
 
         <!-- 🔥 FileProvider (NECESARIO en Android 7+) -->
         <provider

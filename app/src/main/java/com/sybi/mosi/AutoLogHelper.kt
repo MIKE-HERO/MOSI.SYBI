@@ -29,10 +29,13 @@ object AutoLogHelper {
 
     private val executor = Executors.newSingleThreadExecutor()
     private val startupScheduled = AtomicBoolean(false)
-    private val lastConsultationLogTime = AtomicLong(0L)
+    private val lastMedicionLogTime = AtomicLong(0L)
+    private val lastTeleconsultaLogTime = AtomicLong(0L)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var startupLogRunnable: Runnable? = null
 
-    // Cooldown para evitar enviar múltiples logs seguidos de la misma consulta (60 segundos)
-    private const val CONSULTATION_LOG_COOLDOWN_MS = 60_000L
+    // Cooldown para evitar enviar múltiples logs seguidos (15 segundos)
+    private const val LOG_COOLDOWN_MS = 15_000L
 
     // Tiempo de espera para el log de arranque (5 minutos = 300,000 ms)
     private const val STARTUP_LOG_DELAY_MS = 5 * 60 * 1000L
@@ -66,12 +69,25 @@ object AutoLogHelper {
         // Iniciar test de velocidad automático al arrancar la app
         ejecutarTestVelocidadArranque()
 
-        Handler(Looper.getMainLooper()).postDelayed({
+        val runnable = Runnable {
             executor.execute {
                 enviarLogSiCorresponde(appContext, "Arranque de la aplicación (5 min)")
             }
-        }, STARTUP_LOG_DELAY_MS)
+        }
+        startupLogRunnable = runnable
+        mainHandler.postDelayed(runnable, STARTUP_LOG_DELAY_MS)
         Log.d(TAG, "⏰ Programado envío de log de arranque en ${STARTUP_LOG_DELAY_MS / 1000}s con test de velocidad automático.")
+    }
+
+    /**
+     * Cancela el envío del log automático de arranque si aún estaba pendiente.
+     */
+    fun cancelarLogArranque() {
+        startupLogRunnable?.let { runnable ->
+            mainHandler.removeCallbacks(runnable)
+            startupLogRunnable = null
+            Log.d(TAG, "🛑 Cancelado log automático de arranque programado.")
+        }
     }
 
     private fun ejecutarTestVelocidadArranque() {
@@ -176,26 +192,45 @@ object AutoLogHelper {
     }
 
     /**
-     * Disparar el envío de log automático al finalizar una consulta.
-     * Cuenta con cooldown para no duplicar si se llama desde varios eventos cercanos.
+     * Disparar el envío de log automático al salir de la pantalla de resultados (Fin de medición).
+     */
+    fun enviarLogFinMedicion(context: Context) {
+        cancelarLogArranque()
+        enviarLogConTimestampCheck(context, "Fin de medición", "fin_medicion", lastMedicionLogTime)
+    }
+
+    /**
+     * Disparar el envío de log automático al finalizar una llamada de telemedicina.
+     */
+    fun enviarLogFinTeleconsulta(context: Context) {
+        cancelarLogArranque()
+        enviarLogConTimestampCheck(context, "Fin de teleconsulta", "fin_teleconsulta", lastTeleconsultaLogTime)
+    }
+
+    /**
+     * Compatibilidad hacia atrás.
      */
     fun enviarLogFinConsulta(context: Context) {
+        enviarLogFinTeleconsulta(context)
+    }
+
+    private fun enviarLogConTimestampCheck(context: Context, motivo: String, tipoLog: String, atomicTime: AtomicLong) {
         val now = System.currentTimeMillis()
-        val last = lastConsultationLogTime.get()
-        if (now - last < CONSULTATION_LOG_COOLDOWN_MS) {
-            Log.d(TAG, "Omitiendo envío de log de fin de consulta por cooldown (${(now - last) / 1000}s)")
+        val last = atomicTime.get()
+        if (now - last < LOG_COOLDOWN_MS) {
+            Log.d(TAG, "Omitiendo envío de log ($motivo) por cooldown (${(now - last) / 1000}s)")
             return
         }
 
         val appContext = context.applicationContext
         executor.execute {
-            if (lastConsultationLogTime.compareAndSet(last, System.currentTimeMillis())) {
-                enviarLogSiCorresponde(appContext, "Fin de consulta")
+            if (atomicTime.compareAndSet(last, System.currentTimeMillis())) {
+                enviarLogSiCorresponde(appContext, motivo, tipoLog)
             }
         }
     }
 
-    private fun enviarLogSiCorresponde(context: Context, motivo: String) {
+    private fun enviarLogSiCorresponde(context: Context, motivo: String, tipoLog: String = "auto") {
         if (!isAutoLogEnabled(context)) {
             Log.d(TAG, "Envío automático deshabilitado. No se envía log ($motivo).")
             return
@@ -208,12 +243,13 @@ object AutoLogHelper {
 
         Log.d(TAG, "🚀 Generando y enviando log automático por $motivo...")
         val config = EmailSender.cargarConfig(context)
-        val tipoLog = when {
+        val tagArchivo = if (tipoLog != "auto") tipoLog else when {
             motivo.contains("Arranque", ignoreCase = true) -> "arranque"
-            motivo.contains("Fin", ignoreCase = true) || motivo.contains("consulta", ignoreCase = true) -> "fin_consulta"
+            motivo.contains("teleconsulta", ignoreCase = true) -> "fin_teleconsulta"
+            motivo.contains("medición", ignoreCase = true) || motivo.contains("medicion", ignoreCase = true) -> "fin_medicion"
             else -> "auto"
         }
-        val archivo = ErrorLogHelper.generarLogDeErrores(context, tipoLog)
+        val archivo = ErrorLogHelper.generarLogDeErrores(context, tagArchivo)
 
         if (archivo != null && archivo.exists()) {
             val fechaStr = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())

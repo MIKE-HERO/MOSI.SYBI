@@ -35,16 +35,17 @@ class FinConsultaActivity : Activity() {
         DailyReportManager.onTelemedicineEnded(this, idWebParam)
 
         // Enviar log automático si está activado
-        AutoLogHelper.enviarLogFinConsulta(this)
+        AutoLogHelper.enviarLogFinTeleconsulta(this)
 
         // Volver al menú principal limpiando la pila: esto destruye la pantalla de telemedicina
         // (su onDestroy restaura el sonido de VideoLoop) y deja el Custom Tab atrás; como el menú
-        // principal es el HOME del quiosco, el navegador no queda a la vista.
+        // principal es el HOME del quiosco, el navegador no queda a la vista. Reusamos la instancia
+        // existente de MainActivity para evitar recrear la app.
         startActivity(
             Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TASK or
-                        Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_NEW_TASK
             }
         )
         finish()
