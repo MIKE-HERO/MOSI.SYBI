@@ -98,6 +98,7 @@ class TelemedicineActivity : BaseActivity() {
 
     override fun onDestroy() {
         detenerMonitoreoRedTeleconsulta()
+        TelemedicineOptimizer.restaurarEstadoNormal()
         if (isFinishing && !isChangingConfigurations && reportedStart && !reportedEnd) {
             reportedEnd = true
             MosiTelemedicineSession.cancel(this, "La pantalla de telemedicina se cerró sin usar el botón Salir")
@@ -177,6 +178,7 @@ class TelemedicineActivity : BaseActivity() {
     }
 
     private fun lanzarCustomTabs() {
+        TelemedicineOptimizer.optimizarParaTelemedicina()
         val uri = urlConsulta().toString()
         Log.d(TAG, "🌐 Abriendo consulta en CustomTabs: $uri")
         DailyReportManager.onTelemedicineStarted(this, idUsuarioWeb)
@@ -271,6 +273,7 @@ class TelemedicineActivity : BaseActivity() {
 
     private fun irAInicio() {
         detenerMonitoreoRedTeleconsulta()
+        TelemedicineOptimizer.restaurarEstadoNormal()
         if (reportedStart && !reportedEnd) {
             reportedEnd = true
             MosiTelemedicineSession.finish(this)
