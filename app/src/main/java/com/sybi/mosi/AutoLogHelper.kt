@@ -1,9 +1,12 @@
 package com.sybi.mosi
 
 import android.content.Context
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.os.StatFs
 import android.util.Log
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -189,6 +192,65 @@ object AutoLogHelper {
         }
 
         sb.toString().trimEnd()
+    }
+
+    /**
+     * Obtiene el desglose de almacenamiento ocupado y disponible del dispositivo
+     * (tanto memoria interna /data como almacenamiento primario /sdcard y carpeta ECGDATA/RETURN).
+     */
+    fun obtenerResumenAlmacenamiento(context: Context): String {
+        val sb = StringBuilder()
+        try {
+            // 1. Almacenamiento Interno (/data)
+            val internalDir = Environment.getDataDirectory()
+            val statInternal = StatFs(internalDir.path)
+            val blockSizeInternal = statInternal.blockSizeLong
+            val totalInternalBytes = statInternal.blockCountLong * blockSizeInternal
+            val freeInternalBytes = statInternal.availableBlocksLong * blockSizeInternal
+            val usedInternalBytes = totalInternalBytes - freeInternalBytes
+
+            val totalInternalGB = totalInternalBytes.toDouble() / (1024 * 1024 * 1024)
+            val usedInternalGB = usedInternalBytes.toDouble() / (1024 * 1024 * 1024)
+            val freeInternalGB = freeInternalBytes.toDouble() / (1024 * 1024 * 1024)
+            val percentUsedInternal = if (totalInternalBytes > 0) (usedInternalBytes * 100.0 / totalInternalBytes) else 0.0
+
+            sb.appendLine("• Memoria Interna (/data):")
+            sb.appendLine("  - Total: %.2f GB".format(Locale.US, totalInternalGB))
+            sb.appendLine("  - Ocupado: %.2f GB (%.1f%%)".format(Locale.US, usedInternalGB, percentUsedInternal))
+            sb.appendLine("  - Disponible: %.2f GB".format(Locale.US, freeInternalGB))
+
+            // 2. Almacenamiento Primario / SDCard (donde está ECGDATA/RETURN)
+            val externalDir = Environment.getExternalStorageDirectory()
+            if (externalDir != null && Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED) {
+                val statExt = StatFs(externalDir.path)
+                val blockSizeExt = statExt.blockSizeLong
+                val totalExtBytes = statExt.blockCountLong * blockSizeExt
+                val freeExtBytes = statExt.availableBlocksLong * blockSizeExt
+                val usedExtBytes = totalExtBytes - freeExtBytes
+
+                val totalExtGB = totalExtBytes.toDouble() / (1024 * 1024 * 1024)
+                val usedExtGB = usedExtBytes.toDouble() / (1024 * 1024 * 1024)
+                val freeExtGB = freeExtBytes.toDouble() / (1024 * 1024 * 1024)
+                val percentUsedExt = if (totalExtBytes > 0) (usedExtBytes * 100.0 / totalExtBytes) else 0.0
+
+                sb.appendLine("• Almacenamiento Primario / SDCard (${externalDir.path}):")
+                sb.appendLine("  - Total: %.2f GB".format(Locale.US, totalExtGB))
+                sb.appendLine("  - Ocupado: %.2f GB (%.1f%%)".format(Locale.US, usedExtGB, percentUsedExt))
+                sb.appendLine("  - Disponible: %.2f GB".format(Locale.US, freeExtGB))
+
+                val ecgDir = File(externalDir, "ECGDATA/RETURN")
+                if (ecgDir.exists()) {
+                    val files = ecgDir.listFiles()
+                    val count = files?.size ?: 0
+                    val totalEcgSize = files?.sumOf { it.length() } ?: 0L
+                    val sizeMB = totalEcgSize.toDouble() / (1024 * 1024)
+                    sb.appendLine("  - Carpeta ECGDATA/RETURN: $count archivo(s), %.2f MB ocupados".format(Locale.US, sizeMB))
+                }
+            }
+        } catch (e: Exception) {
+            sb.appendLine("Error leyendo almacenamiento: ${e.message}")
+        }
+        return sb.toString().trimEnd()
     }
 
     /**

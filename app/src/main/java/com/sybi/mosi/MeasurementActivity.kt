@@ -1634,9 +1634,8 @@ class MeasurementActivity : BaseActivity(), MeasurementController.Callbacks {
         val fecha = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", java.util.Locale.getDefault())
             .format(java.util.Date())
 
-        val rutaEcgInterna: String = ecgManager.getLastJpgPath()?.let { src ->
-            EcgStorage.copyToInternal(this, src) ?: ""
-        } ?: ""
+        // Usar directamente la ruta del JPG en ECGDATA/RETURN/ sin crear copias duplicadas en filesDir/ecg/
+        val rutaEcgInterna: String = ecgManager.getLastJpgPath() ?: ""
 
         val pacienteActual = runBlocking {
             if (pacienteIdLocal != 0L) {

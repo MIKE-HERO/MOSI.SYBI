@@ -49,7 +49,12 @@ class MedicionesSender(private val context: Context) {
         val serie = devicePrefs.getString("device_serial_custom", "") ?: ""
         val cabina = devicePrefs.getString("cabina_number", "1")?.toIntOrNull() ?: 1
 
-        val ecgFromPrefs = prefs.getString("ecg_image", null)
+        val ecgImagePath = prefs.getString("ecg_image_path", null)
+        val ecgFromPrefs = if (!ecgImagePath.isNullOrEmpty() && File(ecgImagePath).exists()) {
+            archivoABase64SinComprimir(ecgImagePath)
+        } else {
+            prefs.getString("ecg_image", null)
+        }
         Log.d(TAG, "📷 ECG desde prefs: ${ecgFromPrefs?.length ?: 0} chars (~${(ecgFromPrefs?.length ?: 0) / 1024} KB)")
 
         // ✅ Obtener y comprimir la foto del paciente

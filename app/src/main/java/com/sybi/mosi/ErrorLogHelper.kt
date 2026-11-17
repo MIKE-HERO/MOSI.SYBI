@@ -126,6 +126,7 @@ object ErrorLogHelper {
                 appendLine()
 
                 if (incluirResumen) {
+                    val resumenAlmacenamiento = AutoLogHelper.obtenerResumenAlmacenamiento(context)
                     val resumenRed = AutoLogHelper.obtenerResumenRedYVelocidad(context)
                     val resumenServicioWeb = AutoLogHelper.obtenerResumenServicioWeb()
                     val resumenPuertos = SerialService.obtenerEstadoPuertos(context)
@@ -137,6 +138,9 @@ object ErrorLogHelper {
                     }
 
                     appendLine(tituloResumen)
+                    appendLine("[ALMACENAMIENTO DEL DISPOSITIVO]")
+                    appendLine(resumenAlmacenamiento)
+                    appendLine()
                     appendLine("[RED E INTERNET]")
                     appendLine(resumenRed)
                     appendLine()

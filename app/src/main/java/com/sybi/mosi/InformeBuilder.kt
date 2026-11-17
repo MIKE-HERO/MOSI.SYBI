@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.util.Base64
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -436,6 +437,8 @@ class InformeBuilder(
         // ImageLoader de Coil compartido: crearlo configura caché en disco/OkHttp, y antes
         // se instanciaba uno nuevo por cada logo de cada página (hasta 6 veces por PDF) en
         // el hilo principal. Reusar uno solo evita ese costo repetido.
+        private const val TAG = "InformeBuilder"
+
         @Volatile
         private var sharedImageLoader: ImageLoader? = null
 
@@ -539,11 +542,29 @@ class InformeBuilder(
         }
 
         private fun aplanarSobreBlanco(src: Bitmap): Bitmap {
-            val out = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
-            val canvas = android.graphics.Canvas(out)
-            canvas.drawColor(Color.WHITE)
-            canvas.drawBitmap(src, 0f, 0f, null)
-            return out
+            if (!src.hasAlpha()) return src
+            return try {
+                val maxDim = 800
+                val (targetW, targetH) = if (src.width > maxDim || src.height > maxDim) {
+                    val scale = minOf(maxDim.toFloat() / src.width, maxDim.toFloat() / src.height)
+                    (src.width * scale).toInt() to (src.height * scale).toInt()
+                } else {
+                    src.width to src.height
+                }
+
+                val scaled = if (targetW != src.width || targetH != src.height) {
+                    Bitmap.createScaledBitmap(src, targetW, targetH, true)
+                } else src
+
+                val out = Bitmap.createBitmap(scaled.width, scaled.height, Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(out)
+                canvas.drawColor(Color.WHITE)
+                canvas.drawBitmap(scaled, 0f, 0f, null)
+                out
+            } catch (e: Throwable) {
+                Log.w(TAG, "⚠️ No se pudo aplanar bitmap sobre blanco: ${e.message}")
+                src
+            }
         }
     }
 
@@ -796,20 +817,26 @@ class InformeBuilder(
 
         if (!ecgLoaded) {
             val prefs = ctx.getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE)
+            val ecgImagePath = prefs.getString("ecg_image_path", null)
             val ecgImageString = prefs.getString("ecg_image", null)
-            if (!ecgImageString.isNullOrBlank()) {
+
+            val bmp = if (!ecgImagePath.isNullOrBlank() && File(ecgImagePath).exists()) {
+                runCatching { BitmapFactory.decodeFile(ecgImagePath) }.getOrNull()
+            } else if (!ecgImageString.isNullOrBlank()) {
                 runCatching {
                     val bytes = Base64.decode(ecgImageString, Base64.NO_WRAP)
                     BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                }.getOrNull()?.let { bmp ->
-                    col.addView(ImageView(ctx).apply {
-                        setImageBitmap(bmp)
-                        adjustViewBounds = true
-                        scaleType = ImageView.ScaleType.FIT_CENTER
-                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                            .apply { topMargin = dp(10) }
-                    })
-                }
+                }.getOrNull()
+            } else null
+
+            bmp?.let { imageBmp ->
+                col.addView(ImageView(ctx).apply {
+                    setImageBitmap(imageBmp)
+                    adjustViewBounds = true
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                        .apply { topMargin = dp(10) }
+                })
             }
         }
 

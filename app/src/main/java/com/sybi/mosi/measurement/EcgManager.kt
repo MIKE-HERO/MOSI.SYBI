@@ -57,8 +57,7 @@ class EcgManager(
             ) {
                 // ═══ FIX: cancelar watchdog al recibir resultado exitoso ═══
                 cancelWatchdog()
-                // ═══ FIX: Guardar inmediatamente el Bitmap en almacenamiento interno ═══
-                savedInternalPath = EcgStorage.saveBitmapToInternal(activity, ecgImage)
+                // Usamos directamente la imagen existente en ECGDATA/RETURN/ sin crear copia local extra
 
                 val results = EcgResults(
                     heartRate, pAxis, qrsAxis, tAxis, prInterval,
@@ -134,11 +133,14 @@ class EcgManager(
         editor.putString("ecg_sv1", results.sv1)
         editor.putString("ecg_res_code", results.resCode)
 
-        image?.let {
-            val base64 = bitmapToBase64Original(it)
-            editor.putString("ecg_image", base64)
-            Log.d(TAG, "📷 ECG Base64 (original PNG): ${base64.length / 1024} KB")
+        // Guardar la ruta directa del JPG generado en ECGDATA/RETURN en lugar de un Base64 gigante en SharedPreferences
+        val path = getLastJpgPath()
+        if (!path.isNullOrBlank()) {
+            editor.putString("ecg_image_path", path)
+            Log.d(TAG, "📷 Ruta ECG guardada en prefs: $path")
         }
+        // Limpiar clave antigua de base64 si existía para liberar memoria en SharedPreferences
+        editor.remove("ecg_image")
         editor.apply()
     }
 

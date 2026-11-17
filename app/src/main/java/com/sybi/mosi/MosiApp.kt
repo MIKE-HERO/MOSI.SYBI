@@ -34,6 +34,9 @@ class MosiApp : Application() {
         // Limpieza de respaldo de logs antiguos (> 7 días)
         ErrorLogHelper.limpiarLogsAntiguos(this)
 
+        // Limpieza de imágenes de ECG antiguas (> 3 meses) en ECGDATA/RETURN al arrancar la app
+        com.sybi.mosi.measurement.EcgStorage.limpiarArchivosAntiguos(this)
+
         // Iniciar el servicio Serial en primer plano para mantener vivo el proceso durante llamadas de telemedicina
         startService(android.content.Intent(this, SerialService::class.java))
 

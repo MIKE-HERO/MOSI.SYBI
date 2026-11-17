@@ -641,12 +641,15 @@ class ResultsActivity : BaseActivity() {
         }
 
         val heartRate = prefs.getInt("ecg_heart_rate", 0)
+        val ecgImagePath = prefs.getString("ecg_image_path", null)
         val ecgImageString = prefs.getString("ecg_image", null)
-        if (heartRate > 0 || ecgImageString != null) {
+        val tieneImagenEcg = (!ecgImagePath.isNullOrEmpty() && File(ecgImagePath).exists()) || !ecgImageString.isNullOrEmpty()
+
+        if (heartRate > 0 || tieneImagenEcg) {
             addSection("ECG")
             addResultRow("Frecuencia Cardíaca: %d bpm".format(heartRate), "")
 
-            if (ecgImageString != null) {
+            if (tieneImagenEcg) {
                 tvPlaceholder = TextView(this).apply {
                     text = "Cargando imagen de ECG..."
                     textSize = 14f
@@ -662,12 +665,19 @@ class ResultsActivity : BaseActivity() {
 
     private fun cargarEcgEnBackground() {
         val prefs = getSharedPreferences("ResultsPrefs", Context.MODE_PRIVATE)
-        val ecgImageString = prefs.getString("ecg_image", null) ?: return
+        val ecgImagePath = prefs.getString("ecg_image_path", null)
+        val ecgImageString = prefs.getString("ecg_image", null)
+
+        if (ecgImagePath.isNullOrEmpty() && ecgImageString.isNullOrEmpty()) return
 
         Thread {
             try {
-                val imageBytes = Base64.decode(ecgImageString, Base64.NO_WRAP)
-                val ecgImage = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                val ecgImage = if (!ecgImagePath.isNullOrEmpty() && File(ecgImagePath).exists()) {
+                    BitmapFactory.decodeFile(ecgImagePath)
+                } else if (!ecgImageString.isNullOrEmpty()) {
+                    val imageBytes = Base64.decode(ecgImageString, Base64.NO_WRAP)
+                    BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                } else null
 
                 if (ecgImage != null) {
                     uiHandler.post {
@@ -1504,15 +1514,24 @@ class ResultsActivity : BaseActivity() {
         }
 
         val heartRate = prefs.getInt("ecg_heart_rate", 0)
+        val ecgImagePath = prefs.getString("ecg_image_path", null)
         val ecgImageString = prefs.getString("ecg_image", null)
-        if (heartRate > 0 || ecgImageString != null) {
+
+        val base64ParaHtml = if (!ecgImagePath.isNullOrEmpty() && File(ecgImagePath).exists()) {
+            try {
+                val file = File(ecgImagePath)
+                Base64.encodeToString(file.readBytes(), Base64.NO_WRAP)
+            } catch (_: Exception) { null }
+        } else ecgImageString
+
+        if (heartRate > 0 || base64ParaHtml != null) {
             sb.append("<h2>ECG</h2><table>")
             if (heartRate > 0) {
                 sb.append("<tr><td class='label'>Frecuencia Cardíaca</td><td class='value'>%d bpm</td></tr>".format(heartRate))
             }
             sb.append("</table>")
-            if (ecgImageString != null) {
-                sb.append("<img src='data:image/png;base64,$ecgImageString' style='width:100%; margin-top:8px;'/>")
+            if (base64ParaHtml != null) {
+                sb.append("<img src='data:image/png;base64,$base64ParaHtml' style='width:100%; margin-top:8px;'/>")
             }
         }
 

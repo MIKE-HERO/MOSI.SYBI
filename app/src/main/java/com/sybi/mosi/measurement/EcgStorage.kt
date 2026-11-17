@@ -2,18 +2,52 @@ package com.sybi.mosi.measurement
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Environment
 import android.util.Log
 import java.io.File
 
 /**
- * Copia la imagen del ECG desde la carpeta de la app externa
- * (ECGDATA/RETURN/) a la carpeta interna de nuestra app (filesDir/ecg/).
- * Así no dependemos de que la app externa conserve los archivos.
+ * Gestor de almacenamiento y limpieza de imágenes de ECG.
+ * Se evita duplicar imágenes si ya existen en ECGDATA/RETURN/ para ahorrar espacio.
  */
 object EcgStorage {
 
     private const val TAG = "EcgStorage"
     private const val ECG_DIR = "ecg"
+
+    /**
+     * Limpia archivos de ECG en la carpeta externa ECGDATA/RETURN con más de 3 meses de antigüedad.
+     * También limpia cualquier archivo residual en la carpeta interna de la app.
+     */
+    fun limpiarArchivosAntiguos(context: Context) {
+        try {
+            val root = Environment.getExternalStorageDirectory() ?: return
+            val returnDir = File(root, "ECGDATA/RETURN")
+
+            if (returnDir.exists() && returnDir.isDirectory) {
+                // 3 meses = 90 días en milisegundos
+                val limiteTresMesesMs = System.currentTimeMillis() - (90L * 24 * 60 * 60 * 1000L)
+                var eliminados = 0
+
+                returnDir.listFiles()?.forEach { file ->
+                    if (file.isFile && file.lastModified() < limiteTresMesesMs) {
+                        if (file.delete()) {
+                            eliminados++
+                            Log.d(TAG, "🧹 Archivo de ECG antiguo eliminado (>3 meses): ${file.name}")
+                        }
+                    }
+                }
+                if (eliminados > 0) {
+                    Log.d(TAG, "🧹 Se eliminaron $eliminados archivo(s) de ECG con más de 3 meses de antigüedad en ECGDATA/RETURN")
+                }
+            }
+
+            // Limpiar copias residuales en la carpeta interna filesDir/ecg
+            clearAll(context)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al limpiar archivos antiguos de ECG: ${e.message}", e)
+        }
+    }
 
     /**
      * Copia el JPG origen a la carpeta interna de la app.
@@ -45,9 +79,9 @@ object EcgStorage {
     fun clearAll(context: Context) {
         try {
             File(context.filesDir, ECG_DIR).takeIf { it.exists() }?.deleteRecursively()
-            Log.d(TAG, "🧹 Carpeta de ECGs limpiada")
+            Log.d(TAG, "🧹 Carpeta interna de ECGs limpiada")
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error limpiando ECGs: ${e.message}", e)
+            Log.e(TAG, "❌ Error limpiando ECGs internos: ${e.message}", e)
         }
     }
 
