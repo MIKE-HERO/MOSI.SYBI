@@ -7,7 +7,9 @@ import com.sybi.mosi.helpers.LocaleHelper
 import com.sybi.mosi.integration.MedicionesSyncWorker
 import com.sybi.mosi.integration.MosiStartupReporter
 import com.sybi.mosi.integration.MosiTelemetryWorker
-import com.sybi.mosi.updater.MosiUpdateWorker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MosiApp : Application() {
 
@@ -52,8 +54,9 @@ class MosiApp : Application() {
         MedicionesSyncWorker.schedule(this, 20L)
         MosiStartupReporter.reportInstalledUpdate(this)
 
-        // Mantener el canal de actualizaciones activo aun si la app permanece abierta.
-        MosiUpdateWorker.schedule(this)
-        MosiUpdateWorker.checkNow(this, 4L)
+        // Comprobar y actualizar de forma silenciosa UNICAMENTE al arrancar la app (cuando se enciende el quiosco).
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            com.sybi.mosi.updater.UpdateManager(this@MosiApp).checkAndAutoUpdateOnStartup()
+        }
     }
 }
