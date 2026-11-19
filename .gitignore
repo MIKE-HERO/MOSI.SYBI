@@ -27,3 +27,4 @@ app/release/baselineProfiles/1/app-release.dm
 *.apk
 *.dm
 *.apk
+app/release/app-release.apk
