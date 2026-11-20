@@ -137,6 +137,74 @@
                 <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Habilitar el inicio de sesión como invitado" android:textSize="15sp" android:textColor="#333333"/>
                 <Switch android:id="@+id/switchGuestEnable" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
             </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/layoutGuestId"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="8dp"
+                android:layout_marginTop="4dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ID de usuario web para invitado (idusuarioweb)"
+                    android:textSize="14sp"
+                    android:textColor="#555555"
+                    android:layout_marginBottom="4dp"/>
+
+                <EditText
+                    android:id="@+id/editGuestId"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="Ej. 4721085"
+                    android:inputType="number"
+                    android:maxLength="15"
+                    android:padding="12dp"
+                    android:textSize="15sp"
+                    android:textColor="#333333"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- SECCIÓN 3: DETECCIÓN DE BÁSCULA -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_content_card"
+            android:elevation="2dp"
+            android:padding="16dp"
+            android:layout_marginTop="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Acceso a Login"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#333333"
+                android:layout_marginBottom="12dp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Cambiar a inicio de sesión al pisar la báscula"
+                    android:textSize="15sp"
+                    android:textColor="#333333"/>
+
+                <Switch
+                    android:id="@+id/switchScaleStepEnable"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+            </LinearLayout>
         </LinearLayout>
 
     </LinearLayout>

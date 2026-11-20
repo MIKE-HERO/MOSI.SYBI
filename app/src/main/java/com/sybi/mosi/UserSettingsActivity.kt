@@ -7,7 +7,10 @@ import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PorterDuff
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
+import android.widget.EditText
 import android.widget.Switch
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -20,6 +23,8 @@ class UserSettingsActivity : BaseActivity() {
         const val PREF_PHONE = "login_phone"
         const val PREF_IC = "login_ic"
         const val PREF_GUEST_ENABLE = "guest_enable"
+        const val PREF_GUEST_ID = "guest_id_usuario_web"
+        const val PREF_SCALE_STEP_ENABLE = "scale_step_enable"
     }
 
     private val allSwitches = mutableListOf<Switch>()
@@ -60,6 +65,21 @@ class UserSettingsActivity : BaseActivity() {
         setupLoginSwitch(R.id.switchLoginPhone, PREF_PHONE, prefs)
         setupLoginSwitch(R.id.switchLoginIc, PREF_IC, prefs)
         setupSwitch(R.id.switchGuestEnable, PREF_GUEST_ENABLE, prefs)
+        setupSwitch(R.id.switchScaleStepEnable, PREF_SCALE_STEP_ENABLE, prefs)
+
+        // --- CONFIGURACIÓN DE ID DE INVITADO ---
+        val editGuestId = findViewById<EditText>(R.id.editGuestId)
+        val savedGuestId = prefs.getString(PREF_GUEST_ID, "4721085") ?: "4721085"
+        editGuestId.setText(savedGuestId)
+
+        editGuestId.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val value = s?.toString()?.trim() ?: ""
+                prefs.edit().putString(PREF_GUEST_ID, if (value.isNotEmpty()) value else "4721085").apply()
+            }
+        })
 
         // Aplicar el color inicial a los switches
         val initialColor = Color.parseColor(savedColor)

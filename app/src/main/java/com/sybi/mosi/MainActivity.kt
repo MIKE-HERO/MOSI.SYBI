@@ -22,6 +22,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.method.PasswordTransformationMethod
 import android.util.Log
 import android.view.GestureDetector
 import android.view.MotionEvent
@@ -573,11 +574,12 @@ class MainActivity : BaseActivity() {
         }
 
         val tvDisplay = dialog.findViewById<TextView>(R.id.tvPasswordDisplay)
+        tvDisplay.transformationMethod = PasswordTransformationMethod.getInstance()
         val btnBackspace = dialog.findViewById<ImageButton>(R.id.btnBackspacePassword)
         val btnClose = dialog.findViewById<ImageView>(R.id.btnClosePasswordDialog)
 
         fun updateDisplay() {
-            tvDisplay.text = "● ".repeat(enteredPassword.length).trim()
+            tvDisplay.text = enteredPassword
         }
 
         val numericButtons = mapOf(
@@ -626,6 +628,14 @@ class MainActivity : BaseActivity() {
 
     private fun openLoginActivityFromScale() {
         if (isLaunchingLogin) return
+
+        val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+        val isScaleStepEnabled = userPrefs.getBoolean("scale_step_enable", true)
+        if (!isScaleStepEnabled) {
+            Log.d(TAG, "⚖️ Pisada de báscula ignorada (desactivada en Ajustes de usuario)")
+            return
+        }
+
         isLaunchingLogin = true
 
         Log.d(TAG, "⚖️ Abriendo LoginActivity desde pisada de báscula...")

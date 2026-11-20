@@ -57,7 +57,13 @@ class LoginActivity : BaseActivity() {
     companion object {
         private const val TAG = "LoginActivity"
         private const val INACTIVITY_TIMEOUT_MS = 10_000L
-        private const val ID_USUARIO_WEB_INVITADO = 4721085
+        private const val DEFAULT_ID_USUARIO_WEB_INVITADO = 4721085
+    }
+
+    private fun getGuestIdUsuarioWeb(): Int {
+        val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+        val savedIdStr = userPrefs.getString("guest_id_usuario_web", "4721085") ?: "4721085"
+        return savedIdStr.toIntOrNull() ?: DEFAULT_ID_USUARIO_WEB_INVITADO
     }
 
     private fun resetInactivityTimer() {
@@ -172,7 +178,7 @@ class LoginActivity : BaseActivity() {
                     .apply()
 
                 val intent = Intent(this, TelemedicineActivity::class.java).apply {
-                    putExtra(TelemedicineActivity.EXTRA_ID_USUARIO_WEB, ID_USUARIO_WEB_INVITADO)
+                    putExtra(TelemedicineActivity.EXTRA_ID_USUARIO_WEB, getGuestIdUsuarioWeb())
                 }
                 startActivity(intent)
             }
@@ -457,7 +463,7 @@ class LoginActivity : BaseActivity() {
             val fechaNacimiento = "01/01/$birthYear"
 
             val intent = Intent(this, MeasurementActivity::class.java).apply {
-                putExtra("id_usuario_web", ID_USUARIO_WEB_INVITADO)
+                putExtra("id_usuario_web", getGuestIdUsuarioWeb())
                 putExtra("genero", genero)
                 putExtra("fecha_nacimiento", fechaNacimiento)
                 putExtra("nombre", "Invitado")

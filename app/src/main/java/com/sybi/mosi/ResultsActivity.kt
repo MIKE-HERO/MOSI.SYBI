@@ -41,9 +41,13 @@ class ResultsActivity : BaseActivity() {
         // callTimeout de 60 s de RetrofitClient. Antes eran 30 s POR intento
         // de un bucle de 3, es decir hasta 94 s de espera para el paciente.
         private const val TIMEOUT_ENVIO_MS = 60_000L
-        // ✅ CAMBIO MODO INVITADO: id_usuario_web fijo usado en modo invitado
-        //    para armar la URL de la consulta.
-        private const val ID_USUARIO_WEB_INVITADO = 4721085
+        private const val DEFAULT_ID_USUARIO_WEB_INVITADO = 4721085
+    }
+
+    private fun getGuestIdUsuarioWeb(): Int {
+        val userPrefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+        val savedIdStr = userPrefs.getString("guest_id_usuario_web", "4721085") ?: "4721085"
+        return savedIdStr.toIntOrNull() ?: DEFAULT_ID_USUARIO_WEB_INVITADO
     }
 
     private lateinit var topBar: View
@@ -121,7 +125,7 @@ class ResultsActivity : BaseActivity() {
 
         btnRetryUpload.setOnClickListener {
             val targetId = when {
-                modoInvitado -> ID_USUARIO_WEB_INVITADO
+                modoInvitado -> getGuestIdUsuarioWeb()
                 idUsuarioWebCargado > 0 -> idUsuarioWebCargado
                 (paciente?.id_usuario_web ?: 0) > 0 -> paciente!!.id_usuario_web!!
                 (resultadoActual?.id_usuario_web ?: 0) > 0 -> resultadoActual!!.id_usuario_web
@@ -195,7 +199,7 @@ class ResultsActivity : BaseActivity() {
                 }
 
                 val targetId = when {
-                    modoInvitado -> ID_USUARIO_WEB_INVITADO
+                    modoInvitado -> getGuestIdUsuarioWeb()
                     idUsuarioWebCargado > 0 -> idUsuarioWebCargado
                     (paciente?.id_usuario_web ?: 0) > 0 -> paciente!!.id_usuario_web!!
                     (resultadoActual?.id_usuario_web ?: 0) > 0 -> resultadoActual!!.id_usuario_web
@@ -348,7 +352,7 @@ class ResultsActivity : BaseActivity() {
             }
 
             val targetId = when {
-                modoInvitado -> ID_USUARIO_WEB_INVITADO
+                modoInvitado -> getGuestIdUsuarioWeb()
                 (p?.id_usuario_web ?: 0) > 0 -> p!!.id_usuario_web!!
                 (resultadoActual?.id_usuario_web ?: 0) > 0 -> resultadoActual!!.id_usuario_web
                 else -> intent.getIntExtra("id_usuario_web", 0).takeIf { it > 0 } ?: 0
